@@ -7,9 +7,6 @@ WORKDIR /app
 # Copy the entire project into the working directory
 COPY . .
 
-# Install project dependencies
-RUN npm install
-
 # Copy the entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
