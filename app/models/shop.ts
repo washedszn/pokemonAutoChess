@@ -434,7 +434,7 @@ export default class Shop {
     )
     if (incenseHolder && chance(5 / 100)) {
       specificTypeWanted = pickRandomIn(values(incenseHolder.types))
-    } else if (!incenseHolder && wildChance > 0 && chance(wildChance)) {
+    } else if (wildChance > 0 && chance(wildChance)) {
       specificTypeWanted = Synergy.WILD
     }
 
@@ -470,6 +470,11 @@ export default class Shop {
   }
 
   pickFish(player: Player, rod: FishingRod): Pkm {
+    const hasMantyke = values(player.board).some(
+      (p) => p.name === Pkm.MANTYKE || p.name === Pkm.MANTINE
+    )
+    if (hasMantyke && chance(0.2)) return Pkm.REMORAID
+
     const rarityProbability = FishRarityProbability[rod]
     const rarity_seed = Math.random()
     let fish: Pkm = Pkm.MAGIKARP

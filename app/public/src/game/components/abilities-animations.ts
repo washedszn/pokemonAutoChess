@@ -128,12 +128,27 @@ export function displayAbility(
     case Ability.FLAME_CHARGE:
       addAbilitySprite(skill, coordinates, true)
         .setScale(2)
+        .setDepth(1)
+        .setOrigin(1, 1)
         .setRotation(
           Math.atan2(
             coordinatesTarget[1] - coordinates[1],
             coordinatesTarget[0] - coordinates[0]
-          ) -
+          ) +
             Math.PI / 2
+        )
+      break
+
+    case Ability.PASTEL_VEIL:
+      addAbilitySprite(skill, coordinates, true)
+        .setScale(2)
+        .setDepth(1)
+        .setOrigin(1, 1)
+        .setRotation(
+          Math.atan2(
+            coordinatesTarget[1] - coordinates[1],
+            coordinatesTarget[0] - coordinates[0]
+          ) + Math.PI
         )
       break
 
@@ -1269,7 +1284,7 @@ export function displayAbility(
       break
 
     case Ability.WATERFALL:
-      addAbilitySprite(skill, coordinates, true).setScale(2)
+      addAbilitySprite(skill, coordinates, true).setScale(2).setDepth(1)
       break
 
     case Ability.HELPING_HAND:
@@ -1278,10 +1293,6 @@ export function displayAbility(
 
     case Ability.MUD_BUBBLE:
       addAbilitySprite(skill, coordinates, true).setScale(2)
-      break
-
-    case Ability.PURIFY:
-      addAbilitySprite(Ability.MUD_BUBBLE, coordinates, true).setScale(4)
       break
 
     case Ability.ERUPTION: {
@@ -2071,6 +2082,14 @@ export function displayAbility(
       hiddenPowerAnimation(scene, skill, positionX, positionY, flip)
       break
 
+    case Ability.ENTRAINMENT: {
+      const target = pokemonsOnBoard.find(
+        (pkmUI) => pkmUI.positionX === targetX && pkmUI.positionY === targetY
+      )
+      if (target) target.emoteAnimation()
+      break
+    }
+
     case Ability.TEETER_DANCE:
       pokemonsOnBoard.forEach((pkmUI) => {
         const coordinates = transformAttackCoordinate(
@@ -2344,12 +2363,18 @@ export function displayAbility(
       addAbilitySprite(skill, coordinatesTarget, true).setScale(2)
       break
 
-    case "FIELD_DEATH":
-      addAbilitySprite("FIELD_DEATH", coordinates, true).setScale(2)
-      break
-
     case Ability.EARTHQUAKE:
       addAbilitySprite(skill, coordinates, true).setScale(3)
+      break
+
+    case Ability.OKTZOOKA:
+      addAbilitySprite(Ability.SMOKE_SCREEN, coordinatesTarget, true).setScale(
+        3
+      )
+      break
+
+    case "FIELD_DEATH":
+      addAbilitySprite("FIELD_DEATH", coordinates, true).setScale(2)
       break
 
     case "GROUND_GROW":
