@@ -8,13 +8,13 @@ WORKDIR /app
 COPY . .
 
 # Copy the entrypoint script
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.custom.sh
 
 # Make the entrypoint script executable
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.custom.sh
 
 # Expose the port your app runs on
 EXPOSE 3000
 
 # Use the entrypoint script as the default command
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.custom.sh"]
