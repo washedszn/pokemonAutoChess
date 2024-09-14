@@ -4,4 +4,3 @@ rules:
     upstream: keldaanCommunity/pokemonAutoChess:prod
     mergeMethod: merge
     mergeUnstable: true
-    mergeCommitMessage: "chore(sync): merge upstream changes"
