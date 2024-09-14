@@ -1,6 +1,6 @@
 version: "1"
 rules:
   - base: master
-    upstream: keldaanCommunity/pokemonAutoChess:prod
+    upstream: keldaanCommunity:prod
     mergeMethod: merge
     mergeUnstable: true
