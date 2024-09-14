@@ -1,0 +1,7 @@
+version: "1"
+rules:
+  - base: master
+    upstream: keldaanCommunity/pokemonAutoChess:master
+    autoMerge: true
+    autoMergeMethod: merge
+    mergeCommitMessage: "chore(sync): merge upstream changes"
