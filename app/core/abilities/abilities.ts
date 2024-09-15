@@ -51,6 +51,7 @@ import Board, { Cell } from "../board"
 import { PokemonEntity, getStrongestUnit } from "../pokemon-entity"
 import PokemonState from "../pokemon-state"
 
+import { isOnBench } from "../../models/colyseus-models/pokemon"
 import { getFirstAvailablePositionInBench } from "../../utils/board"
 import { distanceC, distanceM } from "../../utils/distance"
 import { repeat } from "../../utils/function"
@@ -66,7 +67,6 @@ import {
 } from "../../utils/random"
 import { values } from "../../utils/schemas"
 import { DelayedCommand } from "../simulation-command"
-import { isOnBench } from "../../models/colyseus-models/pokemon"
 
 export class BlueFlareStrategy extends AbilityStrategy {
   process(
@@ -198,7 +198,7 @@ export class PaydayStrategy extends AbilityStrategy {
       crit
     )
     if (death && pokemon.player) {
-      pokemon.player.money += pokemon.stars
+      pokemon.player.addMoney(pokemon.stars)
       pokemon.count.moneyCount += pokemon.stars
     }
   }
@@ -228,7 +228,7 @@ export class PickupStrategy extends AbilityStrategy {
         const moneyStolen = max(target.player.money)(pokemon.stars)
         target.player.money -= moneyStolen
         if (pokemon.player) {
-          pokemon.player.money += moneyStolen
+          pokemon.player.addMoney(moneyStolen)
           pokemon.count.moneyCount += moneyStolen
         }
       }
@@ -585,7 +585,12 @@ export class MistySurgeStrategy extends AbilityStrategy {
     const ppGain = 30
     const hpGain = 30
     board.forEach((x: number, y: number, ally: PokemonEntity | undefined) => {
-      if (ally && pokemon.team == ally.team && ally.types.has(Synergy.FAIRY)) {
+      if (
+        ally &&
+        ally.id !== pokemon.id &&
+        pokemon.team == ally.team &&
+        ally.types.has(Synergy.FAIRY)
+      ) {
         ally.addPP(ppGain, pokemon, 1, crit)
         ally.handleHeal(hpGain, pokemon, 1, crit)
       }
@@ -2899,7 +2904,7 @@ export class CosmicPowerStrategy extends AbilityStrategy {
     super.process(pokemon, state, board, target, crit)
     const apGain = 20
     board.forEach((x, y, ally) => {
-      if (ally && ally.team === pokemon.team) {
+      if (ally && ally.id !== pokemon.id && ally.team === pokemon.team) {
         ally.addAbilityPower(apGain, pokemon, 1, crit)
       }
     })
@@ -7362,7 +7367,7 @@ export class GoldRushStrategy extends AbilityStrategy {
     const goldDamage = pokemon.player?.money ? pokemon.player?.money : 0
     const damage = 20 + goldDamage
     if (pokemon.player) {
-      pokemon.player.money += 2
+      pokemon.player.addMoney(2)
     }
     target.handleSpecialDamage(
       damage,
