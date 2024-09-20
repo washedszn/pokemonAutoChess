@@ -771,6 +771,24 @@ export function displayAbility(
       break
     }
 
+    case Ability.SKY_ATTACK_SHADOW: {
+      const startCoords = transformAttackCoordinate(targetX, 9, false)
+      const specialProjectile = addAbilitySprite(skill, startCoords).setScale(
+        1.5
+      )
+      scene.tweens.add({
+        targets: specialProjectile,
+        x: coordinatesTarget[0],
+        y: coordinatesTarget[1],
+        ease: "linear",
+        duration: 500,
+        onComplete: () => {
+          specialProjectile.destroy()
+        }
+      })
+      break
+    }
+
     case Ability.FLYING_PRESS: {
       const startCoords = transformAttackCoordinate(targetX, 9, false)
       const specialProjectile = addAbilitySprite(skill, startCoords).setScale(2)
@@ -2495,6 +2513,64 @@ export function displayAbility(
     case Ability.PURIFY:
       addAbilitySprite(Ability.SMOG, coordinatesTarget, true).setScale(1)
       addAbilitySprite(Ability.MUD_BUBBLE, coordinates, true).setScale(1)
+      break
+
+    case Ability.PSYCHO_SHIFT:
+      {
+        const pkmSprite = addAbilitySprite(
+          Ability.PRESENT,
+          coordinates
+        ).setScale(2)
+
+        if (targetX !== undefined && targetY !== undefined) {
+          const targetSprite = addAbilitySprite(
+            Ability.PRESENT,
+            coordinatesTarget
+          ).setScale(2)
+
+          scene.tweens.add({
+            targets: pkmSprite,
+            x: coordinatesTarget[0],
+            y: coordinatesTarget[1],
+            ease: "linear",
+            duration: 300,
+            repeat: 1,
+            yoyo: true,
+            onComplete: () => {
+              pkmSprite.destroy()
+            }
+          })
+
+          scene.tweens.add({
+            targets: targetSprite,
+            x: coordinates[0],
+            y: coordinates[1],
+            ease: "linear",
+            duration: 300,
+            repeat: 1,
+            yoyo: true,
+            onComplete: () => {
+              targetSprite.destroy()
+            }
+          })
+        }
+      }
+      break
+
+    case Ability.GLAIVE_RUSH:
+      addAbilitySprite(Ability.ICE_HAMMER, coordinatesTarget, true).setScale(2)
+      break
+
+    case Ability.FOUL_PLAY:
+      addAbilitySprite(Ability.NIGHT_SLASH, coordinatesTarget, true).setScale(2)
+      break
+
+    case Ability.DOUBLE_IRON_BASH:
+      addAbilitySprite(Ability.DRAIN_PUNCH, coordinatesTarget, true).setScale(2)
+      break
+
+    case Ability.STONE_EDGE:
+      addAbilitySprite(Ability.TORMENT, coordinates, true).setScale(2)
       break
 
     default:

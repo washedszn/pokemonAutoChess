@@ -4438,6 +4438,49 @@ export class SkyAttackStrategy extends AbilityStrategy {
   }
 }
 
+export class SkyAttackShadowStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit, true)
+    const destination = board.getFarthestTargetCoordinateAvailablePlace(pokemon)
+    if (destination) {
+      pokemon.skydiveTo(destination.x, destination.y, board)
+      pokemon.commands.push(
+        new DelayedCommand(() => {
+          pokemon.simulation.room.broadcast(Transfer.ABILITY, {
+            id: pokemon.simulation.id,
+            skill: Ability.SKY_ATTACK,
+            positionX: destination.x,
+            positionY: destination.y,
+            targetX: destination.target.positionX,
+            targetY: destination.target.positionY
+          })
+        }, 500)
+      )
+
+      pokemon.commands.push(
+        new DelayedCommand(() => {
+          if (destination.target?.life > 0) {
+            const damage = 120
+            destination.target.handleSpecialDamage(
+              damage,
+              board,
+              AttackType.SPECIAL,
+              pokemon,
+              crit
+            )
+          }
+        }, 1000)
+      )
+    }
+  }
+}
+
 export class FlyingPressStrategy extends AbilityStrategy {
   process(
     pokemon: PokemonEntity,
@@ -9079,6 +9122,21 @@ export class DarkHarvestStrategy extends AbilityStrategy {
   }
 }
 
+export class StoneEdgeStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit)
+    const duration = pokemon.stars === 1 ? 5000 : 8000
+    pokemon.status.triggerSilence(duration, pokemon, pokemon)
+    pokemon.status.triggerStoneEdge(duration, pokemon)
+  }
+}
+
 export class PsyShockStrategy extends AbilityStrategy {
   process(
     pokemon: PokemonEntity,
@@ -9749,6 +9807,128 @@ export class OktzookaStrategy extends AbilityStrategy {
   }
 }
 
+export class PsychoShiftStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit, true)
+    const farthestEnnemy = state.getFarthestTarget(pokemon, board)
+
+    pokemon.simulation.room.broadcast(Transfer.ABILITY, {
+      id: pokemon.simulation.id,
+      skill: Ability.PSYCHO_SHIFT,
+      positionX: target.positionX,
+      positionY: target.positionY,
+      targetX: farthestEnnemy?.positionX,
+      targetY: farthestEnnemy?.positionY
+    })
+
+    if (farthestEnnemy && farthestEnnemy.id !== target.id) {
+      const x = farthestEnnemy.positionX
+      const y = farthestEnnemy.positionY
+      farthestEnnemy.moveTo(target.positionX, target.positionY, board)
+      target.moveTo(x, y, board)
+      farthestEnnemy.handleSpecialDamage(
+        70,
+        board,
+        AttackType.SPECIAL,
+        pokemon,
+        crit
+      )
+    }
+
+    target.handleSpecialDamage(70, board, AttackType.SPECIAL, pokemon, crit)
+  }
+}
+
+export class GlaiveRushStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit, true)
+    const damage = pokemon.stars === 3 ? 150 : pokemon.stars === 2 ? 80 : 40
+    pokemon.status.triggerArmorReduction(6000, pokemon)
+
+    target.handleSpecialDamage(
+      damage,
+      board,
+      AttackType.PHYSICAL,
+      pokemon,
+      crit
+    )
+
+    const availablePlacesAroundTarget = board
+      .getAdjacentCells(target.positionX, target.positionY, false)
+      .filter((cell) => cell.value === undefined)
+      .sort(
+        (a, b) =>
+          distanceM(b.x, b.y, pokemon.positionX, pokemon.positionY) -
+          distanceM(a.x, a.y, pokemon.positionX, pokemon.positionY)
+      )
+    if (availablePlacesAroundTarget.length > 0) {
+      const behindTargetPlace = availablePlacesAroundTarget[0]
+      if (behindTargetPlace) {
+        pokemon.moveTo(behindTargetPlace.x, behindTargetPlace.y, board)
+      }
+    }
+  }
+}
+
+export class FoulPlayStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit)
+    const damage =
+      pokemon.stars === 3
+        ? target.atk * 6
+        : pokemon.stars === 2
+          ? target.atk * 4
+          : target.atk * 2
+    target.handleSpecialDamage(damage, board, AttackType.SPECIAL, pokemon, crit)
+  }
+}
+
+export class DoubleIronBashStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit)
+    const damage = Math.round(pokemon.atk * 1.5)
+    target.handleSpecialDamage(
+      damage,
+      board,
+      AttackType.PHYSICAL,
+      pokemon,
+      crit
+    )
+    target.handleSpecialDamage(
+      damage,
+      board,
+      AttackType.PHYSICAL,
+      pokemon,
+      crit
+    )
+    target.status.triggerFlinch(3000, pokemon)
+  }
+}
+
 export * from "./hidden-power"
 
 export const AbilityStrategies: { [key in Ability]: AbilityStrategy } = {
@@ -9875,6 +10055,7 @@ export const AbilityStrategies: { [key in Ability]: AbilityStrategy } = {
   [Ability.GRASSY_SURGE]: new GrassySurgeStrategy(),
   [Ability.MISTY_SURGE]: new MistySurgeStrategy(),
   [Ability.SKY_ATTACK]: new SkyAttackStrategy(),
+  [Ability.SKY_ATTACK_SHADOW]: new SkyAttackShadowStrategy(),
   [Ability.ILLUSION]: new IllusionStrategy(),
   [Ability.SLUDGE]: new SludgeStrategy(),
   [Ability.SLUDGE_WAVE]: new SludgeWaveStrategy(),
@@ -10108,5 +10289,10 @@ export const AbilityStrategies: { [key in Ability]: AbilityStrategy } = {
   [Ability.PASTEL_VEIL]: new PastelVeilStrategy(),
   [Ability.CHARM]: new CharmStrategy(),
   [Ability.ENTRAINMENT]: new EntrainmentStrategy(),
-  [Ability.OKTZOOKA]: new OktzookaStrategy()
+  [Ability.OKTZOOKA]: new OktzookaStrategy(),
+  [Ability.PSYCHO_SHIFT]: new PsychoShiftStrategy(),
+  [Ability.GLAIVE_RUSH]: new GlaiveRushStrategy(),
+  [Ability.FOUL_PLAY]: new FoulPlayStrategy(),
+  [Ability.DOUBLE_IRON_BASH]: new DoubleIronBashStrategy(),
+  [Ability.STONE_EDGE]: new StoneEdgeStrategy()
 }
