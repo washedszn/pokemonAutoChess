@@ -3166,50 +3166,6 @@ export class Meganium extends Pokemon {
   attackSprite = AttackSprite.GRASS_RANGE
 }
 
-export class Sandile extends Pokemon {
-  types = new SetSchema<Synergy>([Synergy.GROUND, Synergy.DARK, Synergy.FIELD])
-  rarity = Rarity.UNCOMMON
-  stars = 1
-  evolution = Pkm.KROKOROK
-  hp = 70
-  atk = 5
-  def = 3
-  speDef = 2
-  maxPP = 100
-  range = 1
-  skill = Ability.DEFAULT
-  attackSprite = AttackSprite.ROCK_MELEE
-}
-
-export class Krookorok extends Pokemon {
-  types = new SetSchema<Synergy>([Synergy.GROUND, Synergy.DARK, Synergy.FIELD])
-  rarity = Rarity.UNCOMMON
-  stars = 2
-  evolution = Pkm.KROOKODILE
-  hp = 120
-  atk = 9
-  def = 3
-  speDef = 2
-  maxPP = 100
-  range = 1
-  skill = Ability.DEFAULT
-  attackSprite = AttackSprite.ROCK_MELEE
-}
-
-export class Krookodile extends Pokemon {
-  types = new SetSchema<Synergy>([Synergy.GROUND, Synergy.DARK, Synergy.FIELD])
-  rarity = Rarity.UNCOMMON
-  stars = 3
-  hp = 210
-  atk = 20
-  def = 3
-  speDef = 3
-  maxPP = 100
-  range = 1
-  skill = Ability.DEFAULT
-  attackSprite = AttackSprite.ROCK_MELEE
-}
-
 export class Venipede extends Pokemon {
   types = new SetSchema<Synergy>([Synergy.BUG, Synergy.POISON])
   rarity = Rarity.UNCOMMON
@@ -4818,6 +4774,8 @@ export class Lugia extends Pokemon {
     Synergy.PSYCHIC
   ])
   rarity = Rarity.LEGENDARY
+  evolution = Pkm.SHADOW_LUGIA
+  evolutionRule = new ItemEvolutionRule([Item.DUSK_STONE])
   stars = 3
   hp = 300
   atk = 30
@@ -4826,7 +4784,27 @@ export class Lugia extends Pokemon {
   maxPP = 80
   range = 1
   skill = Ability.SKY_ATTACK
-  passive = Passive.WINDY
+  passive = Passive.LUGIA
+  attackSprite = AttackSprite.FLYING_MELEE
+}
+
+export class ShadowLugia extends Pokemon {
+  types = new SetSchema<Synergy>([
+    Synergy.AQUATIC,
+    Synergy.FLYING,
+    Synergy.PSYCHIC,
+    Synergy.DARK
+  ])
+  rarity = Rarity.LEGENDARY
+  stars = 4
+  hp = 300
+  atk = 30
+  def = 6
+  speDef = 6
+  maxPP = 80
+  range = 1
+  skill = Ability.SKY_ATTACK_SHADOW
+  passive = Passive.NIGHT
   attackSprite = AttackSprite.FLYING_MELEE
 }
 
@@ -5019,17 +4997,18 @@ export class Palkia extends Pokemon {
 }
 
 export class Melmetal extends Pokemon {
-  types = new SetSchema<Synergy>([Synergy.STEEL])
+  types = new SetSchema<Synergy>([Synergy.STEEL, Synergy.AMORPHOUS])
   rarity = Rarity.LEGENDARY
   stars = 3
-  hp = 300
-  atk = 30
-  def = 5
-  speDef = 5
-  maxPP = 150
+  hp = 320
+  atk = 32
+  def = 7
+  speDef = 3
+  maxPP = 100
   range = 1
-  skill = Ability.DEFAULT
+  skill = Ability.DOUBLE_IRON_BASH
   attackSprite = AttackSprite.DRAGON_MELEE
+  passive = Passive.MELMETAL
 }
 
 export class Suicune extends Pokemon {
@@ -9787,7 +9766,7 @@ export class Primarina extends Pokemon {
 }
 
 export class Gothita extends Pokemon {
-  types = new SetSchema<Synergy>([Synergy.PSYCHIC, Synergy.DARK, Synergy.HUMAN])
+  types = new SetSchema<Synergy>([Synergy.PSYCHIC, Synergy.HUMAN])
   rarity = Rarity.HATCH
   stars = 1
   evolution = Pkm.GOTHORITA
@@ -9804,7 +9783,7 @@ export class Gothita extends Pokemon {
 }
 
 export class Gothorita extends Pokemon {
-  types = new SetSchema<Synergy>([Synergy.PSYCHIC, Synergy.DARK, Synergy.HUMAN])
+  types = new SetSchema<Synergy>([Synergy.PSYCHIC, Synergy.HUMAN])
   rarity = Rarity.HATCH
   stars = 2
   evolution = Pkm.GOTHITELLE
@@ -9821,7 +9800,7 @@ export class Gothorita extends Pokemon {
 }
 
 export class Gothitelle extends Pokemon {
-  types = new SetSchema<Synergy>([Synergy.PSYCHIC, Synergy.DARK, Synergy.HUMAN])
+  types = new SetSchema<Synergy>([Synergy.PSYCHIC, Synergy.HUMAN])
   rarity = Rarity.HATCH
   stars = 3
   hp = 190
@@ -11373,6 +11352,8 @@ export class Carnivine extends Pokemon {
 
 export class Sableye extends Pokemon {
   types = new SetSchema<Synergy>([Synergy.DARK, Synergy.ROCK, Synergy.GHOST])
+  evolutionRule = new ItemEvolutionRule([Item.FIRE_GEM])
+  evolution = Pkm.MEGA_SABLEYE
   rarity = Rarity.UNIQUE
   stars = 3
   hp = 220
@@ -11383,6 +11364,28 @@ export class Sableye extends Pokemon {
   range = 1
   skill = Ability.KNOCK_OFF
   attackSprite = AttackSprite.DARK_MELEE
+  passive = Passive.SABLEYE
+}
+
+export class MegaSableye extends Pokemon {
+  types = new SetSchema<Synergy>([Synergy.DARK, Synergy.ROCK, Synergy.GHOST])
+  rarity = Rarity.UNIQUE
+  stars = 4
+  hp = 230
+  atk = 12
+  def = 6
+  speDef = 6
+  maxPP = 100
+  range = 1
+  skill = Ability.KNOCK_OFF
+  attackSprite = AttackSprite.DARK_MELEE
+  passive = Passive.MEGA_SABLEYE
+  afterSimulationStart({
+    entity,
+    player
+  }: { entity: IPokemonEntity; player: IPlayer }) {
+    entity.status.triggerRuneProtect(60000)
+  }
 }
 
 export class Koffing extends Pokemon {
@@ -14086,7 +14089,10 @@ export class Trubbish extends Pokemon {
     [Stat.AP]: 0,
     [Stat.CRIT_CHANCE]: 0,
     [Stat.PP]: 0,
-    [Stat.SHIELD]: 0
+    [Stat.SHIELD]: 0,
+    [Stat.ATK]: 0,
+    [Stat.SPE_DEF]: 0,
+    [Stat.DEF]: 0
   }
 
   beforeSimulationStart({ player }: { player: Player }) {
@@ -14131,6 +14137,9 @@ export class Trubbish extends Pokemon {
     entity.addCritChance(this.statIncreases[Stat.CRIT_CHANCE], entity, 0, false)
     entity.addPP(this.statIncreases[Stat.PP], entity, 0, false)
     entity.addAttackSpeed(this.statIncreases[Stat.ATK_SPEED], entity, 0, false)
+    entity.addAttack(this.statIncreases[Stat.ATK], entity, 0, false)
+    entity.addSpecialDefense(this.statIncreases[Stat.SPE_DEF], entity, 0, false)
+    entity.addDefense(this.statIncreases[Stat.DEF], entity, 0, false)
   }
 
   onEvolve({
@@ -14147,7 +14156,10 @@ export class Trubbish extends Pokemon {
       [Stat.AP]: 0,
       [Stat.CRIT_CHANCE]: 0,
       [Stat.PP]: 0,
-      [Stat.SHIELD]: 0
+      [Stat.SHIELD]: 0,
+      [Stat.ATK]: 0,
+      [Stat.SPE_DEF]: 0,
+      [Stat.DEF]: 0
     }
 
     trubbishes.forEach((trubbishObj) => {
@@ -14179,7 +14191,10 @@ export class Garbodor extends Pokemon {
     [Stat.AP]: 0,
     [Stat.CRIT_CHANCE]: 0,
     [Stat.PP]: 0,
-    [Stat.SHIELD]: 0
+    [Stat.SHIELD]: 0,
+    [Stat.ATK]: 0,
+    [Stat.SPE_DEF]: 0,
+    [Stat.DEF]: 0
   }
 
   defaultValues = {
@@ -14756,6 +14771,162 @@ export class Octillery extends Pokemon {
   attackSprite = AttackSprite.WATER_RANGE
 }
 
+export class Sigilyph extends Pokemon {
+  types = new SetSchema<Synergy>([
+    Synergy.PSYCHIC,
+    Synergy.FLYING,
+    Synergy.FOSSIL
+  ])
+  rarity = Rarity.UNIQUE
+  stars = 3
+  hp = 200
+  atk = 16
+  def = 3
+  speDef = 3
+  maxPP = 100
+  range = 3
+  skill = Ability.PSYCHO_SHIFT
+  attackSprite = AttackSprite.PSYCHIC_RANGE
+}
+
+export class Frigibax extends Pokemon {
+  types = new SetSchema<Synergy>([Synergy.DRAGON, Synergy.ICE])
+  rarity = Rarity.UNCOMMON
+  stars = 1
+  evolution = Pkm.ARCTIBAX
+  hp = 70
+  atk = 6
+  def = 2
+  speDef = 1
+  maxPP = 100
+  range = 1
+  skill = Ability.GLAIVE_RUSH
+  attackSprite = AttackSprite.DRAGON_MELEE
+  regional = true
+}
+
+export class Arctibax extends Pokemon {
+  types = new SetSchema<Synergy>([Synergy.DRAGON, Synergy.ICE])
+  rarity = Rarity.UNCOMMON
+  stars = 2
+  evolution = Pkm.BAXCALIBUR
+  hp = 140
+  atk = 12
+  def = 2
+  speDef = 2
+  maxPP = 100
+  range = 1
+  skill = Ability.GLAIVE_RUSH
+  attackSprite = AttackSprite.DRAGON_MELEE
+  regional = true
+}
+
+export class Baxcalibur extends Pokemon {
+  types = new SetSchema<Synergy>([Synergy.DRAGON, Synergy.ICE])
+  rarity = Rarity.UNCOMMON
+  stars = 3
+  hp = 230
+  atk = 24
+  def = 3
+  speDef = 2
+  maxPP = 100
+  range = 1
+  skill = Ability.GLAIVE_RUSH
+  attackSprite = AttackSprite.DRAGON_MELEE
+  regional = true
+}
+
+export class Sandile extends Pokemon {
+  types = new SetSchema<Synergy>([
+    Synergy.DARK,
+    Synergy.GROUND,
+    Synergy.MONSTER
+  ])
+  rarity = Rarity.HATCH
+  stars = 1
+  evolution = Pkm.KROKOROK
+  evolutionRule = new HatchEvolutionRule(EvolutionTime.EVOLVE_HATCH)
+  hp = 100
+  atk = 10
+  def = 2
+  speDef = 2
+  maxPP = 80
+  range = 1
+  skill = Ability.FOUL_PLAY
+  passive = Passive.HATCH
+  attackSprite = AttackSprite.ROCK_MELEE
+}
+
+export class Krokorok extends Pokemon {
+  types = new SetSchema<Synergy>([
+    Synergy.DARK,
+    Synergy.GROUND,
+    Synergy.MONSTER
+  ])
+  rarity = Rarity.HATCH
+  stars = 2
+  evolution = Pkm.KROOKODILE
+  evolutionRule = new HatchEvolutionRule(EvolutionTime.EVOLVE_HATCH)
+  hp = 180
+  atk = 18
+  def = 3
+  speDef = 3
+  maxPP = 80
+  range = 1
+  skill = Ability.FOUL_PLAY
+  passive = Passive.HATCH
+  attackSprite = AttackSprite.ROCK_MELEE
+}
+
+export class Krookodile extends Pokemon {
+  types = new SetSchema<Synergy>([
+    Synergy.DARK,
+    Synergy.GROUND,
+    Synergy.MONSTER
+  ])
+  rarity = Rarity.HATCH
+  stars = 3
+  hp = 240
+  atk = 24
+  def = 5
+  speDef = 5
+  maxPP = 80
+  range = 1
+  skill = Ability.FOUL_PLAY
+  attackSprite = AttackSprite.ROCK_MELEE
+}
+
+export class Binacle extends Pokemon {
+  types = new SetSchema<Synergy>([Synergy.ROCK, Synergy.WATER])
+  rarity = Rarity.RARE
+  stars = 1
+  evolution = Pkm.BARBARACLE
+  hp = 80
+  atk = 9
+  def = 4
+  speDef = 2
+  maxPP = 65
+  range = 1
+  skill = Ability.STONE_EDGE
+  additional = true
+  attackSprite = AttackSprite.ROCK_MELEE
+}
+
+export class Barbaracle extends Pokemon {
+  types = new SetSchema<Synergy>([Synergy.ROCK, Synergy.WATER])
+  rarity = Rarity.RARE
+  stars = 2
+  hp = 200
+  atk = 21
+  def = 8
+  speDef = 4
+  maxPP = 65
+  range = 1
+  skill = Ability.STONE_EDGE
+  additional = true
+  attackSprite = AttackSprite.ROCK_MELEE
+}
+
 export const PokemonClasses: Record<
   Pkm,
   new (
@@ -14941,6 +15112,7 @@ export const PokemonClasses: Record<
   [Pkm.FEAROW]: Fearow,
   [Pkm.GYARADOS]: Gyarados,
   [Pkm.LUGIA]: Lugia,
+  [Pkm.SHADOW_LUGIA]: ShadowLugia,
   [Pkm.ZAPDOS]: Zapdos,
   [Pkm.MOLTRES]: Moltres,
   [Pkm.ARTICUNO]: Articuno,
@@ -15039,7 +15211,7 @@ export const PokemonClasses: Record<
   [Pkm.ZWEILOUS]: Zweilous,
   [Pkm.HYDREIGON]: Hydreigon,
   [Pkm.SANDILE]: Sandile,
-  [Pkm.KROKOROK]: Krookorok,
+  [Pkm.KROKOROK]: Krokorok,
   [Pkm.KROOKODILE]: Krookodile,
   [Pkm.SOLOSIS]: Solosis,
   [Pkm.DUOSION]: Duosion,
@@ -15440,6 +15612,7 @@ export const PokemonClasses: Record<
   [Pkm.LINOONE]: Linoone,
   [Pkm.PHEROMOSA]: Pheromosa,
   [Pkm.SABLEYE]: Sableye,
+  [Pkm.MEGA_SABLEYE]: MegaSableye,
   [Pkm.DRACOVISH]: Dracovish,
   [Pkm.CORSOLA]: Corsola,
   [Pkm.GALAR_CORSOLA]: GalarCorsola,
@@ -15597,5 +15770,11 @@ export const PokemonClasses: Record<
   [Pkm.MANTYKE]: Mantyke,
   [Pkm.MANTINE]: Mantine,
   [Pkm.REMORAID]: Remoraid,
-  [Pkm.OCTILLERY]: Octillery
+  [Pkm.OCTILLERY]: Octillery,
+  [Pkm.SIGILYPH]: Sigilyph,
+  [Pkm.FRIGIBAX]: Frigibax,
+  [Pkm.ARCTIBAX]: Arctibax,
+  [Pkm.BAXCALIBUR]: Baxcalibur,
+  [Pkm.BINACLE]: Binacle,
+  [Pkm.BARBARACLE]: Barbaracle
 }
