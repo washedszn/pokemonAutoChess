@@ -3,6 +3,7 @@ name: Auto-merge conflicts for app/ directory
 on:
   pull_request:
     types: [opened, synchronize]
+  workflow_dispatch:  # This allows manual triggering
 
 jobs:
   auto-merge:
