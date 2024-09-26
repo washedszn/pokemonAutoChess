@@ -628,6 +628,23 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       }
     }
 
+    if (this.passive === Passive.DURANT) {
+      const bugAllies =
+        board.cells.filter(
+          (entity) =>
+            entity && entity.team === this.team && entity.types.has(Synergy.BUG)
+        ).length - 1
+      if (bugAllies > 0) {
+        target.handleDamage({
+          damage: bugAllies,
+          board,
+          attackType: AttackType.TRUE,
+          attacker: this,
+          shouldTargetGainMana: true
+        })
+      }
+    }
+
     if (
       this.name === Pkm.MINIOR_KERNEL_BLUE ||
       this.name === Pkm.MINIOR_KERNEL_GREEN ||
@@ -879,13 +896,13 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     if (this.types.has(Synergy.ICE)) {
       let freezeChance = 0
       if (this.effects.has(Effect.CHILLY)) {
-        freezeChance = 0.1
-      } else if (this.effects.has(Effect.FROSTY)) {
         freezeChance = 0.2
-      } else if (this.effects.has(Effect.FREEZING)) {
+      } else if (this.effects.has(Effect.FROSTY)) {
         freezeChance = 0.3
-      } else if (this.effects.has(Effect.SHEER_COLD)) {
+      } else if (this.effects.has(Effect.FREEZING)) {
         freezeChance = 0.4
+      } else if (this.effects.has(Effect.SHEER_COLD)) {
+        freezeChance = 0.5
       }
       if (chance(freezeChance)) {
         target.status.triggerFreeze(2000, target)

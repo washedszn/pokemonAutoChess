@@ -115,7 +115,7 @@ export const RequiredStageLevelForXpElligibility = 10
 export const ExpPlace = [700, 500, 400, 300, 200, 150, 100, 50]
 
 export const RarityColor: { [key in Rarity]: string } = {
-  [Rarity.COMMON]: "#9f9f9f",
+  [Rarity.COMMON]: "#a0a0a0",
   [Rarity.UNCOMMON]: "#3bc95e",
   [Rarity.RARE]: "#41bfcc",
   [Rarity.EPIC]: "#ca6cee",
@@ -259,7 +259,15 @@ export const UniqueShop = new Array<PkmProposition>(
   Pkm.POIPOLE,
   Pkm.LUVDISC,
   Pkm.AUDINO,
-  Pkm.MANTYKE
+  Pkm.MANTYKE,
+  Pkm.DURANT,
+  Pkm.SKARMORY,
+  Pkm.SIGILYPH,
+  Pkm.OGERPON_TEAL,
+  Pkm.OGERPON_WELLSPRING,
+  Pkm.OGERPON_HEARTHFLAME,
+  Pkm.OGERPON_CORNERSTONE,
+  Pkm.IRON_HANDS
 )
 
 export const LegendaryShop = new Array<PkmProposition>(
@@ -310,7 +318,8 @@ export const LegendaryShop = new Array<PkmProposition>(
   Pkm.THUNDURUS,
   Pkm.LANDORUS,
   Pkm.ENAMORUS,
-  Pkm.MAGEARNA
+  Pkm.MAGEARNA,
+  Pkm.MELMETAL
 )
 
 export const NB_UNIQUE_PROPOSITIONS = 6
@@ -694,7 +703,11 @@ export const ItemStats: Record<Item, { [stat in Stat]?: number }> = {
   [Item.BLACK_AUGURITE]: {},
   [Item.POKERUS_VIAL]: {},
   [Item.ROTOM_PHONE]: {},
-  [Item.FIRE_SHARD]: {}
+  [Item.FIRE_SHARD]: {},
+  [Item.TEAL_MASK]: { [Stat.SHIELD]: 50 },
+  [Item.WELLSPRING_MASK]: { [Stat.SHIELD]: 50 },
+  [Item.CORNERSTONE_MASK]: { [Stat.SHIELD]: 50 },
+  [Item.HEARTHFLAME_MASK]: { [Stat.SHIELD]: 50 }
 }
 
 export type TilesetExchangeFile = {

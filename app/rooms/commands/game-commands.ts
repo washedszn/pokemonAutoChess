@@ -427,6 +427,47 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
+    if (
+      item === Item.TEAL_MASK ||
+      item === Item.WELLSPRING_MASK ||
+      item === Item.HEARTHFLAME_MASK ||
+      item === Item.CORNERSTONE_MASK
+    ) {
+      if (
+        pokemon.passive === Passive.OGERPON_TEAL ||
+        pokemon.passive === Passive.OGERPON_WELLSPRING ||
+        pokemon.passive === Passive.OGERPON_HEARTHFLAME ||
+        pokemon.passive === Passive.OGERPON_CORNERSTONE
+      ) {
+        if (pokemon.passive === Passive.OGERPON_TEAL) {
+          pokemon.items.delete(Item.TEAL_MASK)
+        } else if (pokemon.passive === Passive.OGERPON_WELLSPRING) {
+          pokemon.items.delete(Item.WELLSPRING_MASK)
+        } else if (pokemon.passive === Passive.OGERPON_HEARTHFLAME) {
+          pokemon.items.delete(Item.HEARTHFLAME_MASK)
+        } else if (pokemon.passive === Passive.OGERPON_CORNERSTONE) {
+          pokemon.items.delete(Item.CORNERSTONE_MASK)
+        }
+
+        if (item === Item.TEAL_MASK) {
+          pokemon.items.add(Item.TEAL_MASK)
+          player.transformPokemon(pokemon, Pkm.OGERPON_TEAL_MASK)
+        } else if (item === Item.WELLSPRING_MASK) {
+          pokemon.items.add(Item.WELLSPRING_MASK)
+          player.transformPokemon(pokemon, Pkm.OGERPON_WELLSPRING_MASK)
+        } else if (item === Item.HEARTHFLAME_MASK) {
+          pokemon.items.add(Item.HEARTHFLAME_MASK)
+          player.transformPokemon(pokemon, Pkm.OGERPON_HEARTHFLAME_MASK)
+        } else if (item === Item.CORNERSTONE_MASK) {
+          pokemon.items.add(Item.CORNERSTONE_MASK)
+          player.transformPokemon(pokemon, Pkm.OGERPON_CORNERSTONE_MASK)
+        }
+      } else {
+        client.send(Transfer.DRAG_DROP_FAILED, message)
+        return
+      }
+    }
+
     if (item === Item.FIRE_SHARD) {
       if (pokemon.types.has(Synergy.FIRE)) {
         pokemon.atk += 2
@@ -1071,6 +1112,9 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           this.state.shop.addAdditionalPokemon(p)
         }
       })
+
+      // update regional pokemons in case some regional variants of add picks are now available
+      this.state.players.forEach((p) => p.updateRegionalPool(this.state, false))
     }
 
     const isAfterPVE = this.state.stageLevel - 1 in PVEStages
@@ -1344,7 +1388,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
 
           const rewardsPropositions = this.state.shinyEncounter
             ? pickNRandomIn(ShinyItems, 3)
-            : pveStage.getRewardsPropositions?.(player) ?? ([] as Item[])
+            : (pveStage.getRewardsPropositions?.(player) ?? ([] as Item[]))
 
           resetArraySchema(player.pveRewardsPropositions, rewardsPropositions)
 

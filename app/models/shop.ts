@@ -285,7 +285,11 @@ export default class Shop {
   assignShop(player: Player, manualRefresh: boolean, state: GameState) {
     player.shop.forEach((pkm) => this.releasePokemon(pkm, player))
 
-    if (player.effects.has(Effect.EERIE_SPELL) && !manualRefresh) {
+    if (
+      player.effects.has(Effect.EERIE_SPELL) &&
+      !manualRefresh &&
+      !player.shopLocked
+    ) {
       const unowns = getUnownsPoolPerStage(state.stageLevel)
       for (let i = 0; i < SHOP_SIZE; i++) {
         player.shop[i] = pickRandomIn(unowns)
@@ -324,6 +328,9 @@ export default class Shop {
         if (pkm === Pkm.TAPU_FINI) return synergy === Synergy.FAIRY
         if (pkm === Pkm.TAPU_KOKO) return synergy === Synergy.ELECTRIC
         if (pkm === Pkm.TAPU_LELE) return synergy === Synergy.PSYCHIC
+        if (pkm === Pkm.OGERPON_CORNERSTONE) return synergy === Synergy.ROCK
+        if (pkm === Pkm.OGERPON_HEARTHFLAME) return synergy === Synergy.FIRE
+        if (pkm === Pkm.OGERPON_WELLSPRING) return synergy === Synergy.AQUATIC
 
         return getPokemonData(pkm).types.includes(synergy)
       })
