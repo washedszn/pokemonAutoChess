@@ -3,7 +3,7 @@ name: Auto-merge conflicts for app/ directory
 on:
   pull_request:
     types: [opened, synchronize]
-  workflow_dispatch:  # This allows manual triggering
+  workflow_dispatch:
 
 jobs:
   auto-merge:
@@ -15,6 +15,11 @@ jobs:
         ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.GITHUB_TOKEN }}
         
+    - name: Pull changes from master
+      run: |
+        git fetch origin master
+        git merge origin/master
+        
     - name: Configure Git for automatic merge
       run: |
         git config user.name "github-actions[bot]"
@@ -22,9 +27,9 @@ jobs:
         
     - name: Resolve conflicts by taking incoming changes for app/
       run: |
-        git checkout --theirs app/
+        git checkout --theirs app/ || echo "No conflicts to resolve"
         git add app/
-        git commit -m "Automatically resolved conflicts in app/ by taking incoming changes"
+        git commit -m "Automatically resolved conflicts in app/ by taking incoming changes" || echo "Nothing to commit"
     
     - name: Push the resolved changes
       run: |
