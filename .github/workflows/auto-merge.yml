@@ -3,7 +3,7 @@ name: Sync with upstream
 on:
   workflow_dispatch: # allows manual triggering of the workflow
   schedule:
-    - cron: '0 0 * * 0' # weekly sync
+    - cron: '0 0 * * *' # weekly sync
 
 jobs:
   sync:
