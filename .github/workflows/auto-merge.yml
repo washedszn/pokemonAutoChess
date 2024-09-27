@@ -1,47 +1,37 @@
-name: Auto-merge conflicts for app/ directory
+name: Sync fork with parent and resolve app/ conflicts
 
 on:
-  pull_request:
-    types: [opened, synchronize]
-  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *' # Runs daily at midnight UTC
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
-  auto-merge:
+  sync:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout the PR
+    - name: Checkout your repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.GITHUB_TOKEN }}
+        ref: master
 
-    - name: Set up Git
+    - name: Add parent repository as upstream
       run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git remote add upstream https://github.com/keldaanCommunity/pokemonAutoChess.git
+        git fetch upstream
 
-    - name: Fetch the latest master branch
+    - name: Merge upstream/master into your master
       run: |
-        git fetch origin master
+        git merge upstream/master --no-ff || echo "Merge conflict detected"
 
-    - name: Create a new branch for merging
+    - name: Automatically resolve conflicts in app/ directory
+      if: failure() # Only run if there are merge conflicts
       run: |
-        git checkout -b keldaanCommunity-master master
-        git pull https://github.com/keldaanCommunity/pokemonAutoChess.git master
+        git checkout --theirs app/ || echo "No conflicts to resolve in app/"
+        git add app/
+        git commit -m "Automatically resolved conflicts in app/ by accepting upstream changes" || echo "Nothing to commit"
 
-    - name: Attempt to merge with master
-      run: |
-        git checkout master
-        git merge --no-ff keldaanCommunity-master || echo "Merge conflict detected"
-
-    - name: Resolve conflicts in app/ directory
-      if: failure()
-      run: |
-        git checkout --theirs app/ || echo "No conflicts to resolve"
-        git add app/ || echo "Nothing to add"
-        git commit -m "Automatically resolved conflicts in app/ by taking incoming changes" || echo "Nothing to commit"
-
-    - name: Push the resolved changes back to GitHub
+    - name: Push changes to your repository
       run: |
         git push origin master
       env:
