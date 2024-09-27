@@ -1,6 +1,7 @@
 name: Build and Deploy Custom Docker Image
 
 on:
+  workflow_dispatch: # allows manual triggering of the workflow
   push:
     branches:
       - master
