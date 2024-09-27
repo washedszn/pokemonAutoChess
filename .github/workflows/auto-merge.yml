@@ -1,43 +1,40 @@
-name: Sync fork with parent and resolve app/ conflicts
+name: Sync with upstream
 
 on:
+  workflow_dispatch: # allows manual triggering of the workflow
   schedule:
-    - cron: '0 0 * * *' # Runs daily at midnight UTC
-  workflow_dispatch: # Allows manual trigger
+    - cron: '0 0 * * 0' # weekly sync
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout your repository
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        ref: master
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
 
-    - name: Set up Git to use the GitHub Actions bot
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Set up Git user for GitHub Actions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Add parent repository as upstream
-      run: |
-        git remote add upstream https://github.com/keldaanCommunity/pokemonAutoChess.git
-        git fetch upstream
+      - name: Add upstream repository
+        run: |
+          git remote add upstream https://github.com/keldaanCommunity/pokemonAutoChess.git
+          git fetch upstream
 
-    - name: Merge upstream/master into your master, allowing unrelated histories
-      run: |
-        git merge upstream/master --no-ff --allow-unrelated-histories || echo "Merge conflict detected"
+      - name: Merge upstream/master into current branch with 'theirs' strategy
+        run: |
+          git merge upstream/master --no-ff --allow-unrelated-histories -X theirs || echo "Merge conflict detected"
 
-    - name: Automatically resolve conflicts in app/ directory
-      if: failure() # Only run if there are merge conflicts
-      run: |
-        git checkout --theirs app/ || echo "No conflicts to resolve in app/"
-        git add app/
-        git commit -m "Automatically resolved conflicts in app/ by accepting upstream changes" || echo "Nothing to commit"
+      - name: Keep local versions of custom files
+        run: |
+          git checkout --ours Dockerfile.custom entrypoint.custom.sh .github/workflows/*
+          git add Dockerfile.custom entrypoint.custom.sh .github/workflows/*
+          git commit -m "Keep local version of custom files" || echo "No changes to commit"
 
-    - name: Push changes to your repository
-      run: |
-        git push origin master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push changes back to the repo
+        run: |
+          git push origin master
