@@ -15,6 +15,11 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         ref: master
 
+    - name: Set up Git to use the GitHub Actions bot
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
     - name: Add parent repository as upstream
       run: |
         git remote add upstream https://github.com/keldaanCommunity/pokemonAutoChess.git
