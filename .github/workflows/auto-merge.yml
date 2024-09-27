@@ -14,25 +14,35 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Pull changes from master
-      run: |
-        git fetch origin master
-        git merge origin/master
-        
-    - name: Configure Git for automatic merge
+
+    - name: Set up Git
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        
-    - name: Resolve conflicts by taking incoming changes for app/ directory
+
+    - name: Fetch the latest master branch
+      run: |
+        git fetch origin master
+
+    - name: Create a new branch for merging
+      run: |
+        git checkout -b keldaanCommunity-master master
+        git pull https://github.com/keldaanCommunity/pokemonAutoChess.git master
+
+    - name: Attempt to merge with master
+      run: |
+        git checkout master
+        git merge --no-ff keldaanCommunity-master || echo "Merge conflict detected"
+
+    - name: Resolve conflicts in app/ directory
+      if: failure()
       run: |
         git checkout --theirs app/ || echo "No conflicts to resolve"
         git add app/ || echo "Nothing to add"
         git commit -m "Automatically resolved conflicts in app/ by taking incoming changes" || echo "Nothing to commit"
-    
-    - name: Push the resolved changes
+
+    - name: Push the resolved changes back to GitHub
       run: |
-        git push origin ${{ github.head_ref }}
+        git push origin master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
