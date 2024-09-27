@@ -20,9 +20,9 @@ jobs:
         git remote add upstream https://github.com/keldaanCommunity/pokemonAutoChess.git
         git fetch upstream
 
-    - name: Merge upstream/master into your master
+    - name: Merge upstream/master into your master, allowing unrelated histories
       run: |
-        git merge upstream/master --no-ff || echo "Merge conflict detected"
+        git merge upstream/master --no-ff --allow-unrelated-histories || echo "Merge conflict detected"
 
     - name: Automatically resolve conflicts in app/ directory
       if: failure() # Only run if there are merge conflicts
