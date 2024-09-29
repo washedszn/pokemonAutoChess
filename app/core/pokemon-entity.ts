@@ -69,7 +69,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
   @type("uint8") attackType: AttackType
   @type("uint16") life: number
   @type("uint16") shield = 0
-  @type("uint8") team: number
+  @type("uint8") team: Team
   @type("uint8") range: number
   @type("float32") atkSpeed: number
   @type("int8") targetX = -1
@@ -263,7 +263,9 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       if (
         this.status.magicBounce &&
         attackType === AttackType.SPECIAL &&
-        damage > 0
+        damage > 0 &&
+        attacker &&
+        !attacker.items.has(Item.PROTECTIVE_PADS)
       ) {
         const bounceCrit =
           crit || (this.items.has(Item.REAPER_CLOTH) && chance(this.critChance))
@@ -274,7 +276,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
             (bounceCrit ? this.critPower : 1)
         )
         // not handleSpecialDamage to not trigger infinite loop between two magic bounces
-        attacker?.handleDamage({
+        attacker.handleDamage({
           damage: bounceDamage,
           board,
           attackType: AttackType.SPECIAL,
@@ -304,6 +306,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         this.items.has(Item.POWER_LENS) &&
         specialDamage >= 1 &&
         attacker &&
+        !attacker.items.has(Item.PROTECTIVE_PADS) &&
         attackType === AttackType.SPECIAL
       ) {
         attacker.handleDamage({
@@ -743,31 +746,6 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       })
     }
 
-    if (this.items.has(Item.SOOTHE_BELL)) {
-      let closestAlly: PokemonEntity | null = null
-      let minDistance = 16
-      board.forEach((x: number, y: number, ally: PokemonEntity | undefined) => {
-        if (ally && ally !== this && this.team === ally.team) {
-          const distanceToTarget = distanceC(
-            ally.positionX,
-            ally.positionY,
-            this.targetX,
-            this.targetY
-          )
-          if (distanceToTarget < minDistance) {
-            closestAlly = ally
-            minDistance = distanceToTarget
-          }
-        }
-      })
-
-      if (closestAlly != null) {
-        const closestAllyFound = closestAlly as PokemonEntity // typescript is dumb
-        const shield = Math.round(totalDamage * 0.33)
-        closestAllyFound.addShield(shield, this, 0, false)
-      }
-    }
-
     if (this.items.has(Item.MANA_SCARF)) {
       this.addPP(MANA_SCARF_MANA, this, 0, false)
     }
@@ -970,15 +948,28 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     }
 
     // Ability effects on hit
-    if (target.status.spikeArmor && this.range === 1) {
+    if (
+      target.status.spikeArmor &&
+      distanceC(
+        this.positionX,
+        this.positionY,
+        target.positionX,
+        target.positionY
+      ) === 1 &&
+      !this.items.has(Item.PROTECTIVE_PADS)
+    ) {
+      const damage = Math.round(target.def * (1 + target.ap / 100))
+      const crit =
+        target.items.has(Item.REAPER_CLOTH) && chance(target.critChance)
       this.status.triggerWound(2000, this, target)
-      this.handleDamage({
-        damage: Math.round(target.def * (1 + target.ap / 100)),
+      this.handleSpecialDamage(
+        damage,
         board,
-        attackType: AttackType.SPECIAL,
-        attacker: target,
-        shouldTargetGainMana: true
-      })
+        AttackType.SPECIAL,
+        target,
+        crit,
+        true
+      )
     }
 
     if (target.effects.has(Effect.SHELL_TRAP) && physicalDamage > 0) {
@@ -1297,7 +1288,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     }
 
     if (this.items.has(Item.AMULET_COIN) && this.player) {
-      this.player.addMoney(1)
+      this.player.addMoney(1, true, this)
       this.count.moneyCount += 1
       this.count.amuletCoinCount += 1
     }
@@ -1307,7 +1298,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         board.cells.some((p) => p && p.team !== this.team && p.life > 0) ===
         false
       const moneyGained = isLastEnemy ? 5 : 1
-      this.player.addMoney(moneyGained)
+      this.player.addMoney(moneyGained, true, this)
       this.count.moneyCount += moneyGained
     }
 
@@ -1582,7 +1573,11 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
 
         const spawns = pickNRandomIn(koAllies, 3)
         spawns.forEach((spawn) => {
-          const mon = PokemonFactory.createPokemonFromName(spawn.name)
+          const mon = PokemonFactory.createPokemonFromName(spawn.name,
+            {
+              selectedEmotion: spawn.emotion,
+              selectedShiny: spawn.shiny,
+            })
           const coord =
             this.simulation.getClosestAvailablePlaceOnBoardToPokemon(
               this,

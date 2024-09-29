@@ -199,7 +199,7 @@ export class PaydayStrategy extends AbilityStrategy {
       crit
     )
     if (death && pokemon.player) {
-      pokemon.player.addMoney(pokemon.stars)
+      pokemon.player.addMoney(pokemon.stars, true, pokemon)
       pokemon.count.moneyCount += pokemon.stars
     }
   }
@@ -229,7 +229,7 @@ export class PickupStrategy extends AbilityStrategy {
         const moneyStolen = max(target.player.money)(pokemon.stars)
         target.player.money -= moneyStolen
         if (pokemon.player) {
-          pokemon.player.addMoney(moneyStolen)
+          pokemon.player.addMoney(moneyStolen, true, pokemon)
           pokemon.count.moneyCount += moneyStolen
         }
       }
@@ -560,7 +560,7 @@ export class PsychicSurgeStrategy extends AbilityStrategy {
     crit: boolean
   ) {
     super.process(pokemon, state, board, target, crit)
-    const buff = 5
+    const buff = 10
     board.forEach((x: number, y: number, ally: PokemonEntity | undefined) => {
       if (
         ally &&
@@ -1980,13 +1980,13 @@ export class HeadSmashStrategy extends AbilityStrategy {
     let damage, recoil
     if (pokemon.stars === 3) {
       damage = 150
-      recoil = 15
+      recoil = 40
     } else if (pokemon.stars === 2) {
       damage = 80
-      recoil = 10
+      recoil = 20
     } else {
       damage = 40
-      recoil = 5
+      recoil = 10
     }
 
     if (target.status.sleep || target.status.freeze) {
@@ -2006,7 +2006,15 @@ export class HeadSmashStrategy extends AbilityStrategy {
         crit
       )
     }
-    pokemon.handleSpecialDamage(recoil, board, AttackType.TRUE, pokemon, crit)
+    if (pokemon.items.has(Item.PROTECTIVE_PADS) === false) {
+      pokemon.handleSpecialDamage(
+        recoil,
+        board,
+        AttackType.PHYSICAL,
+        pokemon,
+        crit
+      )
+    }
   }
 }
 
@@ -2029,13 +2037,15 @@ export class DoubleEdgeStrategy extends AbilityStrategy {
       pokemon,
       crit
     )
-    pokemon.handleSpecialDamage(
-      recoil,
-      board,
-      AttackType.PHYSICAL,
-      pokemon,
-      crit
-    )
+    if (pokemon.items.has(Item.PROTECTIVE_PADS) === false) {
+      pokemon.handleSpecialDamage(
+        recoil,
+        board,
+        AttackType.PHYSICAL,
+        pokemon,
+        crit
+      )
+    }
   }
 }
 
@@ -2211,7 +2221,7 @@ export class NightmareStrategy extends AbilityStrategy {
     crit: boolean
   ) {
     super.process(pokemon, state, board, target, crit)
-    const duration = [1500, 3000, 8000][pokemon.stars - 1] ?? 8000
+    const duration = [1500, 3000, 6000][pokemon.stars - 1] ?? 6000
     const damage = [25, 50, 100][pokemon.stars - 1] ?? 100
 
     board.forEach((x: number, y: number, enemy: PokemonEntity | undefined) => {
@@ -3416,6 +3426,20 @@ export class SacredSwordStrategy extends AbilityStrategy {
   ) {
     super.process(pokemon, state, board, target, crit)
     const damage = 100
+    target.handleSpecialDamage(damage, board, AttackType.TRUE, pokemon, crit)
+  }
+}
+
+export class MetalBurstStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit)
+    const damage = Math.floor(30 + 3 * pokemon.count.fightingBlockCount)
     target.handleSpecialDamage(damage, board, AttackType.TRUE, pokemon, crit)
   }
 }
@@ -5192,7 +5216,9 @@ export class GigatonHammerStrategy extends AbilityStrategy {
     if (pokemon.stars === 3) {
       damage = 400
     }
-    pokemon.status.triggerSilence(6000, pokemon, pokemon)
+    if (pokemon.items.has(Item.PROTECTIVE_PADS) === false) {
+      pokemon.status.triggerSilence(6000, pokemon, pokemon)
+    }
     target.handleSpecialDamage(damage, board, AttackType.SPECIAL, pokemon, crit)
   }
 }
@@ -5756,8 +5782,10 @@ export class ShellSmashStrategy extends AbilityStrategy {
     pokemon.addAbilityPower(20, pokemon, 0, false)
     pokemon.addAttack(2, pokemon, 0, false)
     pokemon.addAttackSpeed(20, pokemon, 0, false)
-    pokemon.addDefense(-1, pokemon, 0, false)
-    pokemon.addSpecialDefense(-1, pokemon, 0, false)
+    if (pokemon.items.has(Item.PROTECTIVE_PADS) === false) {
+      pokemon.addDefense(-1, pokemon, 0, false)
+      pokemon.addSpecialDefense(-1, pokemon, 0, false)
+    }
   }
 }
 
@@ -6237,8 +6265,10 @@ export class CloseCombatStrategy extends AbilityStrategy {
     crit: boolean
   ) {
     super.process(pokemon, state, board, target, crit)
-    pokemon.addDefense(-3, pokemon, 0, false)
-    pokemon.addSpecialDefense(-3, pokemon, 0, false)
+    if (pokemon.items.has(Item.PROTECTIVE_PADS) === false) {
+      pokemon.addDefense(-3, pokemon, 0, false)
+      pokemon.addSpecialDefense(-3, pokemon, 0, false)
+    }
     target.handleSpecialDamage(130, board, AttackType.SPECIAL, pokemon, crit)
   }
 }
@@ -7401,7 +7431,7 @@ export class GoldRushStrategy extends AbilityStrategy {
     const goldDamage = pokemon.player?.money ? pokemon.player?.money : 0
     const damage = 20 + goldDamage
     if (pokemon.player) {
-      pokemon.player.addMoney(2)
+      pokemon.player.addMoney(2, true, pokemon)
     }
     target.handleSpecialDamage(
       damage,
@@ -8481,7 +8511,9 @@ export class IceHammerStrategy extends AbilityStrategy {
       true
     )
     target.status.triggerFreeze(3000, target)
-    pokemon.status.triggerParalysis(3000, pokemon)
+    if (pokemon.items.has(Item.PROTECTIVE_PADS) === false) {
+      pokemon.status.triggerParalysis(3000, pokemon)
+    }
   }
 }
 
@@ -9915,7 +9947,9 @@ export class GlaiveRushStrategy extends AbilityStrategy {
   ) {
     super.process(pokemon, state, board, target, crit, true)
     const damage = pokemon.stars === 3 ? 150 : pokemon.stars === 2 ? 80 : 40
-    pokemon.status.triggerArmorReduction(6000, pokemon)
+    if (pokemon.items.has(Item.PROTECTIVE_PADS) === false) {
+      pokemon.status.triggerArmorReduction(6000, pokemon)
+    }
 
     target.handleSpecialDamage(
       damage,
@@ -10483,5 +10517,6 @@ export const AbilityStrategies: { [key in Ability]: AbilityStrategy } = {
   [Ability.ROAR]: new RoarStrategy(),
   [Ability.INFESTATION]: new InfestationStrategy(),
   [Ability.IVY_CUDGEL]: new IvyCudgelStrategy(),
-  [Ability.FORCE_PALM]: new ForcePalmStrategy()
+  [Ability.FORCE_PALM]: new ForcePalmStrategy(),
+  [Ability.METAL_BURST]: new MetalBurstStrategy()
 }
