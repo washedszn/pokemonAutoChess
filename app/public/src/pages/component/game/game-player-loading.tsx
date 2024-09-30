@@ -34,9 +34,9 @@ export default function GamePlayerLoadingBar(props: { player: IPlayer }) {
         />
       </div>
 
-      <p style={{ fontWeight: "500" }}>{props.player.name}</p>
+      <p>{props.player.name}</p>
       <p>
-        {t("elo")}: <b>{props.player.elo}</b>
+        {t("elo")}: {props.player.elo}
       </p>
     </div>
   )

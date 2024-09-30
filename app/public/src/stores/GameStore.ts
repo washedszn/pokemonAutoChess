@@ -25,7 +25,7 @@ export interface GameStateStore {
   noElo: boolean
   currentPlayerId: string
   currentSimulationId: string
-  currentTeam: Team
+  currentSimulationTeamIndex: number
   money: number
   interest: number
   streak: number
@@ -54,7 +54,7 @@ const initialState: GameStateStore = {
   noElo: false,
   currentPlayerId: "",
   currentSimulationId: "",
-  currentTeam: Team.BLUE_TEAM,
+  currentSimulationTeamIndex: 0,
   money: 5,
   interest: 0,
   streak: 0,
@@ -184,10 +184,8 @@ export const gameSlice = createSlice({
         state.currentPlayerId === action.payload.redPlayerId
       ) {
         state.currentSimulationId = action.payload.id
-        state.currentTeam =
-          state.currentPlayerId === action.payload.bluePlayerId
-            ? Team.BLUE_TEAM
-            : Team.RED_TEAM
+        state.currentSimulationTeamIndex =
+          state.currentPlayerId === action.payload.bluePlayerId ? 0 : 1
         state.weather = action.payload.weather
         state.blueDpsMeter = new Array<IDps>()
         state.redDpsMeter = new Array<IDps>()
@@ -202,7 +200,7 @@ export const gameSlice = createSlice({
     setPlayer: (state, action: PayloadAction<IPlayer>) => {
       state.currentPlayerId = action.payload.id
       state.currentSimulationId = action.payload.simulationId
-      state.currentTeam = action.payload.team
+      state.currentSimulationTeamIndex = action.payload.simulationTeamIndex
       state.currentPlayerSynergies = Array.from(action.payload.synergies)
     },
     addDpsMeter: (

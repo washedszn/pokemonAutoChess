@@ -19,9 +19,7 @@ import { chance, pickRandomIn } from "../utils/random"
 import Board, { Cell } from "./board"
 import { PokemonEntity } from "./pokemon-entity"
 
-export default abstract class PokemonState {
-  name: string = ""
-
+export default class PokemonState {
   attack(pokemon: PokemonEntity, board: Board, target: PokemonEntity) {
     if (target.life > 0) {
       let damage = pokemon.atk
@@ -45,7 +43,7 @@ export default abstract class PokemonState {
         pokemon.onCriticalAttack({ target, board, damage })
       }
 
-      if (pokemon.items.has(Item.PUNCHING_GLOVE)) {
+      if (pokemon.items.has(Item.FIRE_GEM)) {
         damage = Math.round(damage + target.hp * 0.08)
       }
 
@@ -419,7 +417,7 @@ export default abstract class PokemonState {
           damageOnShield = reducedDamage
           residualDamage = 0
         }
-        if (attacker && attacker.items.has(Item.PROTECTIVE_PADS)) {
+        if (attacker && attacker.items.has(Item.FIRE_GEM)) {
           damageOnShield *= 2 // double damage on shield
         }
         if (damageOnShield > pokemon.shield) {
@@ -594,10 +592,14 @@ export default abstract class PokemonState {
     pokemon.status.updateAllStatus(dt, pokemon, board)
 
     if (
-      (pokemon.status.resurecting ||
-        pokemon.status.freeze ||
-        pokemon.status.sleep) &&
-      pokemon.state.name !== "idle"
+      pokemon.status.resurecting &&
+      pokemon.action !== PokemonActionState.HURT
+    ) {
+      pokemon.toIdleState()
+    }
+    if (
+      (pokemon.status.freeze || pokemon.status.sleep) &&
+      pokemon.action !== PokemonActionState.SLEEP
     ) {
       pokemon.toIdleState()
     }
@@ -635,7 +637,7 @@ export default abstract class PokemonState {
           pokemon.count.growGroundCount === 5 &&
           player
         ) {
-          player.addMoney(3, true, pokemon)
+          player.addMoney(3)
           pokemon.count.moneyCount += 3
         }
       }

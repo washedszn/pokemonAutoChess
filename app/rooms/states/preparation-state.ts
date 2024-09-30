@@ -28,8 +28,7 @@ export default class PreparationState
   @type("string") name: string
   @type("string") password: string | null
   @type("string") minRank: EloRank | null
-  @type("string") maxRank: EloRank | null
-  @type("string") gameMode: GameMode = GameMode.CUSTOM_LOBBY
+  @type("string") gameMode: GameMode = GameMode.NORMAL
   @type("boolean") noElo: boolean
   @type(["string"]) whitelist: string[]
   @type(["string"]) blacklist: string[]
@@ -38,23 +37,20 @@ export default class PreparationState
     ownerId?: string
     roomName: string
     minRank?: EloRank
-    maxRank?: EloRank
     noElo?: boolean
-    password?: string
     gameMode: GameMode
     whitelist?: string[]
     blacklist?: string[]
   }) {
     super()
     this.ownerId =
-      params.gameMode === GameMode.CUSTOM_LOBBY ? (params.ownerId ?? "") : ""
+      params.gameMode === GameMode.NORMAL ? params.ownerId ?? "" : ""
     this.name = params.roomName
     this.gameStartedAt = null
     this.ownerName = ""
-    this.password = params.password ?? null
+    this.password = null
     this.noElo = params.noElo ?? false
     this.minRank = params.minRank ?? null
-    this.maxRank = params.maxRank ?? null
     this.gameMode = params.gameMode
     this.whitelist = params.whitelist ?? []
     this.blacklist = params.blacklist ?? []

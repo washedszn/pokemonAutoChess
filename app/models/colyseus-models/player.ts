@@ -1,10 +1,9 @@
 import { ArraySchema, MapSchema, Schema, type } from "@colyseus/schema"
-import { PokemonEntity } from "../../core/pokemon-entity"
 import type GameState from "../../rooms/states/game-state"
 import type { IPlayer, Role, Title } from "../../types"
 import { SynergyTriggers, UniqueShop } from "../../types/Config"
 import { DungeonPMDO } from "../../types/enum/Dungeon"
-import { BattleResult, Rarity, Team } from "../../types/enum/Game"
+import { BattleResult, Rarity } from "../../types/enum/Game"
 import {
   ArtificialItems,
   Berries,
@@ -43,7 +42,7 @@ import Synergies, { computeSynergies } from "./synergies"
 export default class Player extends Schema implements IPlayer {
   @type("string") id: string
   @type("string") simulationId = ""
-  @type("number") team: Team = Team.BLUE_TEAM
+  @type("number") simulationTeamIndex: number = 0
   @type("string") name: string
   @type("string") avatar: string
   @type({ map: Pokemon }) board = new MapSchema<Pokemon>()
@@ -130,7 +129,7 @@ export default class Player extends Schema implements IPlayer {
     this.lightX = state.lightX
     this.lightY = state.lightY
     this.map = pickRandomIn(DungeonPMDO)
-    this.updateRegionalPool(state, true)
+    this.updateRegionalPool(state)
 
     if (isBot) {
       this.loadingProgress = 100
@@ -177,20 +176,9 @@ export default class Player extends Schema implements IPlayer {
     }
   }
 
-  addMoney(
-    value: number,
-    countTotalEarned: boolean,
-    origin: PokemonEntity | null
-  ) {
-    if (
-      origin &&
-      origin.simulation.isGhostBattle &&
-      origin.player?.team === Team.RED_TEAM
-    ) {
-      return // do not count money earned by pokemons from a ghost player
-    }
+  addMoney(value: number) {
     this.money += value
-    if (countTotalEarned && value > 0) this.totalMoneyEarned += value
+    this.totalMoneyEarned += value
   }
 
   addBattleResult(
@@ -413,30 +401,40 @@ export default class Player extends Schema implements IPlayer {
     if (this.items.includes(Item.SUPER_ROD) && fishingLevel !== 3)
       removeInArray<Item>(this.items, Item.SUPER_ROD)
 
-    if (this.items.includes(Item.OLD_ROD) === false && fishingLevel === 1)
+    if (
+      this.items.includes(Item.OLD_ROD) === false &&
+      this.items.includes(Item.GOLDEN_ROD) === false &&
+      fishingLevel === 1
+    )
       this.items.push(Item.OLD_ROD)
-    if (this.items.includes(Item.GOOD_ROD) === false && fishingLevel === 2)
+    if (
+      this.items.includes(Item.GOOD_ROD) === false &&
+      this.items.includes(Item.GOLDEN_ROD) === false &&
+      fishingLevel === 2
+    )
       this.items.push(Item.GOOD_ROD)
-    if (this.items.includes(Item.SUPER_ROD) === false && fishingLevel === 3)
+    if (
+      this.items.includes(Item.SUPER_ROD) === false &&
+      this.items.includes(Item.GOLDEN_ROD) === false &&
+      fishingLevel === 3
+    )
       this.items.push(Item.SUPER_ROD)
   }
 
-  updateRegionalPool(state: GameState, mapChanged: boolean) {
+  updateRegionalPool(state: GameState) {
     const newRegionalPokemons = PRECOMPUTED_REGIONAL_MONS.filter((p) =>
       new PokemonClasses[p]().isInRegion(this.map, state)
     )
 
-    if (mapChanged) {
-      state.shop.resetRegionalPool(this)
-      newRegionalPokemons.forEach((p) => {
-        const isVariant = Object.values(PkmRegionalVariants).some((variants) =>
-          variants.includes(p)
-        )
-        if (getPokemonData(p).stars === 1 && !isVariant) {
-          state.shop.addRegionalPokemon(p, this)
-        }
-      })
-    }
+    state.shop.resetRegionalPool(this)
+    newRegionalPokemons.forEach((p) => {
+      const isVariant = Object.values(PkmRegionalVariants).some((variants) =>
+        variants.includes(p)
+      )
+      if (getPokemonData(p).stars === 1 && !isVariant) {
+        state.shop.addRegionalPokemon(p, this)
+      }
+    })
 
     resetArraySchema(
       this.regionalPokemons,

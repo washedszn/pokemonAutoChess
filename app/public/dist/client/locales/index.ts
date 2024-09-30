@@ -12,6 +12,5 @@ export const LanguageNames: { [key in Language]: string } = {
   [Language.bg]: "Български",
   [Language.ko]: "한국어",
   [Language.pl]: "Polski",
-  [Language.vi]: "Tiếng Việt",
-  [Language.th]: "ภาษาไทย"
+  [Language.vi]: "Tiếng Việt"
 }

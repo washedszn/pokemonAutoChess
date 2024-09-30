@@ -1,6 +1,7 @@
 import { t } from "i18next"
 import { GameObjects } from "phaser"
 import { getSellPrice } from "../../../../models/shop"
+import { Pkm } from "../../../../types/enum/Pokemon"
 import { transformCoordinate } from "../../pages/utils/utils"
 import GameScene from "../scenes/game-scene"
 import PokemonSprite from "./pokemon"
@@ -35,7 +36,8 @@ export class SellZone extends GameObjects.Container {
     sellZone.setData({ rectangle: this.rectangle })
 
     this.text = scene.add.text(0, 0, t("drop_here_to_sell"), {
-      font: "600 35px Jost",
+      fontSize: "35px",
+      fontFamily: "BrandonGrotesqueBlack",
       color: "black",
       align: "center"
     })
@@ -49,9 +51,7 @@ export class SellZone extends GameObjects.Container {
 
   showForPokemon(pkm: PokemonSprite) {
     const specialGameRule = this.scene.room?.state.specialGameRule
-    const pokemon = this.scene.board?.player.board.get(pkm.id)
-    if (!pokemon) return
-    const price = getSellPrice(pokemon, specialGameRule)
+    const price = getSellPrice(pkm.name as Pkm, pkm.shiny, specialGameRule)
     this.text.setText(
       `${t("drop_here_to_sell")} ${t("for_price_gold", { price })}`
     )

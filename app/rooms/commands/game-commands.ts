@@ -15,6 +15,7 @@ import Player from "../../models/colyseus-models/player"
 import { isOnBench, PokemonClasses } from "../../models/colyseus-models/pokemon"
 import { createRandomEgg } from "../../models/egg-factory"
 import PokemonFactory from "../../models/pokemon-factory"
+import { getPokemonData } from "../../models/precomputed/precomputed-pokemon-data"
 import { PVEStages } from "../../models/pve-stages"
 import { getBuyPrice, getSellPrice } from "../../models/shop"
 import { getAvatarString } from "../../public/src/utils"
@@ -39,7 +40,7 @@ import {
   SynergyTriggers
 } from "../../types/Config"
 import { Effect } from "../../types/enum/Effect"
-import { BattleResult, GamePhaseState, Team } from "../../types/enum/Game"
+import { BattleResult, GamePhaseState, Rarity } from "../../types/enum/Game"
 import {
   ArtificialItems,
   Berries,
@@ -55,6 +56,7 @@ import {
 import { Passive } from "../../types/enum/Passive"
 import {
   Pkm,
+  PkmFamily,
   PkmIndex,
   PkmRegionalVariants,
   Unowns
@@ -403,7 +405,7 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
-    let pokemon = player.getPokemonAt(x, y)
+    const pokemon = player.getPokemonAt(x, y)
     if (pokemon === undefined) {
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
@@ -425,49 +427,8 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
-    if (
-      item === Item.TEAL_MASK ||
-      item === Item.WELLSPRING_MASK ||
-      item === Item.HEARTHFLAME_MASK ||
-      item === Item.CORNERSTONE_MASK
-    ) {
-      if (
-        pokemon.passive === Passive.OGERPON_TEAL ||
-        pokemon.passive === Passive.OGERPON_WELLSPRING ||
-        pokemon.passive === Passive.OGERPON_HEARTHFLAME ||
-        pokemon.passive === Passive.OGERPON_CORNERSTONE
-      ) {
-        if (pokemon.passive === Passive.OGERPON_TEAL) {
-          pokemon.items.delete(Item.TEAL_MASK)
-        } else if (pokemon.passive === Passive.OGERPON_WELLSPRING) {
-          pokemon.items.delete(Item.WELLSPRING_MASK)
-        } else if (pokemon.passive === Passive.OGERPON_HEARTHFLAME) {
-          pokemon.items.delete(Item.HEARTHFLAME_MASK)
-        } else if (pokemon.passive === Passive.OGERPON_CORNERSTONE) {
-          pokemon.items.delete(Item.CORNERSTONE_MASK)
-        }
-
-        if (item === Item.TEAL_MASK) {
-          pokemon.items.add(Item.TEAL_MASK)
-          player.transformPokemon(pokemon, Pkm.OGERPON_TEAL_MASK)
-        } else if (item === Item.WELLSPRING_MASK) {
-          pokemon.items.add(Item.WELLSPRING_MASK)
-          player.transformPokemon(pokemon, Pkm.OGERPON_WELLSPRING_MASK)
-        } else if (item === Item.HEARTHFLAME_MASK) {
-          pokemon.items.add(Item.HEARTHFLAME_MASK)
-          player.transformPokemon(pokemon, Pkm.OGERPON_HEARTHFLAME_MASK)
-        } else if (item === Item.CORNERSTONE_MASK) {
-          pokemon.items.add(Item.CORNERSTONE_MASK)
-          player.transformPokemon(pokemon, Pkm.OGERPON_CORNERSTONE_MASK)
-        }
-      } else {
-        client.send(Transfer.DRAG_DROP_FAILED, message)
-        return
-      }
-    }
-
     if (item === Item.FIRE_SHARD) {
-      if (pokemon.types.has(Synergy.FIRE)) {
+      if (pokemon.types.has(Synergy.FIRE) && player.life > 2) {
         pokemon.atk += 2
         player.life = min(1)(player.life - 2)
         removeInArray(player.items, item)
@@ -485,12 +446,46 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
+    if (item === Item.GOLDEN_ROD) {
+      let needsRecomputingSynergiesAgain = false
+      pokemon?.items.forEach((item) => {
+        pokemon.items.delete(item)
+        player.items.push(item)
+        if (item in SynergyGivenByItem) {
+          const type = SynergyGivenByItem[item]
+          const nativeTypes = getPokemonData(pokemon.name).types
+          if (nativeTypes.includes(type) === false) {
+            pokemon.types.delete(type)
+            if (!isOnBench(pokemon)) {
+              needsRecomputingSynergiesAgain = true
+            }
+          }
+        }
+      })
+      if (needsRecomputingSynergiesAgain) {
+        player.updateSynergies()
+      }
+      client.send(Transfer.DRAG_DROP_FAILED, message)
+      return
+    }
+
     if (!pokemon.canHoldItems) {
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
     }
 
     if (item === Item.EVIOLITE && pokemon.evolution === Pkm.DEFAULT) {
+      client.send(Transfer.DRAG_DROP_FAILED, message)
+      return
+    }
+
+    if (
+      item === Item.RARE_CANDY &&
+      (pokemon.evolution === Pkm.DEFAULT ||
+        pokemon.rarity === Rarity.UNIQUE ||
+        pokemon.rarity === Rarity.LEGENDARY ||
+        pokemon.rarity === Rarity.HATCH)
+    ) {
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
     }
@@ -535,19 +530,6 @@ export class OnDragDropItemCommand extends Command<
       // prevent adding twitce the same completed item
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
-    }
-
-    if (item === Item.RARE_CANDY) {
-      const evolution = pokemon?.evolution
-      if (
-        !evolution ||
-        evolution === Pkm.DEFAULT ||
-        pokemon.items.has(Item.EVIOLITE)
-      ) {
-        client.send(Transfer.DRAG_DROP_FAILED, message)
-        return
-      }
-      pokemon = player.transformPokemon(pokemon, evolution)
     }
 
     if (isBasicItem && existingBasicItemToCombine) {
@@ -622,8 +604,12 @@ export class OnSellDropCommand extends Command<
 
       if (pokemon) {
         this.state.shop.releasePokemon(pokemon.name, player)
-        const sellPrice = getSellPrice(pokemon, this.state.specialGameRule)
-        player.addMoney(sellPrice, false, null)
+        const sellPrice = getSellPrice(
+          pokemon.name,
+          pokemon.shiny,
+          this.state.specialGameRule
+        )
+        player.addMoney(sellPrice)
         pokemon.items.forEach((it) => {
           player.items.push(it)
         })
@@ -994,7 +980,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
         income += player.interest
         income += max(5)(player.streak)
         income += 5
-        player.addMoney(income, true, null)
+        player.addMoney(income)
         if (income > 0) {
           const client = this.room.clients.find(
             (cli) => cli.auth.uid === player.id
@@ -1085,9 +1071,6 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           this.state.shop.addAdditionalPokemon(p)
         }
       })
-
-      // update regional pokemons in case some regional variants of add picks are now available
-      this.state.players.forEach((p) => p.updateRegionalPool(this.state, false))
     }
 
     const isAfterPVE = this.state.stageLevel - 1 in PVEStages
@@ -1120,6 +1103,15 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
       for (let i = 0; i < nbTrees; i++) {
         player.berryTreesStage[i] = max(3)(player.berryTreesStage[i] + 1)
       }
+
+      player.board.forEach((pokemon) => {
+        if (
+          pokemon.items.has(Item.RARE_CANDY) &&
+          pokemon.evolution !== Pkm.DEFAULT
+        ) {
+          this.room.spawnOnBench(player, PkmFamily[pokemon.name])
+        }
+      })
     })
 
     this.spawnWanderingPokemons()
@@ -1352,7 +1344,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
 
           const rewardsPropositions = this.state.shinyEncounter
             ? pickNRandomIn(ShinyItems, 3)
-            : (pveStage.getRewardsPropositions?.(player) ?? ([] as Item[]))
+            : pveStage.getRewardsPropositions?.(player) ?? ([] as Item[])
 
           resetArraySchema(player.pveRewardsPropositions, rewardsPropositions)
 
@@ -1372,7 +1364,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
             weather
           )
           player.simulationId = simulation.id
-          player.team = Team.BLUE_TEAM
+          player.simulationTeamIndex = 0
           this.state.simulations.set(simulation.id, simulation)
         }
       })
@@ -1380,44 +1372,42 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
       const matchups = selectMatchups(this.state)
 
       matchups.forEach((matchup) => {
-        const { bluePlayer, redPlayer } = matchup
-        const weather = getWeather(bluePlayer.board, redPlayer.board)
+        const playerA = matchup.a,
+          playerB = matchup.b
+        const weather = getWeather(playerA.board, playerB.board)
         const simulationId = nanoid()
         const simulation = new Simulation(
           simulationId,
           this.room,
-          bluePlayer.board,
-          redPlayer.board,
-          bluePlayer,
-          redPlayer,
+          playerA.board,
+          playerB.board,
+          playerA as Player,
+          playerB as Player,
           this.state.stageLevel,
-          weather,
-          matchup.ghost
+          weather
         )
-        bluePlayer.simulationId = simulationId
-        bluePlayer.team = Team.BLUE_TEAM
-        bluePlayer.opponents.set(
-          redPlayer.id,
-          (bluePlayer.opponents.get(redPlayer.id) ?? 0) + 1
+        playerA.simulationId = simulationId
+        playerA.simulationTeamIndex = 0
+        playerA.opponents.set(
+          playerB.id,
+          (playerA.opponents.get(playerB.id) ?? 0) + 1
         )
-        bluePlayer.opponentId = redPlayer.id
-        bluePlayer.opponentName = matchup.ghost
-          ? `Ghost of ${redPlayer.name}`
-          : redPlayer.name
-        bluePlayer.opponentAvatar = redPlayer.avatar
-        bluePlayer.opponentTitle = redPlayer.title ?? ""
+        playerA.opponentId = playerB.id
+        playerA.opponentName = playerB.name
+        playerA.opponentAvatar = playerB.avatar
+        playerA.opponentTitle = playerB.title ?? ""
 
         if (!matchup.ghost) {
-          redPlayer.simulationId = simulationId
-          redPlayer.team = Team.RED_TEAM
-          redPlayer.opponents.set(
-            bluePlayer.id,
-            (redPlayer.opponents.get(bluePlayer.id) ?? 0) + 1
+          playerB.simulationId = simulationId
+          playerB.simulationTeamIndex = 1
+          playerB.opponents.set(
+            playerA.id,
+            (playerB.opponents.get(playerA.id) ?? 0) + 1
           )
-          redPlayer.opponentId = bluePlayer.id
-          redPlayer.opponentName = bluePlayer.name
-          redPlayer.opponentAvatar = bluePlayer.avatar
-          redPlayer.opponentTitle = bluePlayer.title ?? ""
+          playerB.opponentId = playerA.id
+          playerB.opponentName = playerA.name
+          playerB.opponentAvatar = playerA.avatar
+          playerB.opponentTitle = playerA.title ?? ""
         }
 
         this.state.simulations.set(simulation.id, simulation)

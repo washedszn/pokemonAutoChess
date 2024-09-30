@@ -7,8 +7,8 @@ import { pickRandomIn } from "../utils/random"
 import { values } from "../utils/schemas"
 
 export type Matchup = {
-  bluePlayer: Player
-  redPlayer: Player
+  a: IPlayer
+  b: IPlayer
   count: number
   distance: number
   ghost?: boolean
@@ -18,13 +18,13 @@ function getAllPossibleMatchups(remainingPlayers: Player[]): Matchup[] {
   const matchups: Matchup[] = []
   for (let i = 0; i < remainingPlayers.length; i++) {
     for (let j = i + 1; j < remainingPlayers.length; j++) {
-      const bluePlayer = remainingPlayers[i],
-        redPlayer = remainingPlayers[j]
+      const a = remainingPlayers[i],
+        b = remainingPlayers[j]
       matchups.push({
-        bluePlayer,
-        redPlayer,
-        count: getCount(bluePlayer, redPlayer, false),
-        distance: getDistance(bluePlayer, redPlayer, false)
+        a,
+        b,
+        count: getCount(a, b, false),
+        distance: getDistance(a, b, false)
       })
     }
   }
@@ -36,8 +36,8 @@ function completeMatchupCombination(
   matchups: Matchup[],
   players: Player[]
 ): Matchup[][] {
-  const remainingPlayers: Player[] = players.filter(
-    (p) => !combination.some((m) => m.bluePlayer === p || m.redPlayer === p)
+  const remainingPlayers: IPlayer[] = players.filter(
+    (p) => !combination.some((m) => m.a === p || m.b === p)
   )
   if (remainingPlayers.length === 0)
     return [combination] // combination is complete
@@ -45,19 +45,22 @@ function completeMatchupCombination(
     // player count is odd, so we need to add one ghost matchup at the end of each combination
     const remainingPlayer = remainingPlayers[0]
     const ghostMatchups = matchups
-      .filter(
-        (m) =>
-          m.bluePlayer === remainingPlayer || m.redPlayer === remainingPlayer
-      )
+      .filter((m) => m.a === remainingPlayer || m.b === remainingPlayer)
       .map((matchup) => {
         const playerToGhost =
-          matchup.bluePlayer === remainingPlayer
-            ? matchup.redPlayer
-            : matchup.bluePlayer
+          matchup.a === remainingPlayer ? matchup.b : matchup.a
+        const ghost: IPlayer = {
+          /* dereference player so that money gain is not applied to original player when playing as ghost */
+          ...playerToGhost,
+          id: "ghost-" + playerToGhost.id,
+          name: `Ghost of ${playerToGhost.name}`,
+          avatar: playerToGhost.avatar,
+          ghost: true
+        }
         const ghostMatchup: Matchup = {
           ghost: true,
-          bluePlayer: remainingPlayer, // ensure remaining player is blue player and ghost is red player in ghost matchups
-          redPlayer: playerToGhost,
+          a: remainingPlayer, // ensure remaining player is player A and ghost is playerB in ghost round
+          b: ghost,
           count: getCount(remainingPlayer, playerToGhost, true),
           distance: getDistance(remainingPlayer, playerToGhost, true)
         }
@@ -67,9 +70,7 @@ function completeMatchupCombination(
     return ghostMatchups.map((m) => [...combination, m])
   } else {
     const remainingMatchups = matchups.filter(
-      (m) =>
-        remainingPlayers.includes(m.bluePlayer) &&
-        remainingPlayers.includes(m.redPlayer)
+      (m) => remainingPlayers.includes(m.a) && remainingPlayers.includes(m.b)
     )
     if (remainingMatchups.length === 0) {
       // no more matchups, need to complete with a ghost matchup

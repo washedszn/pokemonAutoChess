@@ -25,7 +25,6 @@ export const WeatherPassives: Map<Passive, Weather> = new Map([
   [Passive.STORM, Weather.STORM],
   [Passive.NIGHT, Weather.NIGHT],
   [Passive.WINDY, Weather.WINDY],
-  [Passive.LUGIA, Weather.WINDY],
   [Passive.AIRLOCK, Weather.NEUTRAL]
 ])
 

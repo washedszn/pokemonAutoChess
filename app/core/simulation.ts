@@ -60,7 +60,6 @@ export default class Simulation extends Schema implements ISimulation {
   redPlayer: Player | undefined
   stormLightningTimer = 0
   tidalwaveTimer = 0
-  isGhostBattle: boolean
 
   constructor(
     id: string,
@@ -70,8 +69,7 @@ export default class Simulation extends Schema implements ISimulation {
     bluePlayer: Player,
     redPlayer: Player | undefined,
     stageLevel: number,
-    weather: Weather,
-    isGhostBattle = false
+    weather: Weather
   ) {
     super()
     this.id = id
@@ -82,7 +80,6 @@ export default class Simulation extends Schema implements ISimulation {
     this.redPlayerId = redPlayer?.id ?? "pve"
     this.stageLevel = stageLevel
     this.weather = weather
-    this.isGhostBattle = isGhostBattle
 
     this.board = new Board(BOARD_HEIGHT, BOARD_WIDTH)
 
@@ -157,6 +154,7 @@ export default class Simulation extends Schema implements ISimulation {
               Effect.HEART_OF_THE_SWARM
             ].some((e) => effects.has(e))
           ) {
+            const teamIndex = team === blueTeam ? 0 : 1
             const bugTeam = new Array<IPokemon>()
             team.forEach((pkm) => {
               if (pkm.types.has(Synergy.BUG) && pkm.positionY != 0) {
@@ -186,9 +184,9 @@ export default class Simulation extends Schema implements ISimulation {
               )
               const coord = this.getClosestAvailablePlaceOnBoardToPokemon(
                 bugTeam[i],
-                player.team
+                teamIndex
               )
-              this.addPokemon(bug, coord.x, coord.y, player.team, true)
+              this.addPokemon(bug, coord.x, coord.y, teamIndex, true)
             }
           }
 
@@ -206,15 +204,16 @@ export default class Simulation extends Schema implements ISimulation {
             }
 
             if (pokemon.items.has(Item.ROTOM_PHONE)) {
+              const teamIndex = team === blueTeam ? 0 : 1
               const rotomDrone = PokemonFactory.createPokemonFromName(
                 Pkm.ROTOM_DRONE,
                 player
               )
               const coord = this.getClosestAvailablePlaceOnBoardToPokemon(
                 pokemon,
-                player.team
+                teamIndex
               )
-              this.addPokemon(rotomDrone, coord.x, coord.y, player.team, true)
+              this.addPokemon(rotomDrone, coord.x, coord.y, teamIndex, true)
             }
           })
         }
@@ -273,7 +272,7 @@ export default class Simulation extends Schema implements ISimulation {
     pokemon: IPokemon,
     x: number,
     y: number,
-    team: Team,
+    team: number,
     isClone = false
   ) {
     const pokemonEntity = new PokemonEntity(pokemon, x, y, team, this)
@@ -300,10 +299,10 @@ export default class Simulation extends Schema implements ISimulation {
     return pokemonEntity
   }
 
-  getFirstAvailablePlaceOnBoard(team: Team): { x: number; y: number } {
+  getFirstAvailablePlaceOnBoard(teamIndex: number): { x: number; y: number } {
     let candidateX = 0,
       candidateY = 0
-    if (team === Team.BLUE_TEAM) {
+    if (teamIndex === 0) {
       outerloop: for (let y = 0; y < this.board.rows; y++) {
         for (let x = 0; x < this.board.columns; x++) {
           if (this.board.getValue(x, y) === undefined) {
@@ -330,7 +329,7 @@ export default class Simulation extends Schema implements ISimulation {
   getClosestAvailablePlaceOnBoardTo(
     positionX: number,
     positionY: number,
-    team: Team
+    teamIndex: number
   ): { x: number; y: number } {
     const placesToConsiderByOrderOfPriority = [
       [0, 0],
@@ -371,8 +370,7 @@ export default class Simulation extends Schema implements ISimulation {
     ]
     for (const [dx, dy] of placesToConsiderByOrderOfPriority) {
       const x = positionX + dx
-      const y =
-        team === Team.BLUE_TEAM ? positionY - 1 + dy : 5 - (positionY - 1) - dy
+      const y = teamIndex === 0 ? positionY - 1 + dy : 5 - (positionY - 1) - dy
 
       if (
         x >= 0 &&
@@ -384,17 +382,17 @@ export default class Simulation extends Schema implements ISimulation {
         return { x, y }
       }
     }
-    return this.getFirstAvailablePlaceOnBoard(team)
+    return this.getFirstAvailablePlaceOnBoard(teamIndex)
   }
 
   getClosestAvailablePlaceOnBoardToPokemon(
     pokemon: IPokemon | IPokemonEntity,
-    team: Team
+    teamIndex: number
   ): { x: number; y: number } {
     return this.getClosestAvailablePlaceOnBoardTo(
       pokemon.positionX,
       pokemon.positionY,
-      team
+      teamIndex
     )
   }
 
@@ -482,15 +480,6 @@ export default class Simulation extends Schema implements ISimulation {
     if (item === Item.GOLD_BOTTLE_CAP && pokemon.player) {
       pokemon.addCritChance(pokemon.player.money, pokemon, 0, false)
       pokemon.addCritPower(pokemon.player.money / 100, pokemon, 0, false)
-    }
-
-    if (item === Item.REPEAT_BALL && pokemon.player) {
-      pokemon.addAbilityPower(
-        Math.floor(pokemon.player.rerollCount / 2),
-        pokemon,
-        0,
-        false
-      )
     }
 
     if (item === Item.SACRED_ASH) {
@@ -1519,8 +1508,8 @@ export default class Simulation extends Schema implements ISimulation {
       )
 
       if (this.winnerId === this.redPlayerId) {
-        if (this.bluePlayerId !== "pve" && !this.isGhostBattle) {
-          this.redPlayer.addMoney(1, true, null)
+        if (this.bluePlayerId !== "pve") {
+          this.redPlayer.addMoney(1)
           client?.send(Transfer.PLAYER_INCOME, 1)
         }
       } else {
@@ -1557,7 +1546,7 @@ export default class Simulation extends Schema implements ISimulation {
 
       if (this.winnerId === this.bluePlayerId) {
         if (this.redPlayerId !== "pve") {
-          this.bluePlayer.addMoney(1, true, null)
+          this.bluePlayer.addMoney(1)
           client?.send(Transfer.PLAYER_INCOME, 1)
         }
       } else {
@@ -1691,7 +1680,7 @@ export default class Simulation extends Schema implements ISimulation {
             if (cell.team === Team.RED_TEAM) {
               cell.status.clearNegativeStatus()
               if (cell.types.has(Synergy.AQUATIC)) {
-                cell.handleHeal(waveLevel * 0.1 * cell.hp, cell, 0, false)
+                cell.handleHeal(waveLevel * 0.05 * cell.hp, cell, 0, false)
               }
             } else {
               cell.handleDamage({

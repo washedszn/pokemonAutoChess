@@ -6,8 +6,8 @@ import { Item } from "../app/types/enum/Item"
 import { logger } from "../app/utils/logger"
 
 const itemsToReplace = new Map<string, Item>([
-  ["ORAN_BERRY", Item.KINGS_ROCK]
-  //["LEFTOVERS", Item.SOOTHE_BELL] // soothe bell has been replaced to Protective Pads in 5.6
+  ["ORAN_BERRY", Item.KINGS_ROCK],
+  ["LEFTOVERS", Item.SOOTHE_BELL]
 ])
 
 async function main() {

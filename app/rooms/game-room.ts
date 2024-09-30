@@ -108,7 +108,6 @@ export default class GameRoom extends Room<GameState> {
     noElo: boolean
     gameMode: GameMode
     minRank: EloRank | null
-    maxRank: EloRank | null
     tournamentId: string | null
     bracketId: string | null
   }) {
@@ -135,8 +134,7 @@ export default class GameRoom extends Room<GameState> {
         options.name,
         options.noElo,
         options.gameMode,
-        options.minRank,
-        options.maxRank
+        options.minRank
       )
     )
     this.miniGame.create(
@@ -682,6 +680,7 @@ export default class GameRoom extends Room<GameState> {
             if (rank === 1) {
               usr.wins += 1
               if (this.state.gameMode === GameMode.RANKED) {
+                usr.booster += 1
                 player.titles.add(Title.VANQUISHER)
                 const minElo = Math.min(
                   ...values(this.state.players).map((p) => p.elo)
@@ -689,7 +688,7 @@ export default class GameRoom extends Room<GameState> {
                 if (usr.elo === minElo && humans.length >= 8) {
                   player.titles.add(Title.OUTSIDER)
                 }
-                //this.presence.publish("ranked-lobby-winner", player)
+                this.presence.publish("ranked-lobby-winner", player)
               }
             }
 
@@ -901,9 +900,16 @@ export default class GameRoom extends Room<GameState> {
         )
         if (pokemonEvolved) {
           hasEvolved = true
-
-          // check item evolution rule after count evolution (example: Porygon-2)
+          // check item evolution rule after count evolution (example: Clefairy)
           this.checkEvolutionsAfterItemAcquired(playerId, pokemonEvolved)
+
+          if (
+            pokemonEvolved.items.has(Item.RARE_CANDY) &&
+            pokemonEvolved.evolution === Pkm.DEFAULT
+          ) {
+            player.items.push(Item.RARE_CANDY)
+            pokemonEvolved.items.delete(Item.RARE_CANDY)
+          }
         }
       }
     })
@@ -997,9 +1003,6 @@ export default class GameRoom extends Room<GameState> {
         this.state.additionalPokemons.push(pkm as Pkm)
         this.state.shop.addAdditionalPokemon(pkm)
       }
-
-      // update regional pokemons in case some regional variants of add picks are now available
-      this.state.players.forEach((p) => p.updateRegionalPool(this.state, false))
 
       if (
         player.itemsProposition.length > 0 &&

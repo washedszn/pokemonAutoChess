@@ -11,7 +11,7 @@ export enum Rarity {
 }
 
 export enum GameMode {
-  CUSTOM_LOBBY = "CUSTOM_LOBBY",
+  NORMAL = "NORMAL",
   QUICKPLAY = "QUICKPLAY",
   RANKED = "RANKED",
   SCRIBBLE = "SCRIBBLE",
@@ -114,8 +114,8 @@ export enum Damage {
 }
 
 export enum Team {
-  BLUE_TEAM = 0,
-  RED_TEAM = 1
+  BLUE_TEAM,
+  RED_TEAM
 }
 
 export enum BoardEvent {

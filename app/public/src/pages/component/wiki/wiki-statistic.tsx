@@ -16,73 +16,73 @@ export default function WikiStatistic() {
     <ul className="wiki-stat">
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/HP.png"></img>
-        <h2>{t("stat.HEALTH_POINTS")}</h2>
+        <p>{t("stat.HEALTH_POINTS")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.HP"))}
         </p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/SHIELD.png"></img>
-        <h2>{t("stat.SHIELD")}</h2>
+        <p>{t("stat.SHIELD")}</p>
         <p className="description">{t("stat_description.SHIELD")}</p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/DEF.png"></img>
-        <h2>{t("stat.DEF")}</h2>
+        <p>{t("stat.DEF")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.DEF"))}
         </p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/SPE_DEF.png"></img>
-        <h2>{t("stat.SPE_DEF")}</h2>
+        <p>{t("stat.SPE_DEF")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.SPE_DEF"))}
         </p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/PP.png"></img>
-        <h2>{t("stat.POWER_POINTS")}</h2>
+        <p>{t("stat.POWER_POINTS")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.MAX_PP"))}
         </p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/AP.png"></img>
-        <h2>{t("stat.AP")}</h2>
+        <p>{t("stat.AP")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.AP"))}
         </p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/ATK.png"></img>
-        <h2>{t("stat.ATK")}</h2>
+        <p>{t("stat.ATK")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.ATK"))}
         </p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/RANGE.png"></img>
-        <h2>{t("stat.RANGE")}</h2>
+        <p>{t("stat.RANGE")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.RANGE"))}
         </p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/ATK_SPEED.png"></img>
-        <h2>{t("stat.ATK_SPEED")}</h2>
+        <p>{t("stat.ATK_SPEED")}</p>
         <p className="description">{t("stat_description.ATK_SPEED")}</p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/CRIT_CHANCE.png"></img>
-        <h2>{t("stat.CRIT_CHANCE")}</h2>
+        <p>{t("stat.CRIT_CHANCE")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.CRIT_CHANCE"))}
         </p>
       </li>
       <li className="my-box">
         <img style={imgStyle} src="assets/icons/CRIT_POWER.png"></img>
-        <h2>{t("stat.CRIT_POWER")}</h2>
+        <p>{t("stat.CRIT_POWER")}</p>
         <p className="description">
           {addIconsToDescription(t("stat_description.CRIT_POWER"))}
         </p>

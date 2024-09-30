@@ -596,7 +596,7 @@ export class MiniGame {
         if (avatar.portalId && this.portals?.has(avatar.portalId)) {
           const portal = this.portals.get(avatar.portalId)!
           player.map = portal.map
-          player.updateRegionalPool(state, true)
+          player.updateRegionalPool(state)
         }
 
         const symbols = this.symbolsByPortal.get(avatar.portalId) ?? []

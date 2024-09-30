@@ -4,12 +4,6 @@
   max-width: 100%;
 }
 
-#wiki-page h2 {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 #wiki-page ul {
   padding: 0;
 }
@@ -56,7 +50,7 @@
 #wiki-page .wiki-pokemons .pokemon-typeahead {
   float: right;
   font-size: 80%;
-  padding: 0px 16px 0px 8px;
+  padding: 0px 36px 0px 16px;
 }
 
 #wiki-page p.description {
@@ -70,6 +64,7 @@
 #wiki-page .wiki-faq details {
   margin-bottom: 0.5em;
 }
+
 
 #wiki-page .wiki-status,
 #wiki-page .wiki-stat {
@@ -92,10 +87,6 @@
   font-size: 2rem;
 }
 
-#wiki-page .wiki-stat h2 {
-  margin: 0;
-}
-
 #wiki-page .wiki-stat li {
   list-style: none;
   display: grid;
@@ -104,7 +95,7 @@
 
 #wiki-page .wiki-status li > img,
 #wiki-page .wiki-stat li > img {
-  grid-row: 1 / 3;
+  grid-row: 1/3;
   width: 100%;
 }
 
@@ -115,6 +106,11 @@
 
 #wiki-page .wiki-status li .status-label {
   white-space: initial;
+}
+
+#wiki-page .wiki-stat p:first-of-type {
+  font-size: 120%;
+  margin: 0.25em 0;
 }
 
 #wiki-page .wiki-tutorials ul {
@@ -182,20 +178,20 @@
   gap: 5px;
 }
 
-#wiki-regions > ul {
+#wiki-dungeon > ul {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(20em, 1fr));
   gap: 0.5em;
 }
 
-#wiki-regions > ul > .my-box {
+#wiki-dungeon > ul > .my-box {
   display: flex;
   flex-direction: column;
   gap: 0.5em;
   position: relative;
 }
 
-#wiki-regions > ul > .my-box > img {
+#wiki-dungeon > ul > .my-box > img {
   border: 1px solid #000000;
   border-radius: 4px;
   box-shadow: 2px 2px 0 #00000060;
@@ -204,19 +200,19 @@
   object-fit: cover;
 }
 
-#wiki-regions .my-box h2 {
+#wiki-dungeon .my-box h2 {
   margin: 0;
   font-size: 1.5rem;
 }
 
-#wiki-regions .wiki-regional-mons {
+#wiki-dungeon .wiki-dungeon-regional-mons {
   position: absolute;
   bottom: 1em;
   left: 1em;
   right: 1em;
   display: flex;
   gap: 5px;
-  flex-wrap: wrap;
+  flex-wrap: wrap
 }
 
 #wiki-weather .my-box header {
@@ -256,7 +252,7 @@
 }
 
 #wiki-ability .my-box p {
-  font-size: 0.8em;
+    font-size: 0.8em;
 }
 
 #wiki-items {
