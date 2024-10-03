@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Tab, TabList, TabPanel, Tabs } from "react-tabs"
 import WikiAbility from "./wiki-ability"
 import WikiPokemons from "./wiki-pokemons"
-import WikiRegions from "./wiki-regions"
+import { WikiDungeon } from "./wiki-dungeon"
 import WikiData from "./wiki-data"
 import WikiFaq from "./wiki-faq"
 import WikiItems from "./wiki-items"
@@ -69,7 +69,7 @@ export default function Wiki({ inGame = false }: { inGame: boolean }) {
           <WikiWeather />
         </TabPanel>
         <TabPanel key="dungeon">
-          <WikiRegions />
+          <WikiDungeon />
         </TabPanel>
         <TabPanel key="data">
           <WikiData />

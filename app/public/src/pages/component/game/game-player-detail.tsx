@@ -1,20 +1,29 @@
+import { ArraySchema } from "@colyseus/schema"
 import React, { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { IPlayer } from "../../../../../types"
+import HistoryItem from "../../../../../models/colyseus-models/history-item"
+import Synergies from "../../../../../models/colyseus-models/synergies"
 import { SynergyTriggers } from "../../../../../types/Config"
 import { BattleResult } from "../../../../../types/enum/Game"
 import { getAvatarSrc } from "../../../utils"
 import { Life } from "../icons/life"
 import { Money } from "../icons/money"
 
-export default function GamePlayerDetail(props: { player: IPlayer }) {
+export default function GamePlayerDetail(props: {
+  name: string
+  life: number
+  money: number
+  level: number
+  history: ArraySchema<HistoryItem>
+  synergies: Synergies
+}) {
   const { t } = useTranslation()
   const synergyList = useMemo(
     () =>
-      Object.entries(props.player.synergies)
+      Object.entries(props.synergies)
         .filter(([syn, val]) => val >= SynergyTriggers[syn][0])
         .map(([syn]) => syn),
-    [props.player.synergies]
+    [props.synergies]
   )
 
   return (
@@ -26,19 +35,19 @@ export default function GamePlayerDetail(props: { player: IPlayer }) {
           alignItems: "center"
         }}
       >
-        <span className="player-name">{props.player.name}</span>
+        <span className="player-name">{props.name}</span>
         <span>
-          {t("lvl")} {props.player.experienceManager.level}
+          {t("lvl")} {props.level}
         </span>
         <span>
-          <Life value={props.player.life} />
+          <Life value={props.life} />
         </span>
         <span>
-          <Money value={props.player.money} />
+          <Money value={props.money} />
         </span>
       </div>
       <div style={{ display: "flex", justifyContent: "start" }}>
-        {props.player.history.slice(-5).map((record, i) => {
+        {props.history.slice(-5).map((record, i) => {
           return (
             <div
               key={`${record.name}${i}_game-player-detail`}
@@ -55,14 +64,14 @@ export default function GamePlayerDetail(props: { player: IPlayer }) {
                     record.result === BattleResult.WIN
                       ? "4px solid #4aa52e"
                       : record.result === BattleResult.DRAW
-                        ? "4px solid #cc6a28"
-                        : "4px solid #8c2022",
+                      ? "4px solid #cc6a28"
+                      : "4px solid #8c2022",
                   marginLeft: "6px",
                   borderRadius: "12px"
                 }}
                 src={getAvatarSrc(record.avatar)}
               />
-              <p style={{ fontSize: "80%" }}>
+              <p>
                 {(record.id === "pve" ? t(record.name) : record.name).slice(
                   0,
                   5
@@ -76,7 +85,7 @@ export default function GamePlayerDetail(props: { player: IPlayer }) {
         {synergyList.map((synergy, i) => {
           return (
             <div
-              key={`${props.player.name}_${synergy}${i}_game-player-detail`}
+              key={`${props.name}_${synergy}${i}_game-player-detail`}
               style={{
                 display: "flex",
                 justifyContent: "space-around",
@@ -93,12 +102,6 @@ export default function GamePlayerDetail(props: { player: IPlayer }) {
             </div>
           )
         })}
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-evenly" }}>
-        <span>{t("total")}</span>
-        <span title={t("total_money_earned")}><img src="assets/icons/money.svg" alt="$" style={{ width: "24px", height: "24px" }} /> {props.player.totalMoneyEarned}</span>
-        <span title={t("total_player_damage_dealt")}><img src="assets/icons/ATK.png" alt="✊" style={{ width: "24px", height: "24px" }} />{props.player.totalPlayerDamageDealt}</span>
-        <span title={t("total_reroll_count")}><img src="assets/ui/refresh.svg" alt="↻" style={{ width: "24px", height: "24px" }} /> {props.player.rerollCount}</span>
       </div>
     </div>
   )

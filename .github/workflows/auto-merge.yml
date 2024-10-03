@@ -25,9 +25,9 @@ jobs:
           git remote add upstream https://github.com/keldaanCommunity/pokemonAutoChess.git
           git fetch upstream
 
-      - name: Merge upstream/master into current branch with 'theirs' strategy
+      - name: Merge upstream/prod into current branch with 'theirs' strategy
         run: |
-          git merge upstream/master --no-ff --allow-unrelated-histories -X theirs || echo "Merge conflict detected"
+          git merge upstream/prod --no-ff --allow-unrelated-histories -X theirs || echo "Merge conflict detected"
 
       - name: Keep local versions of custom files
         run: |

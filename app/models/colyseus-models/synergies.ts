@@ -32,10 +32,6 @@ export default class Synergies
     })
     return count
   }
-
-  isActiveSynergy(syn: Synergy, lvl: number) {
-    return lvl >= SynergyTriggers[syn][0]
-  }
 }
 
 export function computeSynergies(board: IPokemon[]): Map<Synergy, number> {

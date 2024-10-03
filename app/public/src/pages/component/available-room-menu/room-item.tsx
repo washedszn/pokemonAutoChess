@@ -7,7 +7,6 @@ import {
   MAX_PLAYERS_PER_GAME
 } from "../../../../../types/Config"
 import { GameMode } from "../../../../../types/enum/Game"
-import { getRank } from "../../../../../utils/elo"
 import { useAppSelector } from "../../../hooks"
 import { cc } from "../../utils/jsx"
 import "./room-item.css"
@@ -54,12 +53,6 @@ export default function RoomItem(props: {
   ) {
     canJoin = false
     disabledReason = t("min_rank_not_reached")
-  } else if (
-    props.room.metadata?.maxRank != null &&
-    (user?.elo && EloRankThreshold[getRank(user.elo)] > EloRankThreshold[props.room.metadata?.maxRank])
-  ) {
-    canJoin = false
-    disabledReason = t("max_rank_not_reached")
   }
 
   const title = `${props.room.metadata?.ownerName ? "Owner: " + props.room.metadata?.ownerName : ""}\n${props.room.metadata?.playersInfo?.join("\n")}`
@@ -86,7 +79,7 @@ export default function RoomItem(props: {
         />
       )}
       {props.room.metadata?.noElo &&
-        props.room.metadata?.gameMode === GameMode.CUSTOM_LOBBY && (
+        props.room.metadata?.gameMode === GameMode.NORMAL && (
           <img
             alt={t("no_elo")}
             title={t("no_elo")}

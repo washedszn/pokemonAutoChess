@@ -67,10 +67,8 @@ export default class PreparationRoom extends Room<PreparationState> {
     ownerId?: string
     roomName: string
     minRank?: EloRank
-    maxRank?: EloRank
     gameMode: GameMode
     noElo?: boolean
-    password?: string
     autoStartDelayInSeconds?: number
     whitelist?: string[]
     blacklist?: string[]
@@ -91,7 +89,6 @@ export default class PreparationRoom extends Room<PreparationState> {
       ownerName:
         options.gameMode === GameMode.QUICKPLAY ? null : options.ownerId,
       minRank: options.minRank ?? null,
-      maxRank: options.maxRank ?? null,
       noElo: options.noElo ?? false,
       gameMode: options.gameMode,
       whitelist: options.whitelist ?? [],
@@ -100,12 +97,12 @@ export default class PreparationRoom extends Room<PreparationState> {
       tournamentId: options.tournamentId ?? null,
       bracketId: options.bracketId ?? null,
       gameStartedAt: null,
-      password: options.password ?? null,
+      password: null,
       type: "preparation"
     })
     this.maxClients = 8
     if (
-      options.gameMode !== GameMode.CUSTOM_LOBBY &&
+      options.gameMode !== GameMode.NORMAL &&
       options.gameMode !== GameMode.QUICKPLAY
     ) {
       this.autoDispose = false

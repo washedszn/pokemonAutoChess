@@ -115,7 +115,7 @@ export const RequiredStageLevelForXpElligibility = 10
 export const ExpPlace = [700, 500, 400, 300, 200, 150, 100, 50]
 
 export const RarityColor: { [key in Rarity]: string } = {
-  [Rarity.COMMON]: "#a0a0a0",
+  [Rarity.COMMON]: "#9f9f9f",
   [Rarity.UNCOMMON]: "#3bc95e",
   [Rarity.RARE]: "#41bfcc",
   [Rarity.EPIC]: "#ca6cee",
@@ -259,15 +259,7 @@ export const UniqueShop = new Array<PkmProposition>(
   Pkm.POIPOLE,
   Pkm.LUVDISC,
   Pkm.AUDINO,
-  Pkm.MANTYKE,
-  Pkm.DURANT,
-  Pkm.SKARMORY,
-  Pkm.SIGILYPH,
-  Pkm.OGERPON_TEAL,
-  Pkm.OGERPON_WELLSPRING,
-  Pkm.OGERPON_HEARTHFLAME,
-  Pkm.OGERPON_CORNERSTONE,
-  Pkm.IRON_HANDS
+  Pkm.MANTYKE
 )
 
 export const LegendaryShop = new Array<PkmProposition>(
@@ -318,8 +310,7 @@ export const LegendaryShop = new Array<PkmProposition>(
   Pkm.THUNDURUS,
   Pkm.LANDORUS,
   Pkm.ENAMORUS,
-  Pkm.MAGEARNA,
-  Pkm.MELMETAL
+  Pkm.MAGEARNA
 )
 
 export const NB_UNIQUE_PROPOSITIONS = 6
@@ -350,6 +341,14 @@ export const FishRarityProbability: {
     [Rarity.UNCOMMON]: 0.25,
     [Rarity.RARE]: 0.25,
     [Rarity.EPIC]: 0.1
+  },
+  [Item.GOLDEN_ROD]: {
+    [Rarity.SPECIAL]: 0.1,
+    [Rarity.COMMON]: 0.2,
+    [Rarity.UNCOMMON]: 0.25,
+    [Rarity.RARE]: 0.25,
+    [Rarity.EPIC]: 0.15,
+    [Rarity.ULTRA]: 0.05
   }
 }
 
@@ -674,10 +673,8 @@ export const ItemStats: Record<Item, { [stat in Stat]?: number }> = {
   [Item.OLD_ROD]: {},
   [Item.GOOD_ROD]: {},
   [Item.SUPER_ROD]: {},
-  [Item.RARE_CANDY]: {
-    [Stat.ATK_SPEED]: -20,
-    [Stat.AP]: -30
-  },
+  [Item.GOLDEN_ROD]: {},
+  [Item.RARE_CANDY]: {},
   [Item.EVIOLITE]: {
     [Stat.HP]: 100,
     [Stat.ATK]: 10,
@@ -690,7 +687,6 @@ export const ItemStats: Record<Item, { [stat in Stat]?: number }> = {
   [Item.COMET_SHARD]: { [Stat.ATK]: 12 },
   [Item.ABSORB_BULB]: { [Stat.DEF]: 8, [Stat.SPE_DEF]: 8 },
   [Item.WHITE_FLUTE]: {},
-  [Item.REPEAT_BALL]: {},
   [Item.DAMP_ROCK]: {},
   [Item.ICY_ROCK]: {},
   [Item.HEAT_ROCK]: {},
@@ -698,11 +694,7 @@ export const ItemStats: Record<Item, { [stat in Stat]?: number }> = {
   [Item.BLACK_AUGURITE]: {},
   [Item.POKERUS_VIAL]: {},
   [Item.ROTOM_PHONE]: {},
-  [Item.FIRE_SHARD]: {},
-  [Item.TEAL_MASK]: { [Stat.SHIELD]: 50 },
-  [Item.WELLSPRING_MASK]: { [Stat.SHIELD]: 50 },
-  [Item.CORNERSTONE_MASK]: { [Stat.SHIELD]: 50 },
-  [Item.HEARTHFLAME_MASK]: { [Stat.SHIELD]: 50 }
+  [Item.FIRE_SHARD]: {}
 }
 
 export type TilesetExchangeFile = {

@@ -1,10 +1,9 @@
 name: Build and Deploy Custom Docker Image
 
 on:
+  schedule:
+    - cron: '0 1 * * *' # Runs at 1:00 AM every day
   workflow_dispatch: # allows manual triggering of the workflow
-  push:
-    branches:
-      - master
 
 jobs:
   build:

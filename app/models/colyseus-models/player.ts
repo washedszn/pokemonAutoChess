@@ -129,7 +129,7 @@ export default class Player extends Schema implements IPlayer {
     this.lightX = state.lightX
     this.lightY = state.lightY
     this.map = pickRandomIn(DungeonPMDO)
-    this.updateRegionalPool(state, true)
+    this.updateRegionalPool(state)
 
     if (isBot) {
       this.loadingProgress = 100
@@ -176,9 +176,9 @@ export default class Player extends Schema implements IPlayer {
     }
   }
 
-  addMoney(value: number, countTotalEarned = true) {
+  addMoney(value: number) {
     this.money += value
-    if (countTotalEarned && value > 0) this.totalMoneyEarned += value
+    this.totalMoneyEarned += value
   }
 
   addBattleResult(
@@ -401,30 +401,40 @@ export default class Player extends Schema implements IPlayer {
     if (this.items.includes(Item.SUPER_ROD) && fishingLevel !== 3)
       removeInArray<Item>(this.items, Item.SUPER_ROD)
 
-    if (this.items.includes(Item.OLD_ROD) === false && fishingLevel === 1)
+    if (
+      this.items.includes(Item.OLD_ROD) === false &&
+      this.items.includes(Item.GOLDEN_ROD) === false &&
+      fishingLevel === 1
+    )
       this.items.push(Item.OLD_ROD)
-    if (this.items.includes(Item.GOOD_ROD) === false && fishingLevel === 2)
+    if (
+      this.items.includes(Item.GOOD_ROD) === false &&
+      this.items.includes(Item.GOLDEN_ROD) === false &&
+      fishingLevel === 2
+    )
       this.items.push(Item.GOOD_ROD)
-    if (this.items.includes(Item.SUPER_ROD) === false && fishingLevel === 3)
+    if (
+      this.items.includes(Item.SUPER_ROD) === false &&
+      this.items.includes(Item.GOLDEN_ROD) === false &&
+      fishingLevel === 3
+    )
       this.items.push(Item.SUPER_ROD)
   }
 
-  updateRegionalPool(state: GameState, mapChanged: boolean) {
+  updateRegionalPool(state: GameState) {
     const newRegionalPokemons = PRECOMPUTED_REGIONAL_MONS.filter((p) =>
       new PokemonClasses[p]().isInRegion(this.map, state)
     )
 
-    if (mapChanged) {
-      state.shop.resetRegionalPool(this)
-      newRegionalPokemons.forEach((p) => {
-        const isVariant = Object.values(PkmRegionalVariants).some((variants) =>
-          variants.includes(p)
-        )
-        if (getPokemonData(p).stars === 1 && !isVariant) {
-          state.shop.addRegionalPokemon(p, this)
-        }
-      })
-    }
+    state.shop.resetRegionalPool(this)
+    newRegionalPokemons.forEach((p) => {
+      const isVariant = Object.values(PkmRegionalVariants).some((variants) =>
+        variants.includes(p)
+      )
+      if (getPokemonData(p).stars === 1 && !isVariant) {
+        state.shop.addRegionalPokemon(p, this)
+      }
+    })
 
     resetArraySchema(
       this.regionalPokemons,

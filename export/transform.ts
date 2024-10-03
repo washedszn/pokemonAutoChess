@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "fs-extra"
 import { readdir } from "fs/promises"
-import { intToRGBA, Jimp, JimpInstance } from "jimp"
+import Jimp from "jimp"
 import {
   AnimatedFrame,
   DTEF_HEIGHT,
@@ -20,9 +20,6 @@ import { DungeonPMDO } from "../app/types/enum/Dungeon"
 
 const PMDO_EXPORT_DIRECTORY = "C:/Users/arnau/Desktop/RawAsset/TileDtef"
 let gid = 1
-
-/* jimp has some issus with the type definition as of 1.6.0 */
-type _JimpInstance = JimpInstance | Awaited<ReturnType<typeof Jimp.read>>
 
 async function getDirectories(source: string) {
   return (await readdir(source, { withFileTypes: true }))
@@ -81,7 +78,7 @@ async function createTilesheets(dungeon: string) {
   // for each tileset, detect the number of frames
   for (let i = 0; i < 3; i++) {
     const staticTileset = await Jimp.read(`${src}/tileset_${i}.png`)
-    await staticTileset.write(`${newSrc}/tileset_${i}.png`)
+    await staticTileset.writeAsync(`${newSrc}/tileset_${i}.png`)
 
     tilesetExchangeFile[`tileset_${i}`] = {
       static: {
@@ -126,24 +123,24 @@ async function createTilesetsTiled(src: string, dtefTileset: DtefTileset) {
 async function createTilesetTiled(
   src: string,
   name: string,
-  picture: _JimpInstance,
+  picture: Jimp,
   maskDefinition: MaskDefinition,
   firstgid: number,
   frameDuration?: number,
   numberOfFrames?: number
 ) {
   const tilesetTiled: TilesetTiled = {
-    columns: picture.width / DTEF_TILESET_TILE_WIDTH,
+    columns: picture.getWidth() / DTEF_TILESET_TILE_WIDTH,
     firstgid: firstgid,
     image: `${name}.png`,
-    imageheight: picture.height,
-    imagewidth: picture.width,
+    imageheight: picture.getHeight(),
+    imagewidth: picture.getWidth(),
     margin: 0,
     name: name,
     spacing: 0,
     tilecount:
-      (picture.width / DTEF_TILESET_TILE_WIDTH) *
-      (picture.height / DTEF_TILESET_TILE_WIDTH),
+      (picture.getWidth() / DTEF_TILESET_TILE_WIDTH) *
+      (picture.getHeight() / DTEF_TILESET_TILE_WIDTH),
     tileheight: DTEF_TILESET_TILE_WIDTH,
     tilewidth: DTEF_TILESET_TILE_WIDTH
   }
@@ -207,7 +204,7 @@ export function getTileId(
   return pixelY * DTEF_TILESET_WIDTH * 3 + pixelX
 }
 
-function getMaskDefinition(picture: _JimpInstance) {
+function getMaskDefinition(picture: Jimp) {
   const definition = {
     [TerrainType.WALL]: new Array<Mask>(),
     [TerrainType.WATER]: new Array<Mask>(),
@@ -238,16 +235,13 @@ async function getAnimatedFrames(
     while ((await getTilesets(src, `${tilesetName}_frame${j}`)).length > 0) {
       const frames = await getTilesets(src, `${tilesetName}_frame${j}`)
 
-      const megaTileset = new Jimp({
-        width: DTEF_WIDTH * 3,
-        height: DTEF_HEIGHT * frames.length
-      })
+      const megaTileset = new Jimp(DTEF_WIDTH * 3, DTEF_HEIGHT * frames.length)
       const frameDuration = frames[0].split(".")[1]
       for (let k = 0; k < frames.length; k++) {
         const picture = await Jimp.read(`${src}/${frames[k]}`)
-        megaTileset.blit({ src: picture, x: 0, y: DTEF_HEIGHT * k })
+        megaTileset.blit(picture, 0, DTEF_HEIGHT * k)
       }
-      await megaTileset.write(
+      await megaTileset.writeAsync(
         `tilesets/${dungeon}/${tilesetName}_frame${j}.png`
       )
       animatedFrames.push({
@@ -263,11 +257,7 @@ async function getAnimatedFrames(
   return animatedFrames
 }
 
-function isPixelValue(
-  picutre: _JimpInstance,
-  maskId: Mask,
-  terrain: TerrainType
-) {
+function isPixelValue(picutre: Jimp, maskId: Mask, terrain: TerrainType) {
   const maskCoordinate = MaskCoordinate[maskId]
   const pixelX = maskCoordinate.x + terrain * DTEF_TILESET_WIDTH
   const pixelY = maskCoordinate.y
@@ -276,7 +266,7 @@ function isPixelValue(
   for (let i = 0; i < DTEF_TILESET_TILE_WIDTH; i++) {
     for (let j = 0; j < DTEF_TILESET_TILE_WIDTH; j++) {
       if (
-        intToRGBA(
+        Jimp.intToRGBA(
           picutre.getPixelColor(
             pixelX * DTEF_TILESET_TILE_WIDTH + i,
             pixelY * DTEF_TILESET_TILE_WIDTH + j
@@ -291,11 +281,11 @@ function isPixelValue(
   return exist
 }
 
-function computeGid(picture: _JimpInstance) {
+function computeGid(picture: Jimp) {
   const firstGid = gid
   gid +=
-    (picture.width / DTEF_TILESET_TILE_WIDTH) *
-    (picture.height / DTEF_TILESET_TILE_WIDTH)
+    (picture.getWidth() / DTEF_TILESET_TILE_WIDTH) *
+    (picture.getHeight() / DTEF_TILESET_TILE_WIDTH)
   return firstGid
 }
 

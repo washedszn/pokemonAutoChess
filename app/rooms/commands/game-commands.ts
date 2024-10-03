@@ -405,7 +405,7 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
-    let pokemon = player.getPokemonAt(x, y)
+    const pokemon = player.getPokemonAt(x, y)
     if (pokemon === undefined) {
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
@@ -427,49 +427,8 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
-    if (
-      item === Item.TEAL_MASK ||
-      item === Item.WELLSPRING_MASK ||
-      item === Item.HEARTHFLAME_MASK ||
-      item === Item.CORNERSTONE_MASK
-    ) {
-      if (
-        pokemon.passive === Passive.OGERPON_TEAL ||
-        pokemon.passive === Passive.OGERPON_WELLSPRING ||
-        pokemon.passive === Passive.OGERPON_HEARTHFLAME ||
-        pokemon.passive === Passive.OGERPON_CORNERSTONE
-      ) {
-        if (pokemon.passive === Passive.OGERPON_TEAL) {
-          pokemon.items.delete(Item.TEAL_MASK)
-        } else if (pokemon.passive === Passive.OGERPON_WELLSPRING) {
-          pokemon.items.delete(Item.WELLSPRING_MASK)
-        } else if (pokemon.passive === Passive.OGERPON_HEARTHFLAME) {
-          pokemon.items.delete(Item.HEARTHFLAME_MASK)
-        } else if (pokemon.passive === Passive.OGERPON_CORNERSTONE) {
-          pokemon.items.delete(Item.CORNERSTONE_MASK)
-        }
-
-        if (item === Item.TEAL_MASK) {
-          pokemon.items.add(Item.TEAL_MASK)
-          player.transformPokemon(pokemon, Pkm.OGERPON_TEAL_MASK)
-        } else if (item === Item.WELLSPRING_MASK) {
-          pokemon.items.add(Item.WELLSPRING_MASK)
-          player.transformPokemon(pokemon, Pkm.OGERPON_WELLSPRING_MASK)
-        } else if (item === Item.HEARTHFLAME_MASK) {
-          pokemon.items.add(Item.HEARTHFLAME_MASK)
-          player.transformPokemon(pokemon, Pkm.OGERPON_HEARTHFLAME_MASK)
-        } else if (item === Item.CORNERSTONE_MASK) {
-          pokemon.items.add(Item.CORNERSTONE_MASK)
-          player.transformPokemon(pokemon, Pkm.OGERPON_CORNERSTONE_MASK)
-        }
-      } else {
-        client.send(Transfer.DRAG_DROP_FAILED, message)
-        return
-      }
-    }
-
     if (item === Item.FIRE_SHARD) {
-      if (pokemon.types.has(Synergy.FIRE)) {
+      if (pokemon.types.has(Synergy.FIRE) && player.life > 2) {
         pokemon.atk += 2
         player.life = min(1)(player.life - 2)
         removeInArray(player.items, item)
@@ -487,12 +446,46 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
+    if (item === Item.GOLDEN_ROD) {
+      let needsRecomputingSynergiesAgain = false
+      pokemon?.items.forEach((item) => {
+        pokemon.items.delete(item)
+        player.items.push(item)
+        if (item in SynergyGivenByItem) {
+          const type = SynergyGivenByItem[item]
+          const nativeTypes = getPokemonData(pokemon.name).types
+          if (nativeTypes.includes(type) === false) {
+            pokemon.types.delete(type)
+            if (!isOnBench(pokemon)) {
+              needsRecomputingSynergiesAgain = true
+            }
+          }
+        }
+      })
+      if (needsRecomputingSynergiesAgain) {
+        player.updateSynergies()
+      }
+      client.send(Transfer.DRAG_DROP_FAILED, message)
+      return
+    }
+
     if (!pokemon.canHoldItems) {
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
     }
 
     if (item === Item.EVIOLITE && pokemon.evolution === Pkm.DEFAULT) {
+      client.send(Transfer.DRAG_DROP_FAILED, message)
+      return
+    }
+
+    if (
+      item === Item.RARE_CANDY &&
+      (pokemon.evolution === Pkm.DEFAULT ||
+        pokemon.rarity === Rarity.UNIQUE ||
+        pokemon.rarity === Rarity.LEGENDARY ||
+        pokemon.rarity === Rarity.HATCH)
+    ) {
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
     }
@@ -537,19 +530,6 @@ export class OnDragDropItemCommand extends Command<
       // prevent adding twitce the same completed item
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
-    }
-
-    if (item === Item.RARE_CANDY) {
-      const evolution = pokemon?.evolution
-      if (
-        !evolution ||
-        evolution === Pkm.DEFAULT ||
-        pokemon.items.has(Item.EVIOLITE)
-      ) {
-        client.send(Transfer.DRAG_DROP_FAILED, message)
-        return
-      }
-      pokemon = player.transformPokemon(pokemon, evolution)
     }
 
     if (isBasicItem && existingBasicItemToCombine) {
@@ -624,8 +604,12 @@ export class OnSellDropCommand extends Command<
 
       if (pokemon) {
         this.state.shop.releasePokemon(pokemon.name, player)
-        const sellPrice = getSellPrice(pokemon, this.state.specialGameRule)
-        player.addMoney(sellPrice, false)
+        const sellPrice = getSellPrice(
+          pokemon.name,
+          pokemon.shiny,
+          this.state.specialGameRule
+        )
+        player.addMoney(sellPrice)
         pokemon.items.forEach((it) => {
           player.items.push(it)
         })
@@ -1087,9 +1071,6 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           this.state.shop.addAdditionalPokemon(p)
         }
       })
-
-      // update regional pokemons in case some regional variants of add picks are now available
-      this.state.players.forEach((p) => p.updateRegionalPool(this.state, false))
     }
 
     const isAfterPVE = this.state.stageLevel - 1 in PVEStages
@@ -1122,6 +1103,15 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
       for (let i = 0; i < nbTrees; i++) {
         player.berryTreesStage[i] = max(3)(player.berryTreesStage[i] + 1)
       }
+
+      player.board.forEach((pokemon) => {
+        if (
+          pokemon.items.has(Item.RARE_CANDY) &&
+          pokemon.evolution !== Pkm.DEFAULT
+        ) {
+          this.room.spawnOnBench(player, PkmFamily[pokemon.name])
+        }
+      })
     })
 
     this.spawnWanderingPokemons()
@@ -1354,7 +1344,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
 
           const rewardsPropositions = this.state.shinyEncounter
             ? pickNRandomIn(ShinyItems, 3)
-            : (pveStage.getRewardsPropositions?.(player) ?? ([] as Item[]))
+            : pveStage.getRewardsPropositions?.(player) ?? ([] as Item[])
 
           resetArraySchema(player.pveRewardsPropositions, rewardsPropositions)
 

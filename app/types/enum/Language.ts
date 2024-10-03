@@ -10,6 +10,5 @@ export enum Language {
   bg = "bg",
   ko = "ko",
   pl = "pl",
-  vi = "vi",
-  th = "th"
+  vi = "vi"
 }

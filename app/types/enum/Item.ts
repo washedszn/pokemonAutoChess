@@ -98,6 +98,7 @@ export enum Item {
   OLD_ROD = "OLD_ROD",
   GOOD_ROD = "GOOD_ROD",
   SUPER_ROD = "SUPER_ROD",
+  GOLDEN_ROD = "GOLDEN_ROD",
   RARE_CANDY = "RARE_CANDY",
   EVIOLITE = "EVIOLITE",
   WHITE_FLUTE = "WHITE_FLUTE",
@@ -105,17 +106,12 @@ export enum Item {
   ABSORB_BULB = "ABSORB_BULB",
   SACRED_ASH = "SACRED_ASH",
   COMET_SHARD = "COMET_SHARD",
-  REPEAT_BALL = "REPEAT_BALL",
   DAMP_ROCK = "DAMP_ROCK",
   ICY_ROCK = "ICY_ROCK",
   HEAT_ROCK = "HEAT_ROCK",
   SMOOTH_ROCK = "SMOOTH_ROCK",
   BLACK_AUGURITE = "BLACK_AUGURITE",
-  FIRE_SHARD = "FIRE_SHARD",
-  TEAL_MASK = "TEAL_MASK",
-  WELLSPRING_MASK = "WELLSPRING_MASK",
-  CORNERSTONE_MASK = "CORNERSTONE_MASK",
-  HEARTHFLAME_MASK = "HEARTHFLAME_MASK"
+  FIRE_SHARD = "FIRE_SHARD"
 }
 
 export const AllItems: Item[] = Object.values(Item)
@@ -124,10 +120,6 @@ export const AllItems: Item[] = Object.values(Item)
 export const SpecialItems: Item[] = [
   Item.COMFEY,
   Item.METEORITE,
-  Item.TEAL_MASK,
-  Item.WELLSPRING_MASK,
-  Item.CORNERSTONE_MASK,
-  Item.HEARTHFLAME_MASK,
   Item.BERRY_JUICE,
   Item.FIRE_SHARD,
   Item.OLD_ROD,
@@ -137,6 +129,7 @@ export const SpecialItems: Item[] = [
 ]
 
 export const FishingRods = [
+  Item.GOLDEN_ROD,
   Item.SUPER_ROD,
   Item.GOOD_ROD,
   Item.OLD_ROD
@@ -247,14 +240,14 @@ export const ArtificialItems: Item[] = [
 export const ShinyItems: Item[] = [
   Item.DYNAMAX_BAND,
   Item.SHINY_STONE,
+  Item.GOLDEN_ROD,
   Item.RARE_CANDY,
   Item.EVIOLITE,
   Item.WHITE_FLUTE,
   Item.GOLD_BOTTLE_CAP,
   Item.ABSORB_BULB,
   Item.SACRED_ASH,
-  Item.COMET_SHARD,
-  Item.REPEAT_BALL
+  Item.COMET_SHARD
 ]
 
 export const WeatherRocks: Item[] = [
