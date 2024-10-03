@@ -5,12 +5,12 @@ module.exports = {
   apps: [{
     name: "colyseus",
     script: "./app/public/dist/server/app/index.js", // your entrypoint file
-    node_args: "--max-old-space-size=1300 --expose-gc",
     instances: os.cpus().length,
     exec_mode: "fork",         // IMPORTANT: do not use cluster mode.
     watch: false,
     time: true,
     wait_ready: true,
+    memory_restart: "1200M",
     env_production: {
       NODE_ENV: "production"
     },
