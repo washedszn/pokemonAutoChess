@@ -12,9 +12,13 @@ npm run build
 echo "Downloading music..."
 npm run download-music
 
-# run asset pack
+# Run asset pack
 echo "Building assets..."
 npm run assetpack
+
+# Sync the MongoDB with the latest data
+echo "Running initial MongoDB data sync..."
+node /app/syncDatabase.js &
 
 # Start the application
 echo "Starting the application..."
