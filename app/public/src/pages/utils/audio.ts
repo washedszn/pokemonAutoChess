@@ -36,7 +36,7 @@ export function preloadSounds() {
 
 export function preloadMusic(scene: Scene, dungeonMusic: DungeonMusic) {
   scene.load.audio("music_" + dungeonMusic, [
-    `https://raw.githubusercontent.com/keldaanCommunity/pokemonAutoChessMusic/refs/heads/main/ogg/${dungeonMusic}.ogg`
+    `assets/musics/ogg/${dungeonMusic}.ogg`
   ])
 }
 

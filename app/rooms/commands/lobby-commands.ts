@@ -1,9 +1,7 @@
-import path from "path"
 import { Command } from "@colyseus/command"
-import { Client, RoomListingData, matchMaker } from "colyseus"
-import { createWriteStream } from "fs-extra"
+import { Client, matchMaker } from "colyseus"
 import { nanoid } from "nanoid"
-import { getHeapSnapshot } from "v8"
+import { writeHeapSnapshot } from "v8"
 import {
   getRemainingPlayers,
   getTournamentStage,
@@ -46,7 +44,8 @@ import {
   BoosterRarityProbability,
   DUST_PER_BOOSTER,
   DUST_PER_SHINY,
-  getEmotionCost
+  getEmotionCost,
+  MAX_PLAYERS_PER_GAME
 } from "../../types/Config"
 import { CloseCodes } from "../../types/enum/CloseCodes"
 import { EloRank } from "../../types/enum/EloRank"
@@ -56,6 +55,7 @@ import { Pkm, PkmIndex, Unowns } from "../../types/enum/Pokemon"
 import { StarterAvatars } from "../../types/enum/Starters"
 import { ITournamentPlayer } from "../../types/interfaces/Tournament"
 import { sum } from "../../utils/array"
+import { getRank } from "../../utils/elo"
 import { logger } from "../../utils/logger"
 import { cleanProfanity } from "../../utils/profanity-filter"
 import { chance, pickRandomIn } from "../../utils/random"
@@ -171,27 +171,9 @@ export class GiveTitleCommand extends Command<
 }
 
 export class HeapSnapshotCommand extends Command<CustomLobbyRoom> {
-  async execute() {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
-    const filename = path.join(
-      process.cwd(),
-      `heap-snapshot-${timestamp}.heapsnapshot`
-    )
-
-    logger.info(`Starting heap snapshot stream to ${filename}`)
-
-    try {
-      const snapshotStream = getHeapSnapshot()
-      const fileStream = createWriteStream(filename)
-
-      snapshotStream.pipe(fileStream as any)
-
-      snapshotStream.on("end", () => {
-        logger.info(`Heap snapshot successfully streamed to ${filename}`)
-      })
-    } catch (error) {
-      logger.error("Error while streaming heap snapshot:", error)
-    }
+  execute() {
+    logger.info("writing heap snapshot")
+    writeHeapSnapshot()
   }
 }
 
@@ -621,12 +603,16 @@ export class BuyEmotionCommand extends Command<
         }
       }
 
-      if (
-        !mongoUser.titles.includes(Title.DUKE) &&
-        mongoUser.pokemonCollection.size >= 30
-      ) {
-        mongoUser.titles.push(Title.DUKE)
+      if (!mongoUser.titles.includes(Title.DUKE)) {
+        let countProfile = 0
+        mongoUser.pokemonCollection.forEach((c) => {
+          countProfile += c.emotions.length + c.shinyEmotions.length
+        })
+        if (countProfile >= 30) {
+          mongoUser.titles.push(Title.DUKE)
+        }
       }
+
       if (
         emotion === Emotion.ANGRY &&
         index === PkmIndex[Pkm.ARBOK] &&
@@ -966,43 +952,114 @@ export class DeleteBotCommand extends Command<
     }
   }
 }
-export class OpenSpecialGameCommand extends Command<
+
+export class JoinOrOpenRoomCommand extends Command<
   CustomLobbyRoom,
-  { gameMode: GameMode; minRank?: EloRank | null; noElo?: boolean }
+  { client: Client; gameMode: GameMode }
 > {
-  execute({
+  async execute({ client, gameMode }: { client: Client; gameMode: GameMode }) {
+    const user = this.room.users.get(client.auth.uid)
+    if (!user) return
+
+    switch (gameMode) {
+      case GameMode.CUSTOM_LOBBY:
+        return [new OpenGameCommand().setPayload({ gameMode, client })]
+
+      case GameMode.QUICKPLAY: {
+        const existingQuickplay = this.room.rooms?.find(
+          (room) =>
+            room.metadata?.gameMode === GameMode.QUICKPLAY &&
+            room.clients < MAX_PLAYERS_PER_GAME
+        )
+        if (existingQuickplay) {
+          client.send(Transfer.REQUEST_ROOM, existingQuickplay.roomId)
+        } else {
+          return [new OpenGameCommand().setPayload({ gameMode, client })]
+        }
+        break
+      }
+
+      case GameMode.RANKED: {
+        const userRank = getRank(user.elo)
+        const existingRanked = this.room.rooms?.find(
+          (room) =>
+            room.metadata?.gameMode === GameMode.RANKED &&
+            room.metadata?.minRank === userRank &&
+            room.clients < MAX_PLAYERS_PER_GAME
+        )
+        if (existingRanked) {
+          client.send(Transfer.REQUEST_ROOM, existingRanked.roomId)
+        } else {
+          return [new OpenGameCommand().setPayload({ gameMode, client })]
+        }
+        break
+      }
+
+      case GameMode.SCRIBBLE: {
+        const existingScribble = this.room.rooms?.find(
+          (room) =>
+            room.metadata?.gameMode === GameMode.SCRIBBLE &&
+            room.clients < MAX_PLAYERS_PER_GAME
+        )
+        if (existingScribble) {
+          client.send(Transfer.REQUEST_ROOM, existingScribble.roomId)
+        } else {
+          return [new OpenGameCommand().setPayload({ gameMode, client })]
+        }
+        break
+      }
+    }
+  }
+}
+
+export class OpenGameCommand extends Command<
+  CustomLobbyRoom,
+  {
+    gameMode: GameMode
+    client: Client
+  }
+> {
+  async execute({
     gameMode,
-    minRank,
-    noElo
+    client
   }: {
     gameMode: GameMode
-    minRank?: EloRank | null
-    noElo?: boolean
+    client: Client
   }) {
-    logger.info(`Creating special game ${gameMode} ${minRank ?? ""}`)
-    let roomName = "Special game"
+    const user = this.room.users.get(client.auth.uid)
+    if (!user) return
+    let roomName = `${user.displayName}'${user.displayName.endsWith("s") ? "" : "s"} room`
+    let minRank: EloRank | null = null
+    let maxRank: EloRank | null = null
+    let noElo: boolean = false
+    let password: string | null = null
+    let ownerId: string | null = null
+
     if (gameMode === GameMode.RANKED) {
-      if (minRank === EloRank.GREATBALL) {
-        roomName = `Great Ball Ranked Match`
-      } else if (minRank === EloRank.ULTRABALL) {
-        roomName = `Ultra Ball Ranked Match`
-      } else {
-        roomName = `Ranked Match`
-      }
+      const rank = getRank(user.elo)
+      minRank = rank
+      maxRank = rank
+      roomName = `${rank} Ranked Match`
     } else if (gameMode === GameMode.SCRIBBLE) {
       roomName = "Smeargle's Scribble"
+      noElo = true
+    } else if (gameMode === GameMode.CUSTOM_LOBBY) {
+      ownerId = user.uid
+      password = Math.random().toString(36).substring(2, 6).toUpperCase()
+    } else if (gameMode === GameMode.QUICKPLAY) {
+      roomName = "Quick play"
     }
 
-    matchMaker.createRoom("preparation", {
+    const newRoom = await matchMaker.createRoom("preparation", {
       gameMode,
       minRank,
+      maxRank,
       noElo,
-      ownerId: null,
-      roomName,
-      autoStartDelayInSeconds: 15 * 60
+      password,
+      ownerId,
+      roomName
     })
-
-    this.state.getNextSpecialGame()
+    client.send(Transfer.REQUEST_ROOM, newRoom.roomId)
   }
 }
 

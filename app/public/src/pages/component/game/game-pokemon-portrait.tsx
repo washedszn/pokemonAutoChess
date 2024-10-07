@@ -24,7 +24,8 @@ export default function GamePokemonPortrait(props: {
   pokemon: Pokemon | Pkm | undefined
   click?: React.MouseEventHandler<HTMLDivElement>
   onMouseEnter?: React.MouseEventHandler<HTMLDivElement>
-  onMouseLeave?: React.MouseEventHandler<HTMLDivElement>
+  onMouseLeave?: React.MouseEventHandler<HTMLDivElement>,
+  inPlanner?: boolean
 }) {
   const pokemon = useMemo(
     () =>
@@ -132,7 +133,8 @@ export default function GamePokemonPortrait(props: {
     <div
       className={cc("my-box", "clickable", "game-pokemon-portrait", {
         shimmer: shouldShimmer,
-        disabled: !canBuy && props.origin === "shop"
+        disabled: !canBuy && props.origin === "shop",
+        planned: props.inPlanner ?? false
       })}
       style={{
         backgroundColor: rarityColor,
@@ -179,13 +181,20 @@ export default function GamePokemonPortrait(props: {
           />
         </div>
       )}
+      {props.inPlanner && (!willEvolve || !pokemonEvolution) && (
+        <img
+          src="/assets/ui/planned.png"
+          alt=""
+          className="game-pokemon-portrait-planned-icon"
+        />
+      )}
       {props.origin === "shop" && (
         <div className="game-pokemon-portrait-cost">
           <Money value={cost} />
         </div>
       )}
       <ul className="game-pokemon-portrait-types">
-        {Array.from(pokemon.types.values()).map((type) => {
+        {Array.from(pokemonInPortrait.types.values()).map((type) => {
           return (
             <li key={type}>
               <SynergyIcon type={type} />

@@ -25,10 +25,11 @@ export interface GameStateStore {
   noElo: boolean
   currentPlayerId: string
   currentSimulationId: string
-  currentSimulationTeamIndex: number
+  currentTeam: Team
   money: number
   interest: number
   streak: number
+  shopFreeRolls: number
   shopLocked: boolean
   experienceManager: IExperienceManager
   shop: Pkm[]
@@ -54,10 +55,11 @@ const initialState: GameStateStore = {
   noElo: false,
   currentPlayerId: "",
   currentSimulationId: "",
-  currentSimulationTeamIndex: 0,
+  currentTeam: Team.BLUE_TEAM,
   money: 5,
   interest: 0,
   streak: 0,
+  shopFreeRolls: 0,
   shopLocked: false,
   experienceManager: new ExperienceManager(),
   shop: new Array<Pkm>(),
@@ -107,6 +109,9 @@ export const gameSlice = createSlice({
     },
     setShopLocked: (state, action: PayloadAction<boolean>) => {
       state.shopLocked = action.payload
+    },
+    setShopFreeRolls: (state, action: PayloadAction<number>) => {
+      state.shopFreeRolls = action.payload
     },
     updateExperienceManager: (
       state,
@@ -184,8 +189,10 @@ export const gameSlice = createSlice({
         state.currentPlayerId === action.payload.redPlayerId
       ) {
         state.currentSimulationId = action.payload.id
-        state.currentSimulationTeamIndex =
-          state.currentPlayerId === action.payload.bluePlayerId ? 0 : 1
+        state.currentTeam =
+          state.currentPlayerId === action.payload.bluePlayerId
+            ? Team.BLUE_TEAM
+            : Team.RED_TEAM
         state.weather = action.payload.weather
         state.blueDpsMeter = new Array<IDps>()
         state.redDpsMeter = new Array<IDps>()
@@ -200,7 +207,7 @@ export const gameSlice = createSlice({
     setPlayer: (state, action: PayloadAction<IPlayer>) => {
       state.currentPlayerId = action.payload.id
       state.currentSimulationId = action.payload.simulationId
-      state.currentSimulationTeamIndex = action.payload.simulationTeamIndex
+      state.currentTeam = action.payload.team
       state.currentPlayerSynergies = Array.from(action.payload.synergies)
     },
     addDpsMeter: (
@@ -282,6 +289,7 @@ export const {
   setStreak,
   setInterest,
   setMoney,
+  setShopFreeRolls,
   setShopLocked,
   changePlayer,
   setShop,

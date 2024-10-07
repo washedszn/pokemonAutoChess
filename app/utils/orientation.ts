@@ -1,4 +1,4 @@
-import Board from "../core/board"
+import Board, { Cell } from "../core/board"
 import { PokemonEntity } from "../core/pokemon-entity"
 import { Orientation } from "../types/enum/Game"
 
@@ -28,7 +28,7 @@ export function effectInLine(
   board: Board,
   pokemon: PokemonEntity,
   target: PokemonEntity | Orientation,
-  effect: (target: PokemonEntity) => void
+  effect: (cell: Cell) => void
 ) {
   const orientation: Orientation =
     target instanceof PokemonEntity
@@ -45,11 +45,11 @@ export function effectInLine(
   const targetsHit = new Set()
 
   const applyEffect = (x: number, y: number) => {
-    const targetInLine = board.getValue(x, y)
-    if (targetInLine != null) {
-      effect(targetInLine)
-      targetsHit.add(targetInLine)
+    const value = board.getValue(x, y)
+    if (value != null) {
+      targetsHit.add(value)
     }
+    effect({ x, y, value })
   }
 
   switch (orientation) {
@@ -121,6 +121,6 @@ export function effectInLine(
   if (target instanceof PokemonEntity && targetsHit.has(target) === false) {
     // should at least touch the original target
     // this can happen when target has an angle in between 45 degrees modulo, see https://discord.com/channels/737230355039387749/1098262507505848523
-    effect(target)
+    effect({ x: target.positionX, y: target.positionY, value: target })
   }
 }

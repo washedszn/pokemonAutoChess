@@ -21,7 +21,6 @@ import {
   ILeaderboardBotInfo,
   ILeaderboardInfo
 } from "../../../types/interfaces/LeaderboardInfo"
-import { ISpecialGamePlanned } from "../../../types/interfaces/Lobby"
 
 export interface IUserLobbyState {
   botLogDatabase: string[]
@@ -38,7 +37,6 @@ export interface IUserLobbyState {
   boosterContent: PkmWithConfig[]
   suggestions: ISuggestionUser[]
   language: Language
-  nextSpecialGame: ISpecialGamePlanned | null
   tournaments: TournamentSchema[]
   ccu: number
 }
@@ -58,7 +56,6 @@ const initialState: IUserLobbyState = {
   preparationRooms: [],
   gameRooms: [],
   searchedUser: undefined,
-  nextSpecialGame: null,
   tournaments: [],
   ccu: 0
 }
@@ -147,10 +144,7 @@ export const lobbySlice = createSlice({
     setSuggestions: (state, action: PayloadAction<ISuggestionUser[]>) => {
       state.suggestions = action.payload
     },
-    leaveLobby: () => initialState,
-    setNextSpecialGame: (state, action: PayloadAction<ISpecialGamePlanned>) => {
-      state.nextSpecialGame = action.payload
-    },
+    resetLobby: () => initialState,
     addTournament: (state, action: PayloadAction<TournamentSchema>) => {
       // remove previous potential duplicate
       state.tournaments = state.tournaments.filter(
@@ -261,10 +255,9 @@ export const {
   removeRoom,
   setCcu,
   setSearchedUser,
-  leaveLobby,
+  resetLobby,
   setSuggestions,
   pushBotLog,
-  setNextSpecialGame,
   addTournament,
   removeTournament,
   changeTournament,

@@ -69,7 +69,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
   @type("uint8") attackType: AttackType
   @type("uint16") life: number
   @type("uint16") shield = 0
-  @type("uint8") team: number
+  @type("uint8") team: Team
   @type("uint8") range: number
   @type("float32") atkSpeed: number
   @type("int8") targetX = -1
@@ -263,7 +263,9 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       if (
         this.status.magicBounce &&
         attackType === AttackType.SPECIAL &&
-        damage > 0
+        damage > 0 &&
+        attacker &&
+        !attacker.items.has(Item.PROTECTIVE_PADS)
       ) {
         const bounceCrit =
           crit || (this.items.has(Item.REAPER_CLOTH) && chance(this.critChance))
@@ -274,7 +276,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
             (bounceCrit ? this.critPower : 1)
         )
         // not handleSpecialDamage to not trigger infinite loop between two magic bounces
-        attacker?.handleDamage({
+        attacker.handleDamage({
           damage: bounceDamage,
           board,
           attackType: AttackType.SPECIAL,
@@ -304,6 +306,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         this.items.has(Item.POWER_LENS) &&
         specialDamage >= 1 &&
         attacker &&
+        !attacker.items.has(Item.PROTECTIVE_PADS) &&
         attackType === AttackType.SPECIAL
       ) {
         attacker.handleDamage({
@@ -485,15 +488,21 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     apBoost: number,
     crit: boolean
   ) {
-    value =
-      value * (1 + (apBoost * caster.ap) / 100) * (crit ? caster.critPower : 1)
-    const currentAtkSpeedBonus = 100 * (this.atkSpeed / 0.75 - 1)
-    const atkSpeedBonus = currentAtkSpeedBonus + value
-    this.atkSpeed = clamp(
-      roundTo2Digits(0.75 * (1 + atkSpeedBonus / 100)),
-      0.4,
-      2.5
-    )
+    if (this.passive === Passive.MELMETAL) {
+      this.addAttack(value * 0.3, caster, apBoost, crit)
+    } else {
+      value =
+        value *
+        (1 + (apBoost * caster.ap) / 100) *
+        (crit ? caster.critPower : 1)
+      const currentAtkSpeedBonus = 100 * (this.atkSpeed / 0.75 - 1)
+      const atkSpeedBonus = currentAtkSpeedBonus + value
+      this.atkSpeed = clamp(
+        roundTo2Digits(0.75 * (1 + atkSpeedBonus / 100)),
+        0.4,
+        2.5
+      )
+    }
   }
 
   addPsychicField() {
@@ -609,6 +618,36 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       }
     }
 
+    if (this.status.stoneEdge) {
+      const tg = board.getValue(target.positionX, target.positionY)
+      if (tg) {
+        tg.handleDamage({
+          damage: Math.round(this.def * (1 + this.ap / 100)),
+          board,
+          attackType: AttackType.SPECIAL,
+          attacker: this,
+          shouldTargetGainMana: true
+        })
+      }
+    }
+
+    if (this.passive === Passive.DURANT) {
+      const bugAllies =
+        board.cells.filter(
+          (entity) =>
+            entity && entity.team === this.team && entity.types.has(Synergy.BUG)
+        ).length - 1
+      if (bugAllies > 0) {
+        target.handleDamage({
+          damage: bugAllies,
+          board,
+          attackType: AttackType.TRUE,
+          attacker: this,
+          shouldTargetGainMana: true
+        })
+      }
+    }
+
     if (
       this.name === Pkm.MINIOR_KERNEL_BLUE ||
       this.name === Pkm.MINIOR_KERNEL_GREEN ||
@@ -705,31 +744,6 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
           targetCount--
         }
       })
-    }
-
-    if (this.items.has(Item.SOOTHE_BELL)) {
-      let closestAlly: PokemonEntity | null = null
-      let minDistance = 16
-      board.forEach((x: number, y: number, ally: PokemonEntity | undefined) => {
-        if (ally && ally !== this && this.team === ally.team) {
-          const distanceToTarget = distanceC(
-            ally.positionX,
-            ally.positionY,
-            this.targetX,
-            this.targetY
-          )
-          if (distanceToTarget < minDistance) {
-            closestAlly = ally
-            minDistance = distanceToTarget
-          }
-        }
-      })
-
-      if (closestAlly != null) {
-        const closestAllyFound = closestAlly as PokemonEntity // typescript is dumb
-        const shield = Math.round(totalDamage * 0.33)
-        closestAllyFound.addShield(shield, this, 0, false)
-      }
     }
 
     if (this.items.has(Item.MANA_SCARF)) {
@@ -860,13 +874,13 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     if (this.types.has(Synergy.ICE)) {
       let freezeChance = 0
       if (this.effects.has(Effect.CHILLY)) {
-        freezeChance = 0.1
-      } else if (this.effects.has(Effect.FROSTY)) {
         freezeChance = 0.2
-      } else if (this.effects.has(Effect.FREEZING)) {
+      } else if (this.effects.has(Effect.FROSTY)) {
         freezeChance = 0.3
-      } else if (this.effects.has(Effect.SHEER_COLD)) {
+      } else if (this.effects.has(Effect.FREEZING)) {
         freezeChance = 0.4
+      } else if (this.effects.has(Effect.SHEER_COLD)) {
+        freezeChance = 0.5
       }
       if (chance(freezeChance)) {
         target.status.triggerFreeze(2000, target)
@@ -934,15 +948,28 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     }
 
     // Ability effects on hit
-    if (target.status.spikeArmor && this.range === 1) {
+    if (
+      target.status.spikeArmor &&
+      distanceC(
+        this.positionX,
+        this.positionY,
+        target.positionX,
+        target.positionY
+      ) === 1 &&
+      !this.items.has(Item.PROTECTIVE_PADS)
+    ) {
+      const damage = Math.round(target.def * (1 + target.ap / 100))
+      const crit =
+        target.items.has(Item.REAPER_CLOTH) && chance(target.critChance)
       this.status.triggerWound(2000, this, target)
-      this.handleDamage({
-        damage: Math.round(target.def * (1 + target.ap / 100)),
+      this.handleSpecialDamage(
+        damage,
         board,
-        attackType: AttackType.SPECIAL,
-        attacker: target,
-        shouldTargetGainMana: true
-      })
+        AttackType.SPECIAL,
+        target,
+        crit,
+        true
+      )
     }
 
     if (target.effects.has(Effect.SHELL_TRAP) && physicalDamage > 0) {
@@ -1223,7 +1250,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         target.positionY
       )
 
-      if (distance <= 1) {
+      if (distance <= 1 && this.items.has(Item.PROTECTIVE_PADS) === false) {
         // melee range
         this.handleSpecialDamage(
           shockDamage,
@@ -1261,7 +1288,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     }
 
     if (this.items.has(Item.AMULET_COIN) && this.player) {
-      this.player.addMoney(1)
+      this.player.addMoney(1, true, this)
       this.count.moneyCount += 1
       this.count.amuletCoinCount += 1
     }
@@ -1271,7 +1298,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         board.cells.some((p) => p && p.team !== this.team && p.life > 0) ===
         false
       const moneyGained = isLastEnemy ? 5 : 1
-      this.player.addMoney(moneyGained)
+      this.player.addMoney(moneyGained, true, this)
       this.count.moneyCount += moneyGained
     }
 
@@ -1546,7 +1573,10 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
 
         const spawns = pickNRandomIn(koAllies, 3)
         spawns.forEach((spawn) => {
-          const mon = PokemonFactory.createPokemonFromName(spawn.name)
+          const mon = PokemonFactory.createPokemonFromName(spawn.name, {
+            selectedEmotion: spawn.emotion,
+            selectedShiny: spawn.shiny
+          })
           const coord =
             this.simulation.getClosestAvailablePlaceOnBoardToPokemon(
               this,
@@ -1721,7 +1751,7 @@ export function getUnitScore(pokemon: PokemonEntity | IPokemon) {
   let score = 0
   score += 100 * pokemon.items.size
   score += 10 * pokemon.stars
-  score += getSellPrice(pokemon.name, pokemon.shiny)
+  score += getSellPrice(pokemon)
   return score
 }
 

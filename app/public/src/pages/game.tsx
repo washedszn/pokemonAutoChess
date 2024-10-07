@@ -18,7 +18,6 @@ import {
   IDragDropMessage,
   IExperienceManager,
   IPlayer,
-  ISimplePlayer,
   Role,
   Transfer
 } from "../../../types"
@@ -55,6 +54,7 @@ import {
   setPokemonProposition,
   setRoundTime,
   setShop,
+  setShopFreeRolls,
   setShopLocked,
   setStageLevel,
   setStreak,
@@ -552,6 +552,7 @@ export default function Game() {
           dispatch(setInterest(player.interest))
           dispatch(setStreak(player.streak))
           dispatch(setShopLocked(player.shopLocked))
+          dispatch(setShopFreeRolls(player.shopFreeRolls))
           dispatch(setPokemonCollection(player.pokemonCollection))
 
           player.listen("interest", (value) => {
@@ -562,6 +563,9 @@ export default function Game() {
           })
           player.listen("shopLocked", (value) => {
             dispatch(setShopLocked(value))
+          })
+          player.listen("shopFreeRolls", (value) => {
+            dispatch(setShopFreeRolls(value))
           })
           player.listen("money", (value) => {
             dispatch(setMoney(value))
@@ -659,7 +663,11 @@ export default function Game() {
           "rank",
           "regionalPokemons",
           "streak",
-          "title"
+          "title",
+          "rerollCount",
+          "totalMoneyEarned",
+          "totalPlayerDamageDealt",
+          "eggChance"
         ]
 
         fields.forEach((field) => {
@@ -749,3 +757,4 @@ export default function Game() {
     </main>
   )
 }
+

@@ -1,7 +1,7 @@
 /* Change this cache name every time you want to force players 
   to invalidate their cache and download all assets again */
 
-const CACHE_NAME = "CACHE v5.5.0.302"
+const CACHE_NAME = "CACHE v5.6.0.328"
 
 // Cache-first strategy
 const cacheFirst = (event) => {
@@ -43,8 +43,7 @@ self.addEventListener("fetch", async (event) => {
   if (
     event.request.method === "GET" &&
     (url.includes("/assets/") ||
-      url.includes("/SpriteCollab/")) ||
-      url.includes("/pokemonAutoChessMusic/")
+      url.includes("/SpriteCollab/"))
   )
     cacheFirst(event)
 })
