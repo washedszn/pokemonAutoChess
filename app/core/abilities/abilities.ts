@@ -52,7 +52,6 @@ import { PokemonEntity, getStrongestUnit } from "../pokemon-entity"
 import PokemonState from "../pokemon-state"
 
 import { isOnBench } from "../../models/colyseus-models/pokemon"
-import { Passive } from "../../types/enum/Passive"
 import { getFirstAvailablePositionInBench } from "../../utils/board"
 import { distanceC, distanceM } from "../../utils/distance"
 import { repeat } from "../../utils/function"
@@ -68,6 +67,7 @@ import {
 } from "../../utils/random"
 import { values } from "../../utils/schemas"
 import { DelayedCommand } from "../simulation-command"
+import { Passive } from "../../types/enum/Passive"
 
 export class BlueFlareStrategy extends AbilityStrategy {
   process(
@@ -1337,15 +1337,13 @@ export class ExplosionStrategy extends AbilityStrategy {
       }
     })
 
-    if (!pokemon.items.has(Item.PROTECTIVE_PADS)) {
-      pokemon.handleSpecialDamage(
-        damage,
-        board,
-        AttackType.SPECIAL,
-        pokemon,
-        crit
-      )
-    }
+    pokemon.handleSpecialDamage(
+      damage,
+      board,
+      AttackType.SPECIAL,
+      pokemon,
+      crit
+    )
   }
 }
 
