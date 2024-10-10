@@ -104,7 +104,10 @@ export default class PreparationRoom extends Room<PreparationState> {
       type: "preparation"
     })
     this.maxClients = 8
-    if (options.gameMode === GameMode.TOURNAMENT) {
+    if (
+      options.gameMode !== GameMode.CUSTOM_LOBBY &&
+      options.gameMode !== GameMode.QUICKPLAY
+    ) {
       this.autoDispose = false
     }
 

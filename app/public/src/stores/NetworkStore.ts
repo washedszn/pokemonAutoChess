@@ -62,13 +62,13 @@ export const networkSlice = createSlice({
     logOut: (state) => {
       state.client = new Client(endpoint)
       state.uid = ""
-      state.preparation?.connection.isOpen && state.preparation?.leave(true)
+      state.preparation?.leave()
       state.preparation = undefined
-      state.lobby?.connection.isOpen && state.lobby?.leave(true)
+      state.lobby?.leave()
       state.lobby = undefined
-      state.game?.connection.isOpen && state.game?.leave(true)
+      state.game?.leave()
       state.game = undefined
-      state.after?.connection.isOpen && state.after?.leave(true)
+      state.after?.leave()
       state.after = undefined
     },
     setProfile: (state, action: PayloadAction<IUserMetadata>) => {
@@ -79,38 +79,38 @@ export const networkSlice = createSlice({
     },
     joinLobby: (state, action: PayloadAction<Room<ICustomLobbyState>>) => {
       state.lobby = action.payload
-      state.preparation?.connection.isOpen && state.preparation?.leave(true)
+      state.preparation?.connection.close()
       state.preparation = undefined
-      state.game?.connection.close() // still allow to reconnect if left by mistake
+      state.game?.connection.close()
       state.game = undefined
-      state.after?.connection.isOpen && state.after?.leave(true)
+      state.after?.connection.close()
       state.after = undefined
     },
     joinPreparation: (state, action: PayloadAction<Room<PreparationState>>) => {
       state.preparation = action.payload
-      state.lobby?.connection.isOpen && state.lobby?.leave(true)
+      state.lobby?.connection.close()
       state.lobby = undefined
-      state.game?.connection.close() // still allow to reconnect if left by mistake
+      state.game?.connection.close()
       state.game = undefined
-      state.after?.connection.isOpen && state.after?.leave(true)
+      state.after?.connection.close()
       state.after = undefined
     },
     joinGame: (state, action: PayloadAction<Room<GameState>>) => {
       Object.assign(state, { game: action.payload })
-      state.preparation?.connection.isOpen && state.preparation?.leave(true)
+      state.preparation?.connection.close()
       state.preparation = undefined
-      state.lobby?.connection.isOpen && state.lobby?.leave(true)
+      state.lobby?.connection.close()
       state.lobby = undefined
-      state.after?.connection.isOpen && state.after?.leave(true)
+      state.after?.connection.close()
       state.after = undefined
     },
     joinAfter: (state, action: PayloadAction<Room<AfterGameState>>) => {
       state.after = action.payload
-      state.game?.connection.close() // still allow to reconnect if left by mistake
+      state.game?.connection.close()
       state.game = undefined
-      state.lobby?.connection.isOpen && state.lobby?.leave(true)
+      state.lobby?.connection.close()
       state.lobby = undefined
-      state.preparation?.connection.isOpen && state.preparation?.leave(true)
+      state.preparation?.connection.close()
       state.preparation = undefined
     },
     sendMessage: (state, action: PayloadAction<string>) => {
