@@ -17,7 +17,8 @@ db.once('open', () => {
 const endpoints = {
   "pokemons-statistic-v2": "https://pokemon-auto-chess.com/meta/pokemons",
   "meta": "https://pokemon-auto-chess.com/meta",
-  "items-statistic": "https://pokemon-auto-chess.com/meta/items"
+  "items-statistic": "https://pokemon-auto-chess.com/meta/items",
+  "botv2": "https://pokemon-auto-chess.com/bots?withSteps=true"
 };
 
 // Helper function to fetch data from an HTTPS endpoint
