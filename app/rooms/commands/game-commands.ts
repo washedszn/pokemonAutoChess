@@ -634,6 +634,10 @@ export class OnDragDropItemCommand extends Command<
       removeInArray(player.items, item)
     }
 
+    if (pokemon.items.has(Item.SHINY_CHARM)) {
+      pokemon.shiny = true
+    }
+
     this.room.checkEvolutionsAfterItemAcquired(playerId, pokemon)
 
     player.updateSynergies()
@@ -1286,7 +1290,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           }
 
           player.eggChance = max(1)(player.eggChance + 0.25)
-        } else {
+        } else if(!isPVE){
           player.eggChance = 0
         }
 
