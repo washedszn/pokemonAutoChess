@@ -16,6 +16,10 @@ npm run download-music
 echo "Building assets..."
 npm run assetpack
 
+# Copy assets to the mounted volume directory
+echo "Copying assets to the mounted volume..."
+cp -r /app/public/dist/client /mnt/assets
+
 # Sync the MongoDB with the latest data
 echo "Running initial MongoDB data sync..."
 node /app/syncDatabase.js &
