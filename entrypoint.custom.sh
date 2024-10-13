@@ -18,7 +18,7 @@ npm run assetpack
 
 # Copy assets to the mounted volume directory
 echo "Copying assets to the mounted volume..."
-cp -r /app/public/dist/client /mnt/assets
+cp -r /app/app/public/dist/client /mnt/assets
 
 # Sync the MongoDB with the latest data
 echo "Running initial MongoDB data sync..."
