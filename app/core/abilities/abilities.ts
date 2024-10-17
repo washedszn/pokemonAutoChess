@@ -2456,13 +2456,22 @@ export class FireBlastStrategy extends AbilityStrategy {
     crit: boolean
   ) {
     super.process(pokemon, state, board, target, crit)
-    let damage = 30
-    if (pokemon.stars === 2) {
-      damage = 60
-    }
-    if (pokemon.stars === 3) {
-      damage = 120
-    }
+    const damage = [30, 60, 120][pokemon.stars - 1] ?? 120
+    target.handleSpecialDamage(damage, board, AttackType.SPECIAL, pokemon, crit)
+  }
+}
+
+export class FieryDanceStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit)
+    const damage = [25, 50, 100][pokemon.stars - 1] ?? 100
+    pokemon.addAbilityPower(30, pokemon, 0, crit)
     target.handleSpecialDamage(damage, board, AttackType.SPECIAL, pokemon, crit)
   }
 }
@@ -4975,7 +4984,26 @@ export class ShellTrapStrategy extends AbilityStrategy {
     crit: boolean
   ) {
     super.process(pokemon, state, board, target, crit)
-    pokemon.effects.add(Effect.SHELL_TRAP)
+    if (pokemon.shield > 0) {
+      const damage = 50 + pokemon.shield
+      board
+        .getAdjacentCells(target.positionX, target.positionY, true)
+        .forEach((cell) => {
+          if (cell.value && pokemon.team != cell.value.team) {
+            cell.value.handleSpecialDamage(
+              damage,
+              board,
+              AttackType.SPECIAL,
+              pokemon,
+              crit
+            )
+          }
+        })
+      pokemon.shield = 0
+    } else {
+      const shield = 75
+      pokemon.addShield(shield, pokemon, 1, crit)
+    }
   }
 }
 
@@ -5056,7 +5084,7 @@ export class SearingShotStrategy extends AbilityStrategy {
     crit: boolean
   ) {
     super.process(pokemon, state, board, target, crit)
-    const damage = 40
+    const damage = 50
     const cells = board.getCellsInRadius(
       pokemon.positionX,
       pokemon.positionY,
@@ -7554,7 +7582,7 @@ export class DoomDesireStrategy extends AbilityStrategy {
         if (target && target.life > 0) {
           pokemon.simulation.room.broadcast(Transfer.ABILITY, {
             id: pokemon.simulation.id,
-            skill: Ability.JUDGEMENT,
+            skill: Ability.DOOM_DESIRE,
             positionX: pokemon.positionX,
             positionY: pokemon.positionY,
             targetX: target.positionX,
@@ -10234,6 +10262,47 @@ export class SteelWingStrategy extends AbilityStrategy {
   }
 }
 
+export class BideStrategy extends AbilityStrategy {
+  process(
+    pokemon: PokemonEntity,
+    state: PokemonState,
+    board: Board,
+    target: PokemonEntity,
+    crit: boolean
+  ) {
+    super.process(pokemon, state, board, target, crit)
+    pokemon.status.bideCooldown = 3000
+    const startingHealth = pokemon.life
+    pokemon.toIdleState()
+    
+    pokemon.commands.push(
+      new DelayedCommand(() => {
+        pokemon.simulation.room.broadcast(Transfer.ABILITY, {
+          id: pokemon.simulation.id,
+          skill: Ability.BIDE,
+          positionX: pokemon.positionX,
+          positionY: pokemon.positionY,
+          targetX: target.positionX,
+          targetY: target.positionY
+        })
+        board
+        .getAdjacentCells(target.positionX, target.positionY, true)
+        .forEach((cell) => {
+          if (cell.value && pokemon.team != cell.value.team) {
+            cell.value.handleSpecialDamage(
+              (startingHealth - pokemon.life) * 2,
+              board,
+              AttackType.SPECIAL,
+              pokemon,
+              crit
+            )
+          }
+        })
+      }, 3000)
+    )
+  }
+}
+
 export class YawnStrategy extends AbilityStrategy {
   process(
     pokemon: PokemonEntity,
@@ -10635,5 +10704,7 @@ export const AbilityStrategies: { [key in Ability]: AbilityStrategy } = {
   [Ability.THUNDER_CAGE]: new ThunderCageStrategy(),
   [Ability.HEADBUTT]: new HeadbuttStrategy(),
   [Ability.STEEL_WING]: new SteelWingStrategy(),
-  [Ability.YAWN]: new YawnStrategy()
+  [Ability.YAWN]: new YawnStrategy(),
+  [Ability.FIERY_DANCE]: new FieryDanceStrategy(),
+  [Ability.BIDE]: new BideStrategy()
 }
