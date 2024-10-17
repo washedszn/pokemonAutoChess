@@ -55,6 +55,10 @@ export function displayAbility(
       addAbilitySprite(skill, coordinatesTarget, true).setScale(2)
       break
 
+    case Ability.FIERY_DANCE:
+      addAbilitySprite(Ability.FIRE_BLAST, coordinatesTarget, true).setScale(2)
+      break
+
     case Ability.FIRE_SPIN:
       addAbilitySprite(Ability.FIRE_BLAST, coordinatesTarget, true).setScale(3)
       break
@@ -1501,12 +1505,12 @@ export function displayAbility(
       ).setScale(2)
       break
 
-    case "SHELL_TRAP_trigger":
-      addAbilitySprite(Ability.SHELL_TRAP, coordinates, true).setScale(2)
+    case Ability.SHELL_TRAP:
+      addAbilitySprite(Ability.COUNTER, coordinates, true).setScale(2)
       break
 
     case Ability.SHELL_SMASH:
-      addAbilitySprite(Ability.SHELL_TRAP, coordinates, true).setScale(2)
+      addAbilitySprite(Ability.SHELL_SMASH, coordinates, true).setScale(2)
       break
 
     case Ability.TRI_ATTACK: {
@@ -2632,6 +2636,10 @@ export function displayAbility(
       addAbilitySprite(Ability.ICE_HAMMER, coordinatesTarget, true).setScale(2)
       break
 
+    case Ability.STEEL_WING:
+      addAbilitySprite(Ability.STEEL_WING, coordinates, true).setScale(2)
+      break
+
     case Ability.FOUL_PLAY:
       addAbilitySprite(Ability.NIGHT_SLASH, coordinatesTarget, true).setScale(2)
       break
@@ -2648,6 +2656,10 @@ export function displayAbility(
       addAbilitySprite(Ability.THUNDER_CAGE, coordinatesTarget, true).setScale(
         2
       )
+      break
+
+    case Ability.BIDE:
+      addAbilitySprite(Ability.COUNTER, coordinates, true).setScale(3)
       break
 
     default:
