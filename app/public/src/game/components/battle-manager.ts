@@ -175,12 +175,6 @@ export default class BattleManager {
         } else {
           pkm.removeSilence()
         }
-      } else if (field === "fatigue") {
-        if (pokemon.status.fatigue) {
-          pkm.addFatigue()
-        } else {
-          pkm.removeFatigue()
-        }
       } else if (field === "confusion") {
         if (pokemon.status.confusion) {
           pkm.addConfusion()
@@ -654,9 +648,8 @@ export default class BattleManager {
           pkm.detail.critPower.textContent = pokemon.critPower.toFixed(2)
         }
       } else if (field === "ap") {
-        if (value && value > (previousValue || 0)) {
+        value > previousValue &&
           this.displayBoost(Stat.AP, pkm.positionX, pkm.positionY)
-        }
         pkm.ap = pokemon.ap
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
@@ -674,9 +667,8 @@ export default class BattleManager {
           }
         }
       } else if (field === "atkSpeed") {
-        if (value && value > (previousValue || 0)) {
+        value > previousValue &&
           this.displayBoost(Stat.ATK_SPEED, pkm.positionX, pkm.positionY)
-        }
         pkm.atkSpeed = pokemon.atkSpeed
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.atkSpeed.textContent = pokemon.atkSpeed.toFixed(2)
@@ -693,9 +685,8 @@ export default class BattleManager {
         }
       } else if (field === "shield") {
         if (pokemon.shield >= 0) {
-          if (value && value > (previousValue || 0)) {
+          value > previousValue &&
             this.displayBoost(Stat.SHIELD, pkm.positionX, pkm.positionY)
-          }
           pkm.shield = pokemon.shield
           pkm.lifebar?.setShieldAmount(pkm.shield)
         }
@@ -710,9 +701,8 @@ export default class BattleManager {
           )
         }
       } else if (field === "atk") {
-        if (value && value > (previousValue || 0)) {
+        value > previousValue &&
           this.displayBoost(Stat.ATK, pkm.positionX, pkm.positionY)
-        }
         pkm.atk = pokemon.atk
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
@@ -722,9 +712,8 @@ export default class BattleManager {
           )
         }
       } else if (field === "def") {
-        if (value && value > (previousValue || 0)) {
+        value > previousValue &&
           this.displayBoost(Stat.DEF, pkm.positionX, pkm.positionY)
-        }
         pkm.def = pokemon.def
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
@@ -734,9 +723,8 @@ export default class BattleManager {
           )
         }
       } else if (field === "speDef") {
-        if (value && value > (previousValue || 0)) {
+        value > previousValue &&
           this.displayBoost(Stat.SPE_DEF, pkm.positionX, pkm.positionY)
-        }
         pkm.speDef = pokemon.speDef
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
@@ -773,16 +761,6 @@ export default class BattleManager {
       } else if (field === "index") {
         if (pkm.index !== value) {
           pkm.index = value as IPokemonEntity["index"]
-          this.animationManager.animatePokemon(
-            pkm,
-            PokemonActionState.IDLE,
-            this.flip,
-            false
-          )
-        }
-      } else if (field === "shiny") {
-        if (pkm.shiny !== value) {
-          pkm.shiny = value as IPokemonEntity["shiny"]
           this.animationManager.animatePokemon(
             pkm,
             PokemonActionState.IDLE,

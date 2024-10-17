@@ -154,7 +154,6 @@ export class DebugScene extends Phaser.Scene {
       this.pokemon.removeSleep()
       this.pokemon.removeBurn()
       this.pokemon.removeSilence()
-      this.pokemon.removeFatigue()
       this.pokemon.removeConfusion()
       this.pokemon.removeFreeze()
       this.pokemon.removeProtect()
@@ -186,9 +185,6 @@ export class DebugScene extends Phaser.Scene {
       }
       if (status == Status.SILENCE) {
         this.pokemon.addSilence()
-      }
-      if (status == Status.FATIGUE) {
-        this.pokemon.addFatigue()
       }
       if (status == Status.CONFUSION) {
         this.pokemon.addConfusion()

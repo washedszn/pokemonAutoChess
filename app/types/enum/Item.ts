@@ -1,6 +1,4 @@
-import { reverseMap } from "../../utils/map"
 import { Synergy } from "./Synergy"
-import { Weather } from "./Weather"
 
 export enum Item {
   FOSSIL_STONE = "FOSSIL_STONE",
@@ -113,10 +111,6 @@ export enum Item {
   HEAT_ROCK = "HEAT_ROCK",
   SMOOTH_ROCK = "SMOOTH_ROCK",
   BLACK_AUGURITE = "BLACK_AUGURITE",
-  FLOAT_STONE = "FLOAT_STONE",
-  MIST_STONE = "MIST_STONE",
-  ELECTRIC_QUARTZ = "ELECTRIC_QUARTZ",
-  BLOOD_STONE = "BLOOD_STONE",
   FIRE_SHARD = "FIRE_SHARD",
   TEAL_MASK = "TEAL_MASK",
   WELLSPRING_MASK = "WELLSPRING_MASK",
@@ -268,30 +262,8 @@ export const WeatherRocks: Item[] = [
   Item.ICY_ROCK,
   Item.HEAT_ROCK,
   Item.SMOOTH_ROCK,
-  Item.BLACK_AUGURITE,
-  Item.FLOAT_STONE,
-  Item.ELECTRIC_QUARTZ,
-  Item.MIST_STONE,
-  Item.BLOOD_STONE
+  Item.BLACK_AUGURITE
 ]
-
-export const WeatherRocksByWeather: Map<
-  Weather,
-  (typeof WeatherRocks)[number] | null
-> = new Map([
-  [Weather.SUN, Item.HEAT_ROCK],
-  [Weather.RAIN, Item.DAMP_ROCK],
-  [Weather.SANDSTORM, Item.SMOOTH_ROCK],
-  [Weather.SNOW, Item.ICY_ROCK],
-  [Weather.STORM, Item.ELECTRIC_QUARTZ],
-  [Weather.MISTY, Item.MIST_STONE],
-  [Weather.WINDY, Item.FLOAT_STONE],
-  [Weather.NIGHT, Item.BLACK_AUGURITE],
-  [Weather.BLOODMOON, Item.BLOOD_STONE],
-  [Weather.NEUTRAL, null]
-])
-
-export const WeatherByWeatherRocks = reverseMap(WeatherRocksByWeather)
 
 export const CraftableItems: Item[] = Object.keys(ItemRecipe) as Item[]
 
@@ -326,7 +298,12 @@ export const SynergyItems = [
   Item.HARD_STONE,
   Item.BIG_NUGGET,
   Item.ROTOM_PHONE,
-  Item.SHINY_STONE
+  Item.SHINY_STONE,
+  Item.DAMP_ROCK,
+  Item.ICY_ROCK,
+  Item.HEAT_ROCK,
+  Item.SMOOTH_ROCK,
+  Item.BLACK_AUGURITE
 ] as const
 
 export const SynergyGivenByItem: Record<
@@ -351,7 +328,12 @@ export const SynergyGivenByItem: Record<
   [Item.HARD_STONE]: Synergy.ROCK,
   [Item.BIG_NUGGET]: Synergy.GROUND,
   [Item.ROTOM_PHONE]: Synergy.GHOST,
-  [Item.SHINY_STONE]: Synergy.LIGHT
+  [Item.SHINY_STONE]: Synergy.LIGHT,
+  [Item.DAMP_ROCK]: Synergy.WATER,
+  [Item.ICY_ROCK]: Synergy.ICE,
+  [Item.HEAT_ROCK]: Synergy.FIRE,
+  [Item.SMOOTH_ROCK]: Synergy.GROUND,
+  [Item.BLACK_AUGURITE]: Synergy.DARK
 }
 
 export const NonSpecialItemComponents: Item[] = [
@@ -363,11 +345,4 @@ export const NonSpecialItemComponents: Item[] = [
   Item.NEVER_MELT_ICE,
   Item.HEART_SCALE,
   Item.MYSTIC_WATER
-]
-
-export const NonHoldableItems: Item[] = [
-  ...WeatherRocks,
-  ...FishingRods,
-  Item.METEORITE,
-  Item.FIRE_SHARD
 ]

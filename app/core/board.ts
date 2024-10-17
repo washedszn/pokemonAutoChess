@@ -382,7 +382,13 @@ export default class Board {
     }>()
 
     this.forEach((x: number, y: number, value: PokemonEntity | undefined) => {
-      if (value && value.isTargettableBy(pokemon, !targetAlly, targetAlly)) {
+      if (
+        value !== undefined &&
+        (targetAlly
+          ? value.team === pokemon.team
+          : value.team !== pokemon.team) &&
+        value.isTargettable
+      ) {
         candidateCells.push(
           ...this.getAdjacentCells(x, y)
             .filter((cell) => this.getValue(cell.x, cell.y) === undefined)

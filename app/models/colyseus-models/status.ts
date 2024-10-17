@@ -8,14 +8,12 @@ import { AttackType } from "../../types/enum/Game"
 import { Item } from "../../types/enum/Item"
 import { Passive } from "../../types/enum/Passive"
 import { Weather } from "../../types/enum/Weather"
-import { count } from "../../utils/array"
-import { max, min } from "../../utils/number"
+import { max } from "../../utils/number"
 import { chance } from "../../utils/random"
 
 export default class Status extends Schema implements IStatus {
   @type("boolean") burn = false
   @type("boolean") silence = false
-  @type("boolean") fatigue = false
   @type("number") poisonStacks = 0
   @type("boolean") freeze = false
   @type("boolean") protect = false
@@ -60,7 +58,6 @@ export default class Status extends Schema implements IStatus {
   burnCooldown = 0
   burnDamageCooldown = 1000
   silenceCooldown = 0
-  fatigueCooldown = 0
   poisonCooldown = 0
   poisonDamageCooldown = 1000
   freezeCooldown = 0
@@ -93,12 +90,10 @@ export default class Status extends Schema implements IStatus {
   darkHarvestDamageCooldown = 0
   stoneEdge = false
   stoneEdgeCooldown = 0
-  bideCooldown = 0
 
   clearNegativeStatus() {
     this.burnCooldown = 0
     this.silenceCooldown = 0
-    this.fatigueCooldown = 0
     this.poisonCooldown = 0
     this.freezeCooldown = 0
     this.sleepCooldown = 0
@@ -117,7 +112,6 @@ export default class Status extends Schema implements IStatus {
     return (
       this.burn ||
       this.silence ||
-      this.fatigue ||
       this.poisonStacks > 0 ||
       this.freeze ||
       this.sleep ||
@@ -159,10 +153,6 @@ export default class Status extends Schema implements IStatus {
 
     if (this.silence) {
       this.updateSilence(dt)
-    }
-
-    if (this.fatigue) {
-      this.updateFatigue(dt)
     }
 
     if (this.protect) {
@@ -359,7 +349,7 @@ export default class Status extends Schema implements IStatus {
       this.stoneEdge = true
       this.stoneEdgeCooldown = timer
       pkm.addCritChance(20, pkm, 1, false)
-      pkm.range += 2
+      pkm.range = 3
     }
   }
 
@@ -367,7 +357,7 @@ export default class Status extends Schema implements IStatus {
     if (this.stoneEdgeCooldown - dt <= 0) {
       this.stoneEdge = false
       pkm.addCritChance(-20, pkm, 1, false)
-      pkm.range = min(pkm.baseRange)(pkm.range - 2)
+      pkm.range = pkm.baseRange
     } else {
       this.stoneEdgeCooldown -= dt
     }
@@ -521,25 +511,19 @@ export default class Status extends Schema implements IStatus {
   updateBurn(dt: number, pkm: PokemonEntity, board: Board) {
     if (this.burnDamageCooldown - dt <= 0) {
       if (this.burnOrigin) {
-        let burnDamage = pkm.hp * 0.05
+        let burnDamage = Math.ceil(pkm.hp * 0.05)
         if (pkm.simulation.weather === Weather.SUN) {
-          burnDamage *= 1.3
-          const nbHeatRocks = pkm.player
-            ? count(pkm.player.items, Item.HEAT_ROCK)
-            : 0
-          if (nbHeatRocks > 0) {
-            burnDamage *= 1 - 0.2 * nbHeatRocks
-          }
+          burnDamage = Math.round(burnDamage * 1.3)
         } else if (pkm.simulation.weather === Weather.RAIN) {
-          burnDamage *= 0.7
+          burnDamage = Math.round(burnDamage * 0.7)
         }
 
         if (pkm.items.has(Item.ASSAULT_VEST)) {
-          burnDamage *= 0.5
+          burnDamage = Math.round(burnDamage * 0.5)
         }
 
         pkm.handleDamage({
-          damage: Math.round(burnDamage),
+          damage: burnDamage,
           board,
           attackType: AttackType.TRUE,
           attacker: this.burnOrigin,
@@ -588,25 +572,6 @@ export default class Status extends Schema implements IStatus {
       this.silenceOrigin = undefined
     } else {
       this.silenceCooldown -= dt
-    }
-  }
-
-  triggerFatigue(duration: number, pkm: PokemonEntity) {
-    if (!this.runeProtect) {
-      duration = this.applyAquaticReduction(duration, pkm)
-
-      this.fatigue = true
-      if (duration > this.fatigueCooldown) {
-        this.fatigueCooldown = duration
-      }
-    }
-  }
-
-  updateFatigue(dt: number) {
-    if (this.fatigueCooldown - dt <= 0) {
-      this.fatigue = false
-    } else {
-      this.fatigueCooldown -= dt
     }
   }
 
@@ -714,12 +679,6 @@ export default class Status extends Schema implements IStatus {
     ) {
       if (pkm.simulation.weather === Weather.SNOW) {
         duration *= 1.3
-        const nbIcyRocks = pkm.player
-          ? count(pkm.player.items, Item.ICY_ROCK)
-          : 0
-        if (nbIcyRocks > 0) {
-          duration *= 1 - 0.2 * nbIcyRocks
-        }
       } else if (pkm.simulation.weather === Weather.SUN) {
         duration *= 0.7
       }
@@ -901,12 +860,6 @@ export default class Status extends Schema implements IStatus {
       }
       if (pkm.simulation.weather === Weather.STORM) {
         duration *= 1.3
-        const nbElectricQuartz = pkm.player
-          ? count(pkm.player.items, Item.ELECTRIC_QUARTZ)
-          : 0
-        if (nbElectricQuartz > 0) {
-          duration *= 1 - 0.2 * nbElectricQuartz
-        }
       }
 
       duration = this.applyAquaticReduction(duration, pkm)
@@ -1101,15 +1054,13 @@ export default class Status extends Schema implements IStatus {
       this.locked = true
       this.lockedCooldown = Math.round(duration)
       pkm.range = 1
-      pkm.toMovingState() // force retargetting
     }
   }
 
   updateLocked(dt: number, pokemon: PokemonEntity) {
     if (this.lockedCooldown - dt <= 0) {
       this.locked = false
-      pokemon.range =
-        pokemon.baseRange + (pokemon.items.has(Item.WIDE_LENS) ? 2 : 0)
+      pokemon.range = pokemon.baseRange
     } else {
       this.lockedCooldown -= dt
     }

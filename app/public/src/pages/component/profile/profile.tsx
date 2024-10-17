@@ -120,7 +120,8 @@ function OtherProfileActions({ resetSearch }) {
             })
           )
         }}
-      >{t("give_boosters")}
+      >
+        <p style={{ margin: "0px" }}>{t("give_boosters")}</p>
       </button>
     ) : null
 
@@ -132,7 +133,7 @@ function OtherProfileActions({ resetSearch }) {
           dispatch(heapSnapshot())
         }}
       >
-        {t("heap_snapshot")}
+        <p style={{ margin: "0px" }}>{t("heap_snapshot")}</p>
       </button>
     ) : null
 
@@ -145,7 +146,7 @@ function OtherProfileActions({ resetSearch }) {
           dispatch(ban({ uid: user.uid, reason: reason ? reason : "" }))
         }}
       >
-        {t("ban_user")}
+        <p style={{ margin: "0px" }}>{t("ban_user")}</p>
       </button>
     ) : null
 
@@ -157,7 +158,7 @@ function OtherProfileActions({ resetSearch }) {
           dispatch(unban({ uid: user.uid, name: user.displayName }))
         }}
       >
-        {t("unban_user")}
+        <p style={{ margin: "0px" }}>{t("unban_user")}</p>
       </button>
     ) : null
 

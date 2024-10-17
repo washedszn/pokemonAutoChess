@@ -51,7 +51,6 @@ import MovingState from "./moving-state"
 import PokemonState from "./pokemon-state"
 import Simulation from "./simulation"
 import { SimulationCommand } from "./simulation-command"
-import { count } from "../utils/array"
 
 export class PokemonEntity extends Schema implements IPokemonEntity {
   @type("boolean") shiny: boolean
@@ -207,19 +206,8 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     )
   }
 
-  isTargettableBy(
-    attacker: IPokemonEntity,
-    targetEnemies = true,
-    targetAllies = false
-  ): boolean {
-    return (
-      !this.status.resurecting &&
-      ((targetAllies && this.team === attacker.team) ||
-        (targetEnemies && this.team !== attacker.team) ||
-        (attacker.effects.has(Effect.MERCILESS) &&
-          attacker.id !== this.id &&
-          this.life <= 0.15 * this.hp))
-    )
+  get isTargettable(): boolean {
+    return !this.status.resurecting
   }
 
   get player(): Player | undefined {
@@ -378,10 +366,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
 
   addPP(value: number, caster: IPokemonEntity, apBoost: number, crit: boolean) {
     value = Math.round(
-      value *
-        (1 + (apBoost * caster.ap) / 100) *
-        (crit ? caster.critPower : 1) *
-        (this.status.fatigue && value > 0 ? 0.5 : 1)
+      value * (1 + (apBoost * caster.ap) / 100) * (crit ? caster.critPower : 1)
     )
 
     if (
@@ -633,6 +618,19 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       }
     }
 
+    if (this.status.stoneEdge) {
+      const tg = board.getValue(target.positionX, target.positionY)
+      if (tg) {
+        tg.handleDamage({
+          damage: Math.round(this.def * (1 + this.ap / 100)),
+          board,
+          attackType: AttackType.SPECIAL,
+          attacker: this,
+          shouldTargetGainMana: true
+        })
+      }
+    }
+
     if (this.passive === Passive.DURANT) {
       const bugAllies =
         board.cells.filter(
@@ -873,11 +871,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
 
     // Synergy effects on hit
 
-    const nbIcyRocks =
-      this.player && this.simulation.weather === Weather.SNOW
-        ? count(this.player.items, Item.ICY_ROCK)
-        : 0
-    if (this.types.has(Synergy.ICE) || nbIcyRocks > 0) {
+    if (this.types.has(Synergy.ICE)) {
       let freezeChance = 0
       if (this.effects.has(Effect.CHILLY)) {
         freezeChance = 0.2
@@ -888,7 +882,6 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       } else if (this.effects.has(Effect.SHEER_COLD)) {
         freezeChance = 0.5
       }
-      freezeChance += nbIcyRocks * 0.05
       if (chance(freezeChance)) {
         target.status.triggerFreeze(2000, target)
       }
@@ -914,7 +907,14 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     }
 
     if (this.hasSynergyEffect(Synergy.MONSTER)) {
-      const flinchChance = 0.3
+      let flinchChance = 0
+      if (this.effects.has(Effect.PURSUIT)) {
+        flinchChance = 0.3
+      } else if (this.effects.has(Effect.BRUTAL_SWING)) {
+        flinchChance = 0.4
+      } else if (this.effects.has(Effect.POWER_TRIP)) {
+        flinchChance = 0.5
+      }
       if (chance(flinchChance)) {
         target.status.triggerFlinch(3000, target, this)
       }
@@ -981,7 +981,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         id: this.simulation.id,
         skill: "SHELL_TRAP_trigger",
         positionX: target.positionX,
-        positionY: target.positionY,
+        positionY: target.positionX,
         orientation: target.orientation
       })
       cells.forEach((cell) => {
@@ -1015,18 +1015,6 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
 
     if (this.items.has(Item.SHELL_BELL)) {
       this.handleHeal(Math.ceil(0.33 * damage), this, 0, false)
-    }
-
-    if (
-      this.simulation.weather === Weather.BLOODMOON &&
-      target.status.wound &&
-      this.player &&
-      this.player.items.includes(Item.BLOOD_STONE)
-    ) {
-      const nbBloodStones = count(this.player.items, Item.BLOOD_STONE)
-      if (nbBloodStones > 0) {
-        this.handleHeal(Math.ceil(0.2 * damage), this, 0, false)
-      }
     }
   }
 
@@ -1314,32 +1302,37 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       this.count.moneyCount += moneyGained
     }
 
-    if (this.hasSynergyEffect(Synergy.MONSTER)) {
+    if (
+      this.effects.has(Effect.PURSUIT) ||
+      this.effects.has(Effect.BRUTAL_SWING) ||
+      this.effects.has(Effect.POWER_TRIP)
+    ) {
       const isPursuit = this.effects.has(Effect.PURSUIT)
       const isBrutalSwing = this.effects.has(Effect.BRUTAL_SWING)
       const isPowerTrip = this.effects.has(Effect.POWER_TRIP)
-      const isMerciless = this.effects.has(Effect.MERCILESS)
 
-      let lifeBoost = 0,
-        attackBoost = 0,
-        apBoost = 0
-      if (isPursuit) {
-        lifeBoost = Math.round(0.2 * target.hp)
-        attackBoost = 3
-        apBoost = 10
-      } else if (isBrutalSwing) {
-        lifeBoost = Math.round(0.4 * target.hp)
-        attackBoost = 6
-        apBoost = 20
-      } else if (isPowerTrip || isMerciless) {
-        lifeBoost = Math.round(0.6 * target.hp)
-        attackBoost = 10
-        apBoost = 30
-      }
-      if (this.life > 0) {
-        this.addMaxHP(lifeBoost, this, 0, false)
-        this.addAttack(attackBoost, this, 0, false)
-        this.addAbilityPower(apBoost, this, 0, false)
+      if (isPursuit || isBrutalSwing || isPowerTrip) {
+        let lifeBoost = 0,
+          attackBoost = 0,
+          apBoost = 0
+        if (isPursuit) {
+          lifeBoost = 30
+          attackBoost = 3
+          apBoost = 10
+        } else if (isBrutalSwing) {
+          lifeBoost = 60
+          attackBoost = 6
+          apBoost = 20
+        } else if (isPowerTrip) {
+          lifeBoost = 100
+          attackBoost = 10
+          apBoost = 30
+        }
+        if (this.life > 0) {
+          this.addMaxHP(lifeBoost, this, 0, false)
+          this.addAttack(attackBoost, this, 0, false)
+          this.addAbilityPower(apBoost, this, 0, false)
+        }
       }
     }
 
@@ -1599,6 +1592,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
 
     this.simulation.applySynergyEffects(this)
     this.simulation.applyItemsEffects(this)
+    this.simulation.applyWeatherEffects(this)
     this.status.resurection = false // prevent reapplying max revive again
     this.shield = 0 // prevent reapplying shield again
     this.flyingProtection = 0 // prevent flying effects twice
@@ -1753,7 +1747,7 @@ export function getStrongestUnit(pokemons: PokemonEntity[]): PokemonEntity {
   return strongest
 }
 
-export function getUnitScore(pokemon: IPokemonEntity | IPokemon) {
+export function getUnitScore(pokemon: PokemonEntity | IPokemon) {
   let score = 0
   score += 100 * pokemon.items.size
   score += 10 * pokemon.stars

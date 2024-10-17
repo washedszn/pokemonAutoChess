@@ -12,7 +12,6 @@ import { Item } from "../types/enum/Item"
 import { Passive } from "../types/enum/Passive"
 import { Synergy, SynergyEffects } from "../types/enum/Synergy"
 import { Weather } from "../types/enum/Weather"
-import { count } from "../utils/array"
 import { distanceC, distanceM } from "../utils/distance"
 import { logger } from "../utils/logger"
 import { max, min } from "../utils/number"
@@ -41,11 +40,7 @@ export default abstract class PokemonState {
           } else if (target.effects.has(Effect.DIAMOND_STORM)) {
             opponentCritPower -= 0.7
           }
-          const nbBlackAugurite = target.player
-            ? count(target.player.items, Item.BLACK_AUGURITE)
-            : 0
-          opponentCritPower -= 0.1 * nbBlackAugurite
-          damage = min(0)(Math.round(damage * opponentCritPower))
+          damage = Math.round(damage * opponentCritPower)
         }
         pokemon.onCriticalAttack({ target, board, damage })
       }
@@ -60,10 +55,6 @@ export default abstract class PokemonState {
 
       if (pokemon.passive === Passive.SPOT_PANDA && target.status.confusion) {
         damage = Math.ceil(damage * (1 + pokemon.ap / 100))
-      }
-
-      if (pokemon.status.stoneEdge) {
-        damage += Math.round(pokemon.def * (1 + pokemon.ap / 100))
       }
 
       let trueDamagePart = 0
@@ -201,27 +192,10 @@ export default abstract class PokemonState {
     apBoost: number,
     crit: boolean
   ): void {
-    if (pokemon.status.wound) {
-      if (
-        pokemon.simulation.weather === Weather.BLOODMOON &&
-        pokemon.player &&
-        pokemon.player.items.includes(Item.BLOOD_STONE)
-      ) {
-        const nbBloodStones = count(pokemon.player.items, Item.BLOOD_STONE)
-        if (nbBloodStones > 0) {
-          pokemon.addShield(
-            Math.round(0.3 * nbBloodStones * heal),
-            pokemon,
-            apBoost,
-            crit
-          )
-        }
-      }
-      return
-    }
     if (
       pokemon.life > 0 &&
       pokemon.life < pokemon.hp &&
+      !pokemon.status.wound &&
       !pokemon.status.protect
     ) {
       if (apBoost > 0) {
@@ -689,7 +663,7 @@ export default abstract class PokemonState {
           ? 30
           : pokemon.effects.has(Effect.GROWTH)
             ? 15
-            : 7
+            : 8
         if (
           pokemon.effects.has(Effect.HYDRATATION) &&
           pokemon.simulation.weather === Weather.RAIN
@@ -716,12 +690,7 @@ export default abstract class PokemonState {
       pokemon.sandstormDamageTimer -= dt
       if (pokemon.sandstormDamageTimer <= 0 && !pokemon.simulation.finished) {
         pokemon.sandstormDamageTimer = 1000
-        let sandstormDamage = 5
-        const nbSmoothRocks = player ? count(player.items, Item.SMOOTH_ROCK) : 0
-        if (nbSmoothRocks > 0) {
-          sandstormDamage -= nbSmoothRocks
-          pokemon.addAttackSpeed(nbSmoothRocks, pokemon, 0, false)
-        }
+        const sandstormDamage = 5
         pokemon.handleDamage({
           damage: sandstormDamage,
           board,
@@ -733,7 +702,7 @@ export default abstract class PokemonState {
     }
 
     if (pokemon.oneSecondCooldown <= 0) {
-      this.updateEachSecond(pokemon, board)
+      this.updateEachSecond(pokemon, board, weather, player)
       pokemon.oneSecondCooldown = 1000
     } else {
       pokemon.oneSecondCooldown = min(0)(pokemon.oneSecondCooldown - dt)
@@ -760,7 +729,12 @@ export default abstract class PokemonState {
     }
   }
 
-  updateEachSecond(pokemon: PokemonEntity, board: Board) {
+  updateEachSecond(
+    pokemon: PokemonEntity,
+    board: Board,
+    weather: Weather,
+    player: Player | undefined
+  ) {
     pokemon.addPP(10, pokemon, 0, false)
     if (pokemon.effects.has(Effect.RAIN_DANCE)) {
       pokemon.addPP(4, pokemon, 0, false)
@@ -773,12 +747,6 @@ export default abstract class PokemonState {
     }
     if (pokemon.simulation.weather === Weather.RAIN) {
       pokemon.addPP(3, pokemon, 0, false)
-      const nbDampRocks = pokemon.player
-        ? count(pokemon.player.items, Item.DAMP_ROCK)
-        : 0
-      if (nbDampRocks > 0) {
-        pokemon.addPP(2 * nbDampRocks, pokemon, 0, false)
-      }
     }
 
     if (pokemon.passive === Passive.ILLUMISE_VOLBEAT) {
@@ -794,7 +762,7 @@ export default abstract class PokemonState {
       pokemon.effects.has(Effect.ETERNAL_LIGHT) ||
       pokemon.effects.has(Effect.MAX_ILLUMINATION)
     ) {
-      pokemon.addPP(8, pokemon, 0, false)
+      pokemon.addPP(10, pokemon, 0, false)
     }
 
     if (pokemon.items.has(Item.METRONOME)) {
@@ -879,7 +847,11 @@ export default abstract class PokemonState {
         y++
       ) {
         const value = board.getValue(x, y)
-        if (value && value.isTargettableBy(pokemon)) {
+        if (
+          value !== undefined &&
+          value.team !== pokemon.team &&
+          value.isTargettable
+        ) {
           const candidateDistance = distanceC(
             pokemon.positionX,
             pokemon.positionY,
@@ -913,7 +885,11 @@ export default abstract class PokemonState {
     }>()
 
     board.forEach((x: number, y: number, value: PokemonEntity | undefined) => {
-      if (value && value.isTargettableBy(pokemon)) {
+      if (
+        value !== undefined &&
+        value.team !== pokemon.team &&
+        value.isTargettable
+      ) {
         const candidateDistance = distanceM(
           pokemon.positionX,
           pokemon.positionY,
@@ -944,7 +920,7 @@ export default abstract class PokemonState {
     let maxDistance = 0
 
     board.forEach((x: number, y: number, enemy: PokemonEntity | undefined) => {
-      if (enemy && enemy.isTargettableBy(pokemon)) {
+      if (enemy && enemy.team !== pokemon.team && enemy.isTargettable) {
         const distance = distanceM(pokemon.positionX, pokemon.positionY, x, y)
         if (distance > maxDistance) {
           farthestTarget = enemy
@@ -1030,9 +1006,9 @@ export default abstract class PokemonState {
 
     board.forEach((x: number, y: number, value: PokemonEntity | undefined) => {
       if (
-        value &&
+        value !== undefined &&
         value.id !== pokemon.id &&
-        value.isTargettableBy(pokemon, true, true)
+        value.isTargettable
       ) {
         const candidateDistance = distanceM(
           pokemon.positionX,

@@ -757,10 +757,6 @@ export default class GameRoom extends Room<GameState> {
               }
 
               const dbrecord = this.transformToSimplePlayer(player)
-              const synergiesMap = new Map<Synergy, number>()
-              player.synergies.forEach((v, k) => {
-                v > 0 && synergiesMap.set(k, v)
-              })
               DetailledStatistic.create({
                 time: Date.now(),
                 name: dbrecord.name,
@@ -769,8 +765,7 @@ export default class GameRoom extends Room<GameState> {
                 nbplayers: humans.length + bots.length,
                 avatar: dbrecord.avatar,
                 playerId: dbrecord.id,
-                elo: elo,
-                synergies: synergiesMap
+                elo: elo
               })
             }
 

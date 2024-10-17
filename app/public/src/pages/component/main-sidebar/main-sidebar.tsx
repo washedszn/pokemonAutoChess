@@ -21,7 +21,6 @@ import { usePatchVersion } from "../patchnotes/usePatchVersion"
 import Profile from "../profile/profile"
 import { TournamentsAdmin } from "../tournaments-admin/tournaments-admin"
 import Wiki from "../wiki/wiki"
-import ServersList from "../servers/servers-list"
 
 import "./main-sidebar.css"
 
@@ -218,16 +217,6 @@ export function MainSidebar(props: MainSidebarProps) {
 
         {page !== "game" && (
           <NavLink
-            svg="players"
-            className="community-servers"
-            location="servers" handleClick={changeModal}
-          >
-            {t("community_servers")}
-          </NavLink>
-        )}
-
-        {page !== "game" && (
-          <NavLink
             svg="discord"
             className="discord"
             onClick={() => window.open(process.env.DISCORD_SERVER, "_blank")}
@@ -316,7 +305,6 @@ export type Modals =
   | "jukebox"
   | "announcement"
   | "tournaments"
-  | "servers"
 
 function Modals({
   modal,
@@ -385,13 +373,6 @@ function Modals({
       </Modal>
       <Modal show={modal === "meta"} header={t("meta")} onClose={closeModal}>
         <MetaReport />
-      </Modal>
-      <Modal
-        onClose={closeModal}
-        show={modal === "servers"}
-        className="servers-modal"
-        header={t("community_servers")}>
-        <ServersList />
       </Modal>
       <TeamBuilderModal
         show={modal === "team-builder"}

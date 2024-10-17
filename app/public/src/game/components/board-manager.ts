@@ -632,15 +632,6 @@ export default class BoardManager {
           pokemonUI.ap = value as IPokemon["ap"]
           if (value > previousValue) this.displayBoost(Stat.AP, pokemonUI)
           break
-
-        case "shiny":
-          pokemonUI.shiny = value as IPokemon["shiny"]
-          this.animationManager.animatePokemon(
-            pokemonUI,
-            pokemonUI.action,
-            false
-          )
-          break
       }
     }
   }

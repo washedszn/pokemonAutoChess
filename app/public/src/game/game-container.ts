@@ -109,7 +109,6 @@ class GameContainer {
       "curseFate",
       "electricField",
       "fairyField",
-      "fatigue",
       "flinch",
       "freeze",
       "grassField",
@@ -162,7 +161,6 @@ class GameContainer {
         "targetY",
         "team",
         "index",
-        "shiny",
         "skill",
         "stars",
         "types"
@@ -175,7 +173,7 @@ class GameContainer {
             pokemon,
             field,
             value,
-            previousValue || value
+            previousValue
           )
         })
       })
@@ -380,8 +378,7 @@ class GameContainer {
           "action",
           "hp",
           "atk",
-          "ap",
-          "shiny"
+          "ap"
         ]
         fields.forEach((field) => {
           pokemon.listen(field, (value, previousValue) => {

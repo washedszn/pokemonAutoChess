@@ -854,13 +854,7 @@ export enum Pkm {
   OGERPON_HEARTHFLAME_MASK = "OGERPON_HEARTHFLAME_MASK",
   OGERPON_CORNERSTONE = "OGERPON_CORNERSTONE",
   OGERPON_CORNERSTONE_MASK = "OGERPON_CORNERSTONE_MASK",
-  IRON_HANDS = "IRON_HANDS",
-  ROOKIDEE = "ROOKIDEE",
-  CORVISQUIRE = "CORVISQUIRE",
-  CORVIKNIGHT = "CORVIKNIGHT",
-  MURKROW = "MURKROW",
-  HONCHKROW = "HONCHKROW",
-  TURTONATOR = "TURTONATOR"
+  IRON_HANDS = "IRON_HANDS"
 }
 
 export const PkmIndex: { [key in Pkm]: string } = {
@@ -1717,13 +1711,7 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.OGERPON_HEARTHFLAME_MASK]: "1017-0005",
   [Pkm.OGERPON_CORNERSTONE]: "1017-0006",
   [Pkm.OGERPON_CORNERSTONE_MASK]: "1017-0007",
-  [Pkm.IRON_HANDS]: "0992",
-  [Pkm.ROOKIDEE]: "0821",
-  [Pkm.CORVISQUIRE]: "0822",
-  [Pkm.CORVIKNIGHT]: "0823",
-  [Pkm.MURKROW]: "0198",
-  [Pkm.HONCHKROW]: "0430",
-  [Pkm.TURTONATOR]: "0776"
+  [Pkm.IRON_HANDS]: "0992"
 }
 
 export const PkmFamily: { [key in Pkm]: Pkm } = {
@@ -2580,13 +2568,7 @@ export const PkmFamily: { [key in Pkm]: Pkm } = {
   [Pkm.OGERPON_HEARTHFLAME_MASK]: Pkm.OGERPON_TEAL,
   [Pkm.OGERPON_CORNERSTONE]: Pkm.OGERPON_TEAL,
   [Pkm.OGERPON_CORNERSTONE_MASK]: Pkm.OGERPON_TEAL,
-  [Pkm.IRON_HANDS]: Pkm.IRON_HANDS,
-  [Pkm.ROOKIDEE]: Pkm.ROOKIDEE,
-  [Pkm.CORVISQUIRE]: Pkm.ROOKIDEE,
-  [Pkm.CORVIKNIGHT]: Pkm.ROOKIDEE,
-  [Pkm.MURKROW]: Pkm.MURKROW,
-  [Pkm.HONCHKROW]: Pkm.MURKROW,
-  [Pkm.TURTONATOR]: Pkm.TURTONATOR
+  [Pkm.IRON_HANDS]: Pkm.IRON_HANDS
 }
 
 export const PkmRegionalVariants: { [key in Pkm]?: readonly Pkm[] } = {
@@ -3783,19 +3765,19 @@ export const AnimationConfig: {
     emote: AnimationType.Shoot
   },
   [Pkm.SLOWPOKE]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Charge,
+    attack: AnimationType.Charge,
+    ability: AnimationType.Swing,
     emote: AnimationType.Shoot
   },
   [Pkm.SLOWBRO]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
-    emote: AnimationType.Shake
+    attack: AnimationType.Charge,
+    ability: AnimationType.Shake,
+    emote: AnimationType.Shoot
   },
   [Pkm.SLOWKING]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Charge,
-    emote: AnimationType.RearUp
+    attack: AnimationType.Shoot,
+    ability: AnimationType.RearUp,
+    emote: AnimationType.Shoot
   },
   [Pkm.BELLSPROUT]: {
     attack: AnimationType.Strike,
@@ -4175,7 +4157,7 @@ export const AnimationConfig: {
     emote: AnimationType.Shoot
   },
   [Pkm.ARCHEN]: {
-    attack: AnimationType.Attack,
+    attack: AnimationType.Swing,
     ability: AnimationType.FlapAround,
     emote: AnimationType.Shoot
   },
@@ -5119,12 +5101,12 @@ export const AnimationConfig: {
   },
   [Pkm.SANDSHREW]: {
     attack: AnimationType.Strike,
-    ability: AnimationType.Attack,
-    emote: AnimationType.LostBalance
+    ability: AnimationType.Withdraw,
+    emote: AnimationType.Shoot
   },
   [Pkm.SANDSLASH]: {
     attack: AnimationType.Strike,
-    ability: AnimationType.Attack,
+    ability: AnimationType.Withdraw,
     emote: AnimationType.DeepBreath
   },
   [Pkm.FARFETCH_D]: {
@@ -7027,37 +7009,5 @@ export const AnimationConfig: {
     attack: AnimationType.Attack,
     ability: AnimationType.Strike,
     emote: AnimationType.Hop
-  },
-  [Pkm.ROOKIDEE]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
-    emote: AnimationType.Charge
-  },
-  [Pkm.CORVISQUIRE]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
-    emote: AnimationType.Charge,
-    shinyUnavailable: true
-  },
-  [Pkm.CORVIKNIGHT]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
-    emote: AnimationType.Charge,
-    shinyUnavailable: true
-  },
-  [Pkm.MURKROW]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
-    emote: AnimationType.Charge
-  },
-  [Pkm.HONCHKROW]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
-    emote: AnimationType.Charge
-  },
-  [Pkm.TURTONATOR]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
-    emote: AnimationType.Idle
   }
 }

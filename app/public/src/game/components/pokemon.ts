@@ -89,7 +89,6 @@ export default class PokemonSprite extends DraggableObject {
   burn: GameObjects.Sprite | undefined
   sleep: GameObjects.Sprite | undefined
   silence: GameObjects.Sprite | undefined
-  fatigue: GameObjects.Sprite | undefined
   freeze: GameObjects.Sprite | undefined
   confusion: GameObjects.Sprite | undefined
   paralysis: GameObjects.Sprite | undefined
@@ -650,23 +649,6 @@ export default class PokemonSprite extends DraggableObject {
     if (this.silence) {
       this.remove(this.silence, true)
       this.silence = undefined
-    }
-  }
-
-  addFatigue() {
-    if (!this.fatigue) {
-      this.fatigue = this.scene.add
-        .sprite(0, -10, "status", "FATIGUE/000.png")
-        .setScale(2)
-      this.fatigue.anims.play("FATIGUE")
-      this.add(this.fatigue)
-    }
-  }
-
-  removeFatigue() {
-    if (this.fatigue) {
-      this.remove(this.fatigue, true)
-      this.fatigue = undefined
     }
   }
 
