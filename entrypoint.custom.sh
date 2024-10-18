@@ -8,13 +8,13 @@ npm install
 echo "Running postinstall steps..."
 npm run download-music && cd edit/assetpack && npm install
 
-# Build the project
-echo "Building the project..."
-npm run build
-
 # Run asset pack
 echo "Building assets..."
 npm run assetpack
+
+# Build the project
+echo "Building the project..."
+cd /app && npm run build
 
 # Copy assets to the mounted volume directory
 echo "Copying assets to the mounted volume..."
@@ -26,4 +26,4 @@ node /app/syncDatabase.js &
 
 # Start the application
 echo "Starting the application..."
-exec node ./app/public/dist/server/app/index.js
+cd /app && npm run start
