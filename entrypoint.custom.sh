@@ -1,16 +1,16 @@
 #!/bin/sh
 
-# Install deps
+# Install dependencies
 echo "Installing node modules..."
 npm install
+
+# Postinstall steps (since it's missing in the current branch)
+echo "Running postinstall steps..."
+npm run download-music && cd edit/assetpack && npm install
 
 # Build the project
 echo "Building the project..."
 npm run build
-
-# Downloading music
-echo "Downloading music..."
-npm run download-music
 
 # Run asset pack
 echo "Building assets..."
