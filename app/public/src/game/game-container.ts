@@ -109,6 +109,7 @@ class GameContainer {
       "curseFate",
       "electricField",
       "fairyField",
+      "fatigue",
       "flinch",
       "freeze",
       "grassField",
@@ -148,6 +149,7 @@ class GameContainer {
         "critChance",
         "critPower",
         "ap",
+        "luck",
         "atkSpeed",
         "life",
         "hp",
@@ -161,6 +163,7 @@ class GameContainer {
         "targetY",
         "team",
         "index",
+        "shiny",
         "skill",
         "stars",
         "types"
@@ -173,7 +176,7 @@ class GameContainer {
             pokemon,
             field,
             value,
-            previousValue
+            previousValue || value
           )
         })
       })
@@ -378,7 +381,8 @@ class GameContainer {
           "action",
           "hp",
           "atk",
-          "ap"
+          "ap",
+          "shiny"
         ]
         fields.forEach((field) => {
           pokemon.listen(field, (value, previousValue) => {
@@ -501,6 +505,8 @@ class GameContainer {
           this.gameScene.weatherManager.addStorm()
         } else if (value === Weather.MISTY) {
           this.gameScene.weatherManager.addMist()
+        } else if (value === Weather.SMOG) {
+          this.gameScene.weatherManager.addSmog()
         }
       }
     }

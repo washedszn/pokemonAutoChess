@@ -12,7 +12,6 @@ import { Ability } from "../../../../types/enum/Ability"
 import { Effect } from "../../../../types/enum/Effect"
 import {
   AttackType,
-  BoardEvent,
   HealType,
   Orientation,
   PokemonActionState,
@@ -174,6 +173,12 @@ export default class BattleManager {
           pkm.addSilence()
         } else {
           pkm.removeSilence()
+        }
+      } else if (field === "fatigue") {
+        if (pokemon.status.fatigue) {
+          pkm.addFatigue()
+        } else {
+          pkm.removeFatigue()
         }
       } else if (field === "confusion") {
         if (pokemon.status.confusion) {
@@ -648,8 +653,9 @@ export default class BattleManager {
           pkm.detail.critPower.textContent = pokemon.critPower.toFixed(2)
         }
       } else if (field === "ap") {
-        value > previousValue &&
+        if (value && value > (previousValue || 0)) {
           this.displayBoost(Stat.AP, pkm.positionX, pkm.positionY)
+        }
         pkm.ap = pokemon.ap
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
@@ -657,18 +663,23 @@ export default class BattleManager {
             previousValue as IPokemonEntity["ap"],
             value as IPokemonEntity["ap"]
           )
-          pkm.detail.updateAbilityDescription(pkm.skill, pkm.stars, pkm.ap)
+          pkm.detail.updateAbilityDescription(pkm)
           if (pokemon.passive != Passive.NONE) {
-            pkm.detail.updatePassiveDescription(
-              pokemon.passive,
-              pkm.stars,
-              pkm.ap
-            )
+            pkm.detail.updatePassiveDescription(pokemon)
+          }
+        }
+      } else if (field === "luck") {
+        pkm.luck = pokemon.luck
+        if (pkm.detail && pkm.detail instanceof PokemonDetail) {
+          pkm.detail.updateAbilityDescription(pkm)
+          if (pokemon.passive != Passive.NONE) {
+            pkm.detail.updatePassiveDescription(pokemon)
           }
         }
       } else if (field === "atkSpeed") {
-        value > previousValue &&
+        if (value && value > (previousValue || 0)) {
           this.displayBoost(Stat.ATK_SPEED, pkm.positionX, pkm.positionY)
+        }
         pkm.atkSpeed = pokemon.atkSpeed
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.atkSpeed.textContent = pokemon.atkSpeed.toFixed(2)
@@ -685,8 +696,9 @@ export default class BattleManager {
         }
       } else if (field === "shield") {
         if (pokemon.shield >= 0) {
-          value > previousValue &&
+          if (value && value > (previousValue || 0)) {
             this.displayBoost(Stat.SHIELD, pkm.positionX, pkm.positionY)
+          }
           pkm.shield = pokemon.shield
           pkm.lifebar?.setShieldAmount(pkm.shield)
         }
@@ -701,8 +713,9 @@ export default class BattleManager {
           )
         }
       } else if (field === "atk") {
-        value > previousValue &&
+        if (value && value > (previousValue || 0)) {
           this.displayBoost(Stat.ATK, pkm.positionX, pkm.positionY)
+        }
         pkm.atk = pokemon.atk
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
@@ -712,8 +725,9 @@ export default class BattleManager {
           )
         }
       } else if (field === "def") {
-        value > previousValue &&
+        if (value && value > (previousValue || 0)) {
           this.displayBoost(Stat.DEF, pkm.positionX, pkm.positionY)
+        }
         pkm.def = pokemon.def
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
@@ -723,8 +737,9 @@ export default class BattleManager {
           )
         }
       } else if (field === "speDef") {
-        value > previousValue &&
+        if (value && value > (previousValue || 0)) {
           this.displayBoost(Stat.SPE_DEF, pkm.positionX, pkm.positionY)
+        }
         pkm.speDef = pokemon.speDef
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
@@ -761,6 +776,17 @@ export default class BattleManager {
       } else if (field === "index") {
         if (pkm.index !== value) {
           pkm.index = value as IPokemonEntity["index"]
+          pkm.displayAnimation("EVOLUTION")
+          this.animationManager.animatePokemon(
+            pkm,
+            PokemonActionState.IDLE,
+            this.flip,
+            false
+          )
+        }
+      } else if (field === "shiny") {
+        if (pkm.shiny !== value) {
+          pkm.shiny = value as IPokemonEntity["shiny"]
           this.animationManager.animatePokemon(
             pkm,
             PokemonActionState.IDLE,
@@ -771,12 +797,12 @@ export default class BattleManager {
       } else if (field === "skill") {
         pkm.skill = value as IPokemonEntity["skill"]
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
-          pkm.detail.updateAbilityDescription(pkm.skill, pkm.stars, pkm.ap)
+          pkm.detail.updateAbilityDescription(pkm)
         }
       } else if (field === "stars") {
         pkm.stars = value as IPokemonEntity["stars"]
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
-          pkm.detail.updateAbilityDescription(pkm.skill, pkm.stars, pkm.ap)
+          pkm.detail.updateAbilityDescription(pkm)
         }
       }
     }
@@ -1037,7 +1063,7 @@ export default class BattleManager {
       this.boardEventSprites[index] = null
     }
 
-    if (event.type === BoardEvent.LIGHTNING) {
+    if (event.effect === Effect.LIGHTNING_STRIKE) {
       const thunderSprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -1052,7 +1078,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.type === BoardEvent.GAS) {
+    if (event.effect === Effect.GAS) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -1073,7 +1099,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.type === BoardEvent.POISON_GAS) {
+    if (event.effect === Effect.POISON_GAS) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -1097,7 +1123,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.type === BoardEvent.STEALTH_ROCKS) {
+    if (event.effect === Effect.STEALTH_ROCKS) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -1117,7 +1143,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.type === BoardEvent.SPIKES) {
+    if (event.effect === Effect.SPIKES) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -1139,7 +1165,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.type === BoardEvent.STICKY_WEB) {
+    if (event.effect === Effect.STICKY_WEB) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -1161,7 +1187,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.type === BoardEvent.HAIL) {
+    if (event.effect === Effect.HAIL) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],

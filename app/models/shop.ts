@@ -96,6 +96,10 @@ export function getSellPrice(
     price = 1
   } else if (name === Pkm.WISHIWASHI) {
     price = 3
+  } else if (name === Pkm.REMORAID) {
+    price = 3
+  } else if (name === Pkm.OCTILLERY) {
+    price = 10
   } else if (name === Pkm.GYARADOS) {
     price = hasRareCandy ? 0 : 10
   } else if (name === Pkm.MILOTIC) {
@@ -424,11 +428,10 @@ export default class Shop {
       return Pkm.DITTO
     }
 
-    const UNOWN_RATE = 0.05
     if (
-      (player.effects.has(Effect.LIGHT_SCREEN) ||
-        player.effects.has(Effect.EERIE_SPELL)) &&
-      chance(UNOWN_RATE)
+      player.effects.has(Effect.LIGHT_SCREEN) &&
+      shopIndex === 0 &&
+      player.rerollCount % 5 === 0
     ) {
       const unowns = getUnownsPoolPerStage(state.stageLevel)
       return pickRandomIn(unowns)
@@ -448,7 +451,7 @@ export default class Shop {
     const incenseHolder = values(player.board).find((p) =>
       p.items.has(Item.INCENSE)
     )
-    if (incenseHolder && chance(5 / 100)) {
+    if (incenseHolder && chance(5 / 100, incenseHolder)) {
       specificTypesWanted = values(incenseHolder.types)
     } else if (wildChance > 0 && chance(wildChance)) {
       specificTypesWanted = [Synergy.WILD]
@@ -494,7 +497,7 @@ export default class Shop {
           Rarity.EPIC,
           Rarity.ULTRA
         ][Math.floor(player.rerollCount / 30)] ?? Rarity.ULTRA
-      if (player.rerollCount >= 150 && player.rerollCount % 10 === 0) {
+      if (player.rerollCount >= 130 && player.rerollCount % 10 === 0) {
         const legendaryCandidates: Pkm[] = LegendaryShop.filter<Pkm>(
           (p): p is Pkm =>
             !(p in PkmDuos) &&
@@ -504,7 +507,7 @@ export default class Shop {
         )
         if (legendaryCandidates.length > 0)
           return pickRandomIn(legendaryCandidates)
-      } else if (player.rerollCount >= 100 && player.rerollCount % 10 === 0) {
+      } else if (player.rerollCount >= 90 && player.rerollCount % 10 === 0) {
         const uniqueCandidates: Pkm[] = UniqueShop.filter<Pkm>(
           (p): p is Pkm =>
             !(p in PkmDuos) &&
@@ -525,10 +528,10 @@ export default class Shop {
   }
 
   pickFish(player: Player, rod: FishingRod): Pkm {
-    const hasMantyke = values(player.board).some(
+    const mantine = values(player.board).find(
       (p) => p.name === Pkm.MANTYKE || p.name === Pkm.MANTINE
     )
-    if (hasMantyke && chance(0.3)) return Pkm.REMORAID
+    if (mantine && chance(0.3, mantine)) return Pkm.REMORAID
 
     const rarityProbability = FishRarityProbability[rod]
     const rarity_seed = Math.random()
