@@ -32,7 +32,7 @@ jobs:
 
       - name: Keep local versions of custom files
         run: |
-          git checkout --ours Dockerfile.custom entrypoint.custom.sh .github/workflows/* syncDatabase.js policy.md
+          git checkout --ours Dockerfile.custom entrypoint.custom.sh .github/workflows/* syncDatabase.js policy.md app/types/Config.ts
           git add Dockerfile.custom entrypoint.custom.sh .github/workflows/* syncDatabase.js
           git commit -m "Keep local version of custom files" || echo "No changes to commit"
 
