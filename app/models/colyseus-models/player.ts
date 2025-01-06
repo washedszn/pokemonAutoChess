@@ -8,9 +8,11 @@ import { BattleResult, Rarity, Team } from "../../types/enum/Game"
 import {
   ArtificialItems,
   Berries,
+  HMs,
   Item,
   ItemComponents,
   SynergyGivenByItem,
+  TMs,
   WeatherRocks
 } from "../../types/enum/Item"
 import {
@@ -45,6 +47,9 @@ import { Pokemon, PokemonClasses } from "./pokemon"
 import PokemonCollection from "./pokemon-collection"
 import PokemonConfig from "./pokemon-config"
 import Synergies, { computeSynergies } from "./synergies"
+import { carryOverPermanentStats } from "../../core/evolution-rules"
+import { getUnitPowerScore } from "../../public/src/pages/component/bot-builder/bot-logic"
+import { min } from "../../utils/number"
 
 export default class Player extends Schema implements IPlayer {
   @type("string") id: string
@@ -94,6 +99,7 @@ export default class Player extends Schema implements IPlayer {
   @type("uint16") totalMoneyEarned: number = 0
   @type("uint16") totalPlayerDamageDealt: number = 0
   @type("float32") eggChance: number = 0
+  @type("float32") goldenEggChance: number = 0
   @type("float32") wildChance: number = 0
   commonRegionalPool: Pkm[] = new Array<Pkm>()
   uncommonRegionalPool: Pkm[] = new Array<Pkm>()
@@ -104,14 +110,15 @@ export default class Player extends Schema implements IPlayer {
   opponents: Map<string, number> = new Map<string, number>()
   titles: Set<Title> = new Set<Title>()
   artificialItems: Item[] = pickNRandomIn(ArtificialItems, 3)
+  tms: (Item | null)[] = pickRandomTMs()
   weatherRocks: Item[] = []
   randomComponentsGiven: Item[] = []
   randomEggsGiven: Pkm[] = []
   lightX: number
   lightY: number
-  canRegainLife: boolean = true
   ghost: boolean = false
   firstPartner: Pkm | undefined
+  hasLeftGame: boolean = false
 
   constructor(
     id: string,
@@ -145,13 +152,6 @@ export default class Player extends Schema implements IPlayer {
       this.loadingProgress = 100
       this.lightX = 3
       this.lightY = 2
-    }
-
-    if (state.specialGameRule === SpecialGameRule.NINE_LIVES) {
-      this.life = 9
-      this.canRegainLife = false
-    } else if (state.specialGameRule === SpecialGameRule.DESPERATE_MOVES) {
-      this.life = 150
     }
 
     if (state.specialGameRule === SpecialGameRule.DITTO_PARTY) {
@@ -191,10 +191,20 @@ export default class Player extends Schema implements IPlayer {
 
       avatar.positionX = getFirstAvailablePositionInBench(this.board) ?? 0
       avatar.positionY = 0
-      avatar.hp += 100
+      let powerScore = getUnitPowerScore(avatar.name)
+      if (avatar.name === Pkm.EGG) {
+        powerScore = 5
+        if (avatar.shiny) {
+          this.money = 1
+        }
+      }
+      if (powerScore < 5) {
+        this.money += 55 - Math.round(10 * powerScore)
+      }
+      const bonusHP = Math.round(150 - powerScore * 25)
+      avatar.hp = min(10)(avatar.hp + bonusHP)
       this.board.set(avatar.id, avatar)
       avatar.onAcquired(this)
-      this.money += 40 - 2 * getSellPrice(avatar, state.specialGameRule)
     } else if (state.specialGameRule === SpecialGameRule.FIRST_PARTNER) {
       const randomCommons = pickNRandomIn(
         getRegularsTier1(PRECOMPUTED_POKEMONS_PER_RARITY.COMMON).filter(
@@ -268,6 +278,9 @@ export default class Player extends Schema implements IPlayer {
     const newPokemon = PokemonFactory.createPokemonFromName(newEntry, this)
     pokemon.items.forEach((item) => {
       newPokemon.items.add(item)
+      if (item === Item.SHINY_CHARM) {
+        newPokemon.shiny = true
+      }
     })
     newPokemon.positionX = pokemon.positionX
     newPokemon.positionY = pokemon.positionY
@@ -275,6 +288,7 @@ export default class Player extends Schema implements IPlayer {
     this.board.set(newPokemon.id, newPokemon)
     newPokemon.onAcquired(this)
     this.updateSynergies()
+    carryOverPermanentStats(newPokemon, [pokemon])
     return newPokemon
   }
 
@@ -305,8 +319,10 @@ export default class Player extends Schema implements IPlayer {
 
     if (lightChanged) this.onLightChange()
 
+    /* NOTE: should be optimized to update only when the corresponding synergy has changed */
     this.updateFishingRods()
     this.updateWeatherRocks()
+    this.updateTms()
     this.updateWildChance()
     this.effects.update(this.synergies, this.board)
   }
@@ -401,6 +417,29 @@ export default class Player extends Schema implements IPlayer {
     }
   }
 
+  updateTms() {
+    const nbTMs = SynergyTriggers[Synergy.HUMAN].filter(
+      (n) => (this.synergies.get(Synergy.HUMAN) ?? 0) >= n
+    ).length
+
+    let tmInInventory
+    do {
+      tmInInventory = this.items.findIndex(
+        (item, index) => TMs.includes(item) || HMs.includes(item)
+      )
+      if (tmInInventory != -1) {
+        this.items.splice(tmInInventory, 1)
+      }
+    } while (tmInInventory != -1)
+
+    if (nbTMs > 0) {
+      const tmsCollected = this.tms
+        .slice(0, nbTMs)
+        .filter<Item>((tm): tm is Item => tm != null)
+      this.items.push(...tmsCollected)
+    }
+  }
+
   updateFishingRods() {
     const fishingLevel = SynergyTriggers[Synergy.WATER].filter(
       (n) => (this.synergies.get(Synergy.WATER) ?? 0) >= n
@@ -471,4 +510,11 @@ export default class Player extends Schema implements IPlayer {
       }
     })
   }
+}
+
+function pickRandomTMs() {
+  const firstTM = pickRandomIn(TMs)
+  const secondTM = pickRandomIn(TMs.filter((tm) => tm !== firstTM))
+  const hm = pickRandomIn(HMs)
+  return [firstTM, secondTM, hm]
 }
