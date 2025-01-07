@@ -2,6 +2,7 @@ import { Schema, type } from "@colyseus/schema"
 import Board from "../../core/board"
 import { PokemonEntity } from "../../core/pokemon-entity"
 import { IPokemonEntity, ISimulation, IStatus, Transfer } from "../../types"
+import { FIGHTING_PHASE_DURATION, StageDuration } from "../../types/Config"
 import { Ability } from "../../types/enum/Ability"
 import { Effect } from "../../types/enum/Effect"
 import { AttackType } from "../../types/enum/Game"
@@ -11,7 +12,6 @@ import { Weather } from "../../types/enum/Weather"
 import { count } from "../../utils/array"
 import { max, min } from "../../utils/number"
 import { chance } from "../../utils/random"
-import { StageDuration } from "../../types/Config"
 
 export default class Status extends Schema implements IStatus {
   @type("boolean") burn = false
@@ -101,7 +101,7 @@ export default class Status extends Schema implements IStatus {
 
   constructor(simulation: ISimulation) {
     super()
-    const elapsedTime = (StageDuration[1] * 1000) - simulation.room.state.time
+    const elapsedTime = FIGHTING_PHASE_DURATION - simulation.room.state.time
     this.enrageDelay = this.enrageDelay - elapsedTime
   }
 
@@ -266,9 +266,7 @@ export default class Status extends Schema implements IStatus {
       this.updateCurse(dt, board, pokemon)
     }
 
-    if (!this.enraged) {
-      this.updateRage(dt, pokemon)
-    }
+    this.updateRage(dt, pokemon)
 
     if (pokemon.status.curseVulnerability && !pokemon.status.flinch) {
       this.triggerFlinch(30000, pokemon)
@@ -1114,7 +1112,7 @@ export default class Status extends Schema implements IStatus {
   }
 
   triggerPokerus(pokemon: PokemonEntity) {
-    if ((pokemon.passive = Passive.INANIMATE)) return // Inanimate objects cannot get Pokerus
+    if (pokemon.passive === Passive.INANIMATE) return // Inanimate objects cannot get Pokerus
     if (!this.pokerus) {
       this.pokerus = true
     }
