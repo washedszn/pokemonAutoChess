@@ -50,7 +50,7 @@ import { PokemonEntity, getStrongestUnit, getUnitScore } from "./pokemon-entity"
 import { DelayedCommand } from "./simulation-command"
 import { getAvatarString } from "../utils/avatar"
 import { max } from "../utils/number"
-import { OnItemGainedEffect, GrowGroundEffect } from "./effect"
+import { OnItemGainedEffect, GrowGroundEffect, FireHitEffect, MonsterKillEffect, SoundCryEffect, WaterSpringEffect} from "./effect"
 
 export default class Simulation extends Schema implements ISimulation {
   @type("string") weather: Weather = Weather.NEUTRAL
@@ -412,6 +412,15 @@ export default class Simulation extends Schema implements ISimulation {
       (!singleType && pokemon.types.has(Synergy.GHOST))
     ) {
       pokemon.addDodgeChance(0.2, pokemon, 0, false)
+    }
+
+    if (
+      (singleType === Synergy.SOUND ||
+      (!singleType && pokemon.types.has(Synergy.SOUND))) &&
+      !SynergyEffects[Synergy.SOUND].some((e) => allyEffects.has(e))
+    ) {
+      // allow sound pokemon to always wake up allies without searching through the board twice
+      pokemon.effectsSet.add(new SoundCryEffect())
     }
   }
 
@@ -829,26 +838,12 @@ export default class Simulation extends Schema implements ISimulation {
         break
 
       case Effect.BLAZE:
-        if (types.has(Synergy.FIRE)) {
-          pokemon.effects.add(Effect.BLAZE)
-        }
-        break
-
       case Effect.VICTORY_STAR:
-        if (types.has(Synergy.FIRE)) {
-          pokemon.effects.add(Effect.VICTORY_STAR)
-        }
-        break
-
       case Effect.DROUGHT:
-        if (types.has(Synergy.FIRE)) {
-          pokemon.effects.add(Effect.DROUGHT)
-        }
-        break
-
       case Effect.DESOLATE_LAND:
         if (types.has(Synergy.FIRE)) {
-          pokemon.effects.add(Effect.DESOLATE_LAND)
+          pokemon.effects.add(effect)
+          pokemon.effectsSet.add(new FireHitEffect(effect))
         }
         break
 
@@ -962,6 +957,7 @@ export default class Simulation extends Schema implements ISimulation {
       case Effect.MERCILESS:
         if (types.has(Synergy.MONSTER)) {
           pokemon.effects.add(effect)
+          pokemon.effectsSet.add(new MonsterKillEffect(effect))
         }
         break
 
@@ -1124,6 +1120,7 @@ export default class Simulation extends Schema implements ISimulation {
       case Effect.PRESTO:
         if (types.has(Synergy.SOUND)) {
           pokemon.effects.add(effect)
+          pokemon.effectsSet.add(new SoundCryEffect(effect))
         }
         break
 
@@ -1315,6 +1312,11 @@ export default class Simulation extends Schema implements ISimulation {
         break
       }
 
+      case Effect.WATER_SPRING: {
+        pokemon.effectsSet.add(new WaterSpringEffect())
+        break
+      }
+
       case Effect.WINDY: {
         const player = pokemon.player
         const nbFloatStones = player ? count(player.items, Item.FLOAT_STONE) : 0
@@ -1380,15 +1382,7 @@ export default class Simulation extends Schema implements ISimulation {
           pkm.shieldDone
         )
 
-      if (
-        (!pkm.life || pkm.life <= 0) &&
-        !pkm.status.resurecting &&
-        !pkm.status.resurection
-      ) {
-        this.blueTeam.delete(key)
-      } else {
-        pkm.update(dt, this.board, this.weather, this.bluePlayer)
-      }
+      pkm.update(dt, this.board, this.weather, this.bluePlayer)
     })
 
     this.redTeam.forEach((pkm, key) => {
@@ -1405,15 +1399,7 @@ export default class Simulation extends Schema implements ISimulation {
           pkm.shieldDone
         )
 
-      if (
-        (!pkm.life || pkm.life <= 0) &&
-        !pkm.status.resurecting &&
-        !pkm.status.resurection
-      ) {
-        this.redTeam.delete(key)
-      } else {
-        pkm.update(dt, this.board, this.weather, this.redPlayer)
-      }
+      pkm.update(dt, this.board, this.weather, this.redPlayer)
     })
 
     if (this.weather === Weather.STORM) {

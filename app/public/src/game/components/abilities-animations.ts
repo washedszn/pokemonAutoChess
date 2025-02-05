@@ -627,6 +627,18 @@ export function displayAbility(
       break
     }
 
+    case Ability.FROST_BREATH:
+      addAbilitySprite(skill, [coordinates[0], coordinates[1] - 30], true)
+        .setOrigin(-0.1, 0.5)
+        .setScale(4)
+        .setRotation(
+          Math.atan2(
+            coordinatesTarget[1] - coordinates[1],
+            coordinatesTarget[0] - coordinates[0]
+          )
+        )
+      break
+
     case Ability.ICICLE_CRASH:
       addAbilitySprite(skill, coordinatesTarget, true).setScale(3)
       break
@@ -636,11 +648,12 @@ export function displayAbility(
       break
 
     case Ability.TORMENT:
-      addAbilitySprite(skill, coordinates, true).setScale(2)
-      break
-
     case Ability.RAGE:
-      addAbilitySprite(Ability.TORMENT, coordinates, true).setScale(2)
+      addAbilitySprite(
+        Ability.TORMENT,
+        [coordinates[0], coordinates[1] - 50],
+        true
+      ).setScale(2)
       break
 
     case Ability.STOMP:
@@ -681,7 +694,11 @@ export function displayAbility(
       break
 
     case Ability.NASTY_PLOT:
-      addAbilitySprite(skill, coordinates, true).setScale(2)
+      addAbilitySprite(
+        skill,
+        [coordinates[0], coordinates[1] - 50],
+        true
+      ).setScale(2)
       break
 
     case Ability.THIEF:
@@ -1179,7 +1196,7 @@ export function displayAbility(
         y: coordinatesTarget[1],
         ease: "linear",
         duration: 300,
-        delay: (delay || 0) * 300,
+        delay: (delay || 0) * 400,
         onComplete: () => {
           specialProjectile.destroy()
         }
@@ -3056,6 +3073,50 @@ export function displayAbility(
       break
     }
 
+    case Ability.BOLT_BEAK: {
+      const abilitySprite = addAbilitySprite(skill, coordinates, true)
+        .setScale(2)
+        .setDepth(1)
+      scene.tweens.add({
+        targets: abilitySprite,
+        x: coordinatesTarget[0],
+        y: coordinatesTarget[1],
+        ease: "linear",
+        duration: 250
+      })
+      break
+    }
+
+    case Ability.FREEZE_DRY: {
+      const abilitySprite = addAbilitySprite(skill, coordinates, true)
+        .setScale(2)
+        .setDepth(1)
+      scene.tweens.add({
+        targets: abilitySprite,
+        x: coordinatesTarget[0],
+        y: coordinatesTarget[1],
+        ease: "linear",
+        duration: 250
+      })
+      break
+    }
+
+    case Ability.DRAGON_PULSE: {
+      const abilitySprite = addAbilitySprite(skill, coordinates, true)
+        .setScale(2)
+        .setDepth(1)
+      scene.tweens.add({
+        targets: abilitySprite,
+        x: coordinatesTarget[0],
+        y: coordinatesTarget[1],
+        ease: "linear",
+        duration: 500,
+        scaleX: 4,
+        scaleY: 4
+      })
+      break
+    }
+
     case Ability.BRICK_BREAK:
 
     case Ability.BULK_UP:
@@ -3077,6 +3138,10 @@ export function displayAbility(
         [coordinatesTarget[0], coordinatesTarget[1] - 30],
         true
       ).setScale(2)
+      break
+
+    case "SMOKE_BALL":
+      addAbilitySprite(skill, coordinates, true).setScale(3)
       break
 
     case Ability.RETALIATE:

@@ -166,8 +166,8 @@ export const RarityProbabilityPerLevel: { [key: number]: number[] } = {
   1: [1, 0, 0, 0, 0],
   2: [1, 0, 0, 0, 0],
   3: [0.7, 0.3, 0, 0, 0],
-  4: [0.55, 0.35, 0.1, 0, 0],
-  5: [0.4, 0.38, 0.2, 0.02, 0],
+  4: [0.5, 0.4, 0.1, 0, 0],
+  5: [0.36, 0.42, 0.2, 0.02, 0],
   6: [0.25, 0.4, 0.3, 0.05, 0],
   7: [0.16, 0.33, 0.35, 0.15, 0.01],
   8: [0.11, 0.27, 0.35, 0.22, 0.05],
@@ -248,6 +248,9 @@ export const UniqueShop = new Array<PkmProposition>(
   Pkm.COMFEY,
   Pkm.SABLEYE,
   Pkm.DRACOVISH,
+  Pkm.DRACOZOLT,
+  Pkm.ARCTOVISH,
+  Pkm.ARCTOZOLT,
   Pkm.GIMMIGHOUL,
   Pkm.BRUXISH,
   Pkm.CYCLIZAR,
@@ -279,7 +282,9 @@ export const UniqueShop = new Array<PkmProposition>(
   Pkm.OGERPON_HEARTHFLAME,
   Pkm.OGERPON_CORNERSTONE,
   Pkm.IRON_HANDS,
-  Pkm.TURTONATOR
+  Pkm.TURTONATOR,
+  Pkm.CRYOGONAL,
+  Pkm.DRAMPA
 )
 
 export const LegendaryShop = new Array<PkmProposition>(
@@ -685,7 +690,7 @@ export const ItemStats: Record<Item, { [stat in Stat]?: number }> = {
   [Item.LIGHT_BALL]: { [Stat.AP]: 75 },
   [Item.TOXIC_ORB]: { [Stat.SHIELD]: 15, [Stat.SPE_DEF]: 2 },
   [Item.METRONOME]: { [Stat.PP]: 5 },
-  [Item.METAL_COAT]: { [Stat.DEF]: 5 },
+  [Item.METAL_COAT]: { [Stat.DEF]: 5, [Stat.SPE_DEF]: 5 },
   [Item.SWIFT_WING]: { [Stat.ATK_SPEED]: 25 },
   [Item.HARD_STONE]: { [Stat.SHIELD]: 100 },
   [Item.BIG_NUGGET]: {

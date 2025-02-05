@@ -278,7 +278,7 @@ export default abstract class PokemonState {
       if (apBoost > 0) shield *= 1 + (caster.ap * apBoost) / 100
       if (crit) shield *= caster.critPower
       if (pokemon.status.enraged) shield *= 0.5
-      if (pokemon.items.has(Item.SILK_SCARF)) shield *= 1.3
+      if (pokemon.items.has(Item.SILK_SCARF)) shield *= 1.5
 
       shield = Math.round(shield)
       pokemon.shield = min(0)(pokemon.shield + shield)
@@ -464,8 +464,8 @@ export default abstract class PokemonState {
       if (pokemon.shield > 0) {
         let damageOnShield
         if (pokemon.status.flinch) {
-          damageOnShield = reducedDamage * 0.5
-          residualDamage = reducedDamage * 0.5
+          damageOnShield = Math.ceil(reducedDamage * 0.5)
+          residualDamage = Math.ceil(reducedDamage * 0.5)
         } else {
           damageOnShield = reducedDamage
           residualDamage = 0
@@ -621,10 +621,12 @@ export default abstract class PokemonState {
           effectsRemovedList.forEach((x) =>
             pokemon.simulation.blueEffects.delete(x)
           )
+          pokemon.simulation.blueTeam.delete(pokemon.id)
         } else {
           effectsRemovedList.forEach((x) =>
             pokemon.simulation.redEffects.delete(x)
           )
+          pokemon.simulation.redTeam.delete(pokemon.id)
         }
       }
     }
@@ -673,7 +675,7 @@ export default abstract class PokemonState {
           ? 30
           : pokemon.effects.has(Effect.GROWTH)
             ? 15
-            : 7
+            : 5
         pokemon.handleHeal(heal, pokemon, 0, false)
         pokemon.grassHealCooldown = 2000
         pokemon.simulation.room.broadcast(Transfer.ABILITY, {
@@ -1021,7 +1023,7 @@ export default abstract class PokemonState {
       const distance = distanceM(pokemon.positionX, pokemon.positionY, x, y)
       if (
         value === undefined &&
-        (maxRange === undefined || distance >= maxRange)
+        (maxRange === undefined || distance <= maxRange)
       ) {
         if (distance < minDistance) {
           candidateCells = [{ x, y, value }]

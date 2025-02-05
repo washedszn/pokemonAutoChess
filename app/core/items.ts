@@ -15,6 +15,9 @@ import { pickRandomIn } from "../utils/random"
 import { Pokemon } from "../models/colyseus-models/pokemon"
 import { PokemonEntity } from "./pokemon-entity"
 import { min } from "../utils/number"
+import { DEFAULT_ATK_SPEED } from "../types/Config"
+import { Pkm } from "../types/enum/Pokemon"
+import PokemonFactory from "../models/pokemon-factory"
 
 export function getWonderboxItems(existingItems: SetSchema<Item>): Item[] {
   const wonderboxItems: Item[] = []
@@ -139,10 +142,10 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
 
   [Item.DYNAMAX_BAND]: [
     new OnItemGainedEffect((pokemon) => {
-      pokemon.addMaxHP(2.5 * pokemon.baseHP, pokemon, 0, false)
+      pokemon.addMaxHP(2 * pokemon.baseHP, pokemon, 0, false)
     }),
     new OnItemRemovedEffect((pokemon) => {
-      pokemon.addMaxHP(-2.5 * pokemon.baseHP, pokemon, 0, false)
+      pokemon.addMaxHP(-2 * pokemon.baseHP, pokemon, 0, false)
     })
   ],
 
@@ -174,7 +177,16 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
 
   [Item.REPEAT_BALL]: [
     new OnItemGainedEffect((pokemon) => {
-      pokemon.addAbilityPower(
+      pokemon.addShield(
+        Math.floor(
+          ((pokemon.player?.rerollCount ?? 0) + pokemon.simulation.stageLevel) /
+            2
+        ) * 2,
+        pokemon,
+        0,
+        false
+      )
+      pokemon.addAttackSpeed(
         Math.floor(
           ((pokemon.player?.rerollCount ?? 0) + pokemon.simulation.stageLevel) /
             2
@@ -230,6 +242,54 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
         pokemon.count.moneyCount += 1
         pokemon.count.amuletCoinCount += 1
       }
+    })
+  ],
+
+  [Item.COMFEY]: [
+    new OnItemGainedEffect((pokemon) => {
+      const comfey = PokemonFactory.createPokemonFromName(Pkm.COMFEY)
+      pokemon.addAbilityPower(comfey.ap, pokemon, 0, false)
+      pokemon.addAttack(comfey.atk, pokemon, 0, false)
+      pokemon.addAttackSpeed(
+        comfey.atkSpeed - DEFAULT_ATK_SPEED,
+        pokemon,
+        0,
+        false
+      )
+      pokemon.addMaxHP(comfey.hp, pokemon, 0, false)
+      pokemon.addDefense(comfey.def, pokemon, 0, false)
+      pokemon.addSpecialDefense(
+        comfey.speDef,
+        pokemon,
+        0,
+        false
+      )
+    }),
+    new OnItemRemovedEffect((pokemon) => {
+      const comfey = PokemonFactory.createPokemonFromName(Pkm.COMFEY)
+      pokemon.addAbilityPower(-comfey.ap, pokemon, 0, false)
+      pokemon.addAttack(-comfey.atk, pokemon, 0, false)
+      pokemon.addAttackSpeed(
+        -(comfey.atkSpeed - DEFAULT_ATK_SPEED),
+        pokemon,
+        0,
+        false
+      )
+      pokemon.addMaxHP(-comfey.hp, pokemon, 0, false)
+      pokemon.addDefense(-comfey.def, pokemon, 0, false)
+      pokemon.addSpecialDefense(-comfey.speDef, pokemon, 0, false)
+    })
+  ],
+
+  [Item.MAGMARIZER]: [
+    new OnItemRemovedEffect((pokemon) => {
+      pokemon.addAttack(
+        -pokemon.count.magmarizerCount,
+        pokemon,
+        0,
+        false
+      )
+      pokemon.count.magmarizerCount = 0
     })
   ]
 }

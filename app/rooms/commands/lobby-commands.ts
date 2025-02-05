@@ -11,7 +11,6 @@ import {
   TournamentBracketSchema,
   TournamentPlayerSchema
 } from "../../models/colyseus-models/tournament"
-import BannedUser from "../../models/mongo-models/banned-user"
 import { BotV2 } from "../../models/mongo-models/bot-v2"
 import { Tournament } from "../../models/mongo-models/tournament"
 import UserMetadata, {
@@ -47,6 +46,7 @@ import {
   getEmotionCost,
   BoosterPriceByRarity
 } from "../../types/Config"
+import { Ability } from "../../types/enum/Ability"
 import { CloseCodes } from "../../types/enum/CloseCodes"
 import { EloRank } from "../../types/enum/EloRank"
 import { GameMode, Rarity } from "../../types/enum/Game"
@@ -385,7 +385,11 @@ function pickRandomPokemonBooster(guarantedUnique: boolean): PkmWithConfig {
       if (seed < threshold) {
         const candidates: Pkm[] = (
           PRECOMPUTED_POKEMONS_PER_RARITY[rarity] ?? []
-        ).filter((p) => Unowns.includes(p) === false)
+        ).filter(
+          (p) =>
+            Unowns.includes(p) === false &&
+            getPokemonData(p).skill !== Ability.DEFAULT
+        )
         if (candidates.length > 0) {
           pkm = pickRandomIn(candidates) as Pkm
           break
@@ -666,11 +670,11 @@ export class BuyBoosterCommand extends Command<
       if (!user) return
 
       const pkm = PkmByIndex[index]
-      if(!pkm) return
-      
-      const rarity = getPokemonData(pkm).rarity      
+      if (!pkm) return
+
+      const rarity = getPokemonData(pkm).rarity
       const boosterCost = BoosterPriceByRarity[rarity]
-      
+
       const mongoUser = await UserMetadata.findOneAndUpdate(
         {
           uid: client.auth.uid,
@@ -723,10 +727,28 @@ export class OnSearchCommand extends Command<
 > {
   async execute({ client, name }: { client: Client; name: string }) {
     try {
-      const regExp = new RegExp("^" + name)
+      const searchTerm = name.trim()
+      const escapedSearchTerm = searchTerm.replace(
+        /[-\/\\^$*+?.()|[\]{}]/g,
+        "\\$&"
+      )
+      const regExp = new RegExp("^" + escapedSearchTerm, "i")
+      const user = this.room.users.get(client.auth.uid)
+      const showBanned =
+        user?.role === Role.ADMIN || user?.role === Role.MODERATOR
       const users = await UserMetadata.find(
-        { displayName: { $regex: regExp, $options: "i" } },
-        ["uid", "elo", "displayName", "level", "avatar"],
+        {
+          displayName: { $regex: regExp },
+          ...(showBanned ? {} : { banned: false })
+        },
+        [
+          "uid",
+          "elo",
+          "displayName",
+          "level",
+          "avatar",
+          ...(showBanned ? ["banned"] : [])
+        ],
         { limit: 100, sort: { level: -1 } }
       )
       if (users) {
@@ -736,7 +758,8 @@ export class OnSearchCommand extends Command<
             elo: u.elo,
             name: u.displayName,
             level: u.level,
-            avatar: u.avatar
+            avatar: u.avatar,
+            banned: u.banned
           }
         })
         client.send(Transfer.SUGGESTIONS, suggestions)
@@ -770,20 +793,16 @@ export class BanUserCommand extends Command<
         bannedUser.role !== Role.ADMIN
       ) {
         this.state.removeMessages(uid)
-        const banned = await BannedUser.findOne({ uid })
-        if (!banned) {
-          BannedUser.create({
-            uid,
-            author: user.displayName,
-            time: Date.now(),
-            name: bannedUser.displayName
-          })
+        if (!bannedUser.banned) {
+          await UserMetadata.updateOne({ uid }, { banned: true })
           client.send(
             Transfer.BANNED,
             `${user.displayName} banned the user ${bannedUser.displayName}`
           )
 
           discordService.announceBan(user, bannedUser, reason)
+          bannedUser.banned = true
+          client.send(Transfer.USER, bannedUser)
         } else {
           client.send(
             Transfer.BANNED,
@@ -818,13 +837,15 @@ export class UnbanUserCommand extends Command<
     try {
       const user = this.room.users.get(client.auth.uid)
       if (user && (user.role === Role.ADMIN || user.role === Role.MODERATOR)) {
-        const res = await BannedUser.deleteOne({ uid })
-        if (res.deletedCount > 0) {
+        const res = await UserMetadata.updateOne({ uid }, { banned: false })
+        if (res.modifiedCount > 0) {
           client.send(
             Transfer.BANNED,
             `${user.displayName} unbanned the user ${name}`
           )
           discordService.announceUnban(user, name)
+          const unbannedUser = await UserMetadata.findOne({ uid })
+          if (unbannedUser) client.send(Transfer.USER, unbannedUser)
         }
       }
     } catch (error) {
@@ -1403,10 +1424,10 @@ export class EndTournamentCommand extends Command<
       }
 
       for (const player of finalists) {
-        const mongoUser = await UserMetadata.findOne({ uid: player.id })
-        const user = this.room.users.get(player.id)
         const rank = player.ranks.at(-1) ?? 1
+        const user = this.room.users.get(player.id)
 
+        const mongoUser = await UserMetadata.findOne({ uid: player.id })
         if (mongoUser == null || user == null) continue
 
         mongoUser.booster += 3 // 3 boosters for top 8

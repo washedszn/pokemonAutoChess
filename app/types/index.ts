@@ -200,7 +200,7 @@ export const AttackSpriteScale: { [sprite in AttackSprite]: [number, number] } =
     "ICE/range": [2, 2],
     "NORMAL/melee": [2, 2],
     "POISON/melee": [2, 2],
-    "POISON/range": [1.5, 1.5],
+    "POISON/range": [1, 1],
     "PSYCHIC/melee": [1.5, 1.5],
     "PSYCHIC/range": [2, 2],
     "ROCK/melee": [1.5, 1.5],
@@ -389,6 +389,7 @@ export interface IPokemon {
   rarity: Rarity
   index: string
   evolution: Pkm
+  evolutions: Pkm[]
   evolutionRule: EvolutionRule
   positionX: number
   positionY: number
@@ -649,7 +650,6 @@ export interface ICount {
   crit: number
   ult: number
   fieldCount: number
-  soundCount: number
   fairyCritCount: number
   attackCount: number
   fightingBlockCount: number
@@ -700,6 +700,7 @@ export interface ISuggestionUser {
   level: number
   id: string
   avatar: string
+  banned?: boolean
 }
 
 export enum Title {
@@ -769,6 +770,7 @@ export enum Title {
   FEARSOME = "FEARSOME",
   GOLDEN = "GOLDEN",
   CHOSEN_ONE = "CHOSEN_ONE",
+  ANNIHILATOR = "ANNIHILATOR",
   VANQUISHER = "VANQUISHER",
   OUTSIDER = "OUTSIDER",
   GLUTTON = "GLUTTON",

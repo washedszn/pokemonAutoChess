@@ -8,7 +8,6 @@ import { MiniGame } from "../core/matter/mini-game"
 import { IGameUser } from "../models/colyseus-models/game-user"
 import Player from "../models/colyseus-models/player"
 import { Pokemon } from "../models/colyseus-models/pokemon"
-import BannedUser from "../models/mongo-models/banned-user"
 import { BotV2 } from "../models/mongo-models/bot-v2"
 import DetailledStatistic from "../models/mongo-models/detailled-statistic-v2"
 import History from "../models/mongo-models/history"
@@ -556,13 +555,10 @@ export default class GameRoom extends Room<GameState> {
   }
 
   async onJoin(client: Client) {
-    const isBanned = await BannedUser.findOne({ uid: client.auth.uid })
-
-    if (isBanned) {
+    const userProfile = await UserMetadata.findOne({ uid: client.auth.uid })
+    if (userProfile?.banned) {
       throw "Account banned"
     }
-
-    const userProfile = await UserMetadata.findOne({ uid: client.auth.uid })
     client.send(Transfer.USER_PROFILE, userProfile)
     this.dispatcher.dispatch(new OnJoinCommand(), { client })
   }
@@ -576,8 +572,8 @@ export default class GameRoom extends Room<GameState> {
         throw new Error("consented leave")
       }
 
-      // allow disconnected client to reconnect into this room until 3 minutes
-      await this.allowReconnection(client, 180)
+      // allow disconnected client to reconnect into this room until 5 minutes
+      await this.allowReconnection(client, 300)
       const userProfile = await UserMetadata.findOne({ uid: client.auth.uid })
       client.send(Transfer.USER_PROFILE, userProfile)
       this.dispatcher.dispatch(new OnJoinCommand(), { client })
@@ -587,7 +583,10 @@ export default class GameRoom extends Room<GameState> {
         const player = this.state.players.get(client.auth.uid)
         const hasLeftGameBeforeTheEnd =
           player && player.life > 0 && !this.state.gameFinished
-        if (hasLeftGameBeforeTheEnd) {
+        const otherHumans = values(this.state.players).filter(
+          (p) => !p.isBot && p.id !== client.auth.uid
+        )
+        if (hasLeftGameBeforeTheEnd && otherHumans.length >= 1) {
           /* if a user leaves a game before the end, 
           they cannot join another in the next 5 minutes */
           this.presence.hset(
@@ -958,7 +957,7 @@ export default class GameRoom extends Room<GameState> {
 
     player.board.forEach((pokemon) => {
       if (
-        pokemon.evolution !== Pkm.DEFAULT &&
+        pokemon.hasEvolution &&
         pokemon.evolutionRule instanceof CountEvolutionRule
       ) {
         const pokemonEvolved = pokemon.evolutionRule.tryEvolve(

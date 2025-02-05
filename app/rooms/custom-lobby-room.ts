@@ -11,7 +11,6 @@ import { CronJob } from "cron"
 import admin from "firebase-admin"
 import Message from "../models/colyseus-models/message"
 import { TournamentSchema } from "../models/colyseus-models/tournament"
-import BannedUser from "../models/mongo-models/banned-user"
 import { IBot } from "../models/mongo-models/bot-v2"
 import ChatV2 from "../models/mongo-models/chat-v2"
 import Tournament from "../models/mongo-models/tournament"
@@ -427,10 +426,8 @@ export default class CustomLobbyRoom extends Room<LobbyState> {
 
   async onJoin(client: Client, options: any, auth: any) {
     const user = await UserMetadata.findOne({ uid: client.auth.uid })
-    const isBanned = await BannedUser.findOne({ uid: client.auth.uid })
-
     try {
-      if (isBanned) {
+      if (user?.banned) {
         throw new Error("Account banned")
       } else if (
         (this.state.ccu > MAX_CONCURRENT_PLAYERS_ON_SERVER ||
@@ -622,10 +619,6 @@ export default class CustomLobbyRoom extends Room<LobbyState> {
               this.removeRoom(roomIndex, room.roomId)
             }
           })
-
-          this.presence.hlen("roomcaches").then((n) => {
-            logger.debug(`roomcaches size: ${n}`)
-          })
         },
         start: true
       })
@@ -639,8 +632,8 @@ export default class CustomLobbyRoom extends Room<LobbyState> {
           logger.debug("checking inactive users")
           this.clients.forEach((c) => {
             if (
-              c.userData.joinedAt &&
-              c.userData.joinedAt < Date.now() - INACTIVITY_TIMEOUT
+              c.userData?.joinedAt &&
+              c.userData?.joinedAt < Date.now() - INACTIVITY_TIMEOUT
             ) {
               //logger.info("disconnected user for inactivity", c.id)
               c.leave(CloseCodes.USER_INACTIVE)
