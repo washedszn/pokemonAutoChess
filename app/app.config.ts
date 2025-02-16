@@ -114,6 +114,7 @@ export default config({
             imgSrc: [
               "'self'",
               "data:",
+              "blob:",
               "https://www.gstatic.com",
               "http://raw.githubusercontent.com"
             ]
