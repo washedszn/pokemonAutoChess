@@ -91,7 +91,39 @@ export default config({
      * Read more: https://expressjs.com/en/starter/basic-routing.html
      */
 
-    app.use(helmet())
+    app.use(
+      helmet({
+        crossOriginOpenerPolicy: false, // required for firebase auth
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: [
+              "'self'",
+              "https://*.pokemon-auto-chess.com",
+              "wss://*.pokemon-auto-chess.com",
+              "https://*.firebaseapp.com",
+              "https://apis.google.com",
+              "https://*.googleapis.com",
+              "https://*.githubusercontent.com",
+              "http://raw.githubusercontent.com"
+            ],
+            scriptSrc: [
+              "'self'",
+              "'unsafe-inline'",
+              "'unsafe-eval'",
+              "https://apis.google.com",
+              "https://*.googleapis.com"
+            ],
+            imgSrc: [
+              "'self'",
+              "data:",
+              "blob:",
+              "https://www.gstatic.com",
+              "http://raw.githubusercontent.com"
+            ]
+          }
+        }
+      })
+    )
 
     app.use(((err, req, res, next) => {
       res.status(err.status).json(err)
