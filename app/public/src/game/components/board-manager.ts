@@ -1,12 +1,12 @@
 import { t } from "i18next"
 import { GameObjects } from "phaser"
-import { NonFunctionPropNames } from "@colyseus/schema/lib/types/HelperTypes"
+import type { NonFunctionPropNames } from "../../../../types/HelperTypes"
 import Player from "../../../../models/colyseus-models/player"
 import { PokemonAvatarModel } from "../../../../models/colyseus-models/pokemon-avatar"
 import { getPokemonData } from "../../../../models/precomputed/precomputed-pokemon-data"
 import GameState from "../../../../rooms/states/game-state"
 import { IPokemon, Transfer } from "../../../../types"
-import { SynergyTriggers } from "../../../../types/Config"
+import { PortalCarouselStages, SynergyTriggers } from "../../../../types/Config"
 import {
   GameMode,
   GamePhaseState,
@@ -27,11 +27,15 @@ import PokemonSprite from "./pokemon"
 import PokemonAvatar from "./pokemon-avatar"
 import PokemonSpecial from "./pokemon-special"
 import { displayBoost } from "./boosts-animations"
+import { Item } from "../../../../types/enum/Item"
+import { playMusic } from "../../pages/utils/audio"
+import { DEPTH } from "../depths"
+import { DungeonMusic } from "../../../../types/enum/Dungeon"
 
 export enum BoardMode {
   PICK = "pick",
   BATTLE = "battle",
-  MINIGAME = "minigame"
+  TOWN = "town"
 }
 
 export default class BoardManager {
@@ -78,11 +82,11 @@ export default class BoardManager {
     this.lightCell = null
     this.pveChest = null
     this.pveChestGroup = null
-    this.renderBoard()
 
     if (state.phase == GamePhaseState.FIGHT) {
       this.battleMode()
-    } else if (state.phase === GamePhaseState.MINIGAME) {
+    } else if (state.phase === GamePhaseState.TOWN) {
+      this.renderBoard()
       this.minigameMode()
     } else {
       this.pickMode()
@@ -194,7 +198,7 @@ export default class BoardManager {
   }
 
   renderBoard() {
-    this.showBerryTree()
+    this.showBerryTrees()
     this.pokemons.forEach((p) => p.destroy())
     this.pokemons.clear()
     if (this.mode === BoardMode.PICK) {
@@ -227,7 +231,7 @@ export default class BoardManager {
         "abilities",
         "LIGHT_CELL/000.png"
       )
-      this.lightCell.setDepth(2)
+      this.lightCell.setDepth(DEPTH.BOARD_EFFECT_GROUND_LEVEL)
       this.lightCell.setScale(2, 2)
       this.lightCell.anims.play("LIGHT_CELL")
     }
@@ -238,7 +242,7 @@ export default class BoardManager {
     this.lightCell = null
   }
 
-  showBerryTree() {
+  showBerryTrees() {
     this.berryTrees.forEach((tree) => tree.destroy())
     this.berryTrees = []
     const grassLevel = this.player.synergies.get(Synergy.GRASS) ?? 0
@@ -260,7 +264,7 @@ export default class BoardManager {
         this.player.berryTreesType[i] + "_1"
       )
 
-      tree.setDepth(1).setScale(2, 2).setOrigin(0.5, 1)
+      tree.setDepth(DEPTH.INANIMATE_OBJECTS).setScale(2, 2).setOrigin(0.5, 1)
       if (this.player.berryTreesStage[i] === 0) {
         tree.anims.play("CROP")
       } else {
@@ -285,6 +289,10 @@ export default class BoardManager {
     }
   }
 
+  hideBerryTrees() {
+    this.berryTrees.forEach((tree) => tree.destroy())
+  }
+
   displayText(x: number, y: number, label: string) {
     const textStyle = {
       fontSize: "25px",
@@ -296,9 +304,12 @@ export default class BoardManager {
     }
 
     const text = this.scene.add.existing(
-      new GameObjects.Text(this.scene, x, y, label, textStyle)
+      new GameObjects.Text(this.scene, x, y, label, textStyle).setOrigin(
+        0.5,
+        0.5
+      )
     )
-    text.setDepth(10)
+    text.setDepth(DEPTH.TEXT)
 
     this.scene.add.tween({
       targets: [text],
@@ -324,6 +335,7 @@ export default class BoardManager {
       this.playerAvatar.destroy()
     }
     if (this.player.life <= 0) return // do not display avatar when player is dead
+    if (this.state.phase === GamePhaseState.TOWN) return // do not display avatar in town since it is on board
     const playerAvatar = new PokemonAvatarModel(
       this.player.id,
       this.player.avatar,
@@ -411,12 +423,12 @@ export default class BoardManager {
     if (!players) return
 
     const scoutingPlayers = values(players).filter((p) => {
-      const spectatedPlayer = players[p.spectatedPlayerId]
+      const spectatedPlayer = players.get(p.spectatedPlayerId)
 
       if (
         !spectatedPlayer ||
         spectatedPlayer.id === p.id || // can't scout yourself
-        this.mode === BoardMode.MINIGAME || // no scouting during minigame
+        this.mode === BoardMode.TOWN || // no scouting in town
         p.id === this.opponentAvatar?.playerId // avatar already in opponent box
       )
         return false
@@ -525,6 +537,7 @@ export default class BoardManager {
   pickMode() {
     // logger.debug('pickMode');
     this.mode = BoardMode.PICK
+    this.scene.setMap(this.player.map)
     this.renderBoard()
     this.updatePlayerAvatar()
     this.updateOpponentAvatar(null, null)
@@ -532,8 +545,16 @@ export default class BoardManager {
   }
 
   minigameMode() {
-    this.mode = BoardMode.MINIGAME
+    this.mode = BoardMode.TOWN
+    this.scene.setMap("town")
+    if (this.state.stageLevel === PortalCarouselStages[0])
+      playMusic(this.scene, DungeonMusic.TREASURE_TOWN_STAGE_0)
+    if (this.state.stageLevel === PortalCarouselStages[1])
+      playMusic(this.scene, DungeonMusic.TREASURE_TOWN_STAGE_10)
+    if (this.state.stageLevel === PortalCarouselStages[2])
+      playMusic(this.scene, DungeonMusic.TREASURE_TOWN_STAGE_20)
     this.hideLightCell()
+    this.hideBerryTrees()
     this.pokemons.forEach((pokemon) => {
       if (pokemon.positionY != 0) {
         pokemon.setVisible(false)
@@ -547,6 +568,10 @@ export default class BoardManager {
     }
     this.updateOpponentAvatar(null, null)
     this.updateScoutingAvatars(true)
+    this.scene.minigameManager?.addVillagers(
+      this.scene.room?.state.townEncounter ?? null,
+      store.getState().game.podium
+    )
   }
 
   setPlayer(player: Player) {
@@ -562,12 +587,15 @@ export default class BoardManager {
     }
   }
 
-  updatePokemonItems(playerId: string, pokemon: IPokemon) {
+  updatePokemonItems(playerId: string, pokemon: IPokemon, item: Item) {
     // logger.debug(change);
     if (this.player.id === playerId) {
       const pkm = this.pokemons.get(pokemon.id)
       if (pkm) {
         pkm.itemsContainer.render(pokemon.items)
+      }
+      if (item === Item.SHINY_STONE) {
+        pkm?.addLight()
       }
     }
   }
@@ -651,6 +679,16 @@ export default class BoardManager {
             pokemonUI.evolutionAnimation()
           }
           break
+
+        case "types":
+          pokemonUI.types = new Set(values(value as IPokemon["types"]))
+          break
+
+        case "meal":
+          if (pokemonUI.meal !== value) {
+            pokemonUI.updateMeal(value as IPokemon["meal"])
+          }
+          break
       }
     }
   }
@@ -695,15 +733,15 @@ export default class BoardManager {
   }
 
   addSmeargle() {
-    this.smeargle = new PokemonSpecial(
-      this.scene,
-      1512,
-      396,
-      Pkm.SMEARGLE,
-      this.animationManager,
-      t(`scribble_description.${this.specialGameRule}`),
-      t(`scribble.${this.specialGameRule}`)
-    )
+    this.smeargle = new PokemonSpecial({
+      scene: this.scene,
+      x: 1512,
+      y: 396,
+      name: Pkm.SMEARGLE,
+      orientation: Orientation.DOWNLEFT,
+      dialog: t(`scribble_description.${this.specialGameRule}`),
+      dialogTitle: t(`scribble.${this.specialGameRule}`)
+    })
   }
 
   displayBoost(stat: Stat, pokemon: PokemonSprite) {

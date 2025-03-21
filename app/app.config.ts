@@ -1,7 +1,13 @@
 import path from "path"
 import { monitor } from "@colyseus/monitor"
 import config from "@colyseus/tools"
-import { RedisDriver, RedisPresence, ServerOptions, matchMaker } from "colyseus"
+import {
+  Presence,
+  RedisDriver,
+  RedisPresence,
+  ServerOptions,
+  matchMaker
+} from "colyseus"
 import helmet from "helmet"
 import cors from "cors"
 import express, { ErrorRequestHandler } from "express"
@@ -33,6 +39,7 @@ import { DungeonPMDO } from "./types/enum/Dungeon"
 import { Item } from "./types/enum/Item"
 import { Pkm, PkmIndex } from "./types/enum/Pokemon"
 import { logger } from "./utils/logger"
+import chatV2 from "./models/mongo-models/chat-v2"
 
 const clientSrc = __dirname.includes("server")
   ? path.join(__dirname, "..", "..", "client")
@@ -49,7 +56,9 @@ if (process.env.NODE_APP_INSTANCE) {
   const processNumber = Number(process.env.NODE_APP_INSTANCE || "0")
   const port = (Number(process.env.PORT) || 2567) + processNumber
   gameOptions = {
-    presence: new RedisPresence(process.env.REDIS_URI),
+    presence: new RedisPresence(
+      process.env.REDIS_URI
+    ) as Presence /* TODO: type assertion shouldnt be required, need to report that bug to colyseus */,
     driver: new RedisDriver(process.env.REDIS_URI),
     publicAddress: `${port}.${process.env.SERVER_NAME}`,
     selectProcessIdToCreateRoom: async function (
@@ -104,7 +113,14 @@ export default config({
               "https://apis.google.com",
               "https://*.googleapis.com",
               "https://*.githubusercontent.com",
-              "http://raw.githubusercontent.com"
+              "http://raw.githubusercontent.com",
+              "https://*.youtube.com",
+              "https://pokemon.darkatek7.com",
+              "https://eternara.site",
+              "https://www.penumbra-autochess.com",
+              "https://pokechess.com.br",
+              "https://uruwhy.online",
+              "https://koala-pac.com"
             ],
             scriptSrc: [
               "'self'",
@@ -271,6 +287,20 @@ export default config({
       return res.status(200).json([])
     })
 
+    app.get("/chat-history/:playerUid", async (req, res) => {
+      res.set("Cache-Control", "no-cache")
+      const { playerUid } = req.params
+      const { page = 1 } = req.query
+      const limit = 30
+      const skip = (Number(page) - 1) * limit
+      const messages = await chatV2.find({ authorId: playerUid }, undefined, {
+        limit: limit,
+        skip: skip,
+        sort: { time: -1 }
+      })
+      return res.status(200).json(messages ?? [])
+    })
+
     app.get("/bots", async (req, res) => {
       const botsData = await getBotsList({
         withSteps: req.query.withSteps === "true"
@@ -300,7 +330,7 @@ export default config({
     })
 
     app.get("/bots/:id", async (req, res) => {
-      res.send(getBotData(req.params.id))
+      res.send(await getBotData(req.params.id))
     })
 
     app.get("/status", async (req, res) => {

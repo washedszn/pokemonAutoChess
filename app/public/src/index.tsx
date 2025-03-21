@@ -12,7 +12,6 @@ import Lobby from "./pages/lobby"
 import Preparation from "./pages/preparation"
 import { SpriteDebug } from "./pages/sprite-viewer"
 import { Gameboy } from "./pages/gameboy"
-import { loadPreferences } from "./preferences"
 import store from "./stores/index"
 
 import "./i18n"
@@ -23,7 +22,6 @@ if (window.top && window !== window.top) {
   window.top.location = window.location;
 }
 
-loadPreferences()
 const container = document.getElementById("root")
 const root = createRoot(container!)
 

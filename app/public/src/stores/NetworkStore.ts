@@ -205,12 +205,12 @@ export const networkSlice = createSlice({
       action: PayloadAction<{ index: string; emotion: Emotion; shiny: boolean }>
     ) => {
       if (state.profile) {
-        const pokemonConfig = state.profile.pokemonCollection.get(
+        const pokemonCollectionItem = state.profile.pokemonCollection.get(
           action.payload.index
         )
-        if (pokemonConfig) {
-          pokemonConfig.selectedEmotion = action.payload.emotion
-          pokemonConfig.selectedShiny = action.payload.shiny
+        if (pokemonCollectionItem) {
+          pokemonCollectionItem.selectedEmotion = action.payload.emotion
+          pokemonCollectionItem.selectedShiny = action.payload.shiny
         }
       }
       state.lobby?.send(Transfer.CHANGE_SELECTED_EMOTION, action.payload)
@@ -237,11 +237,14 @@ export const networkSlice = createSlice({
       if (state.profile) state.profile.title = action.payload
       state.lobby?.send(Transfer.SET_TITLE, action.payload)
     },
-    removeTournament: (state, action: PayloadAction<{ id: string }>) => {
-      state.lobby?.send(Transfer.REMOVE_TOURNAMENT, action.payload)
+    deleteTournament: (state, action: PayloadAction<{ id: string }>) => {
+      state.lobby?.send(Transfer.DELETE_TOURNAMENT, action.payload)
     },
-    createTournamentLobbies: (state, action: PayloadAction<{ id: string }>) => {
-      state.lobby?.send(Transfer.REMAKE_TOURNAMENT_LOBBIES, action.payload)
+    remakeTournamentLobby: (
+      state,
+      action: PayloadAction<{ tournamentId: string; bracketId: string }>
+    ) => {
+      state.lobby?.send(Transfer.REMAKE_TOURNAMENT_LOBBY, action.payload)
     },
     participateInTournament: (
       state,
@@ -257,6 +260,9 @@ export const networkSlice = createSlice({
     },
     heapSnapshot: (state) => {
       state.lobby?.send(Transfer.HEAP_SNAPSHOT)
+    },
+    deleteAccount: (state) => {
+      state.lobby?.send(Transfer.DELETE_ACCOUNT)
     },
     giveRole: (state, action: PayloadAction<{ uid: string; role: Role }>) => {
       state.lobby?.send(Transfer.SET_ROLE, action.payload)
@@ -311,8 +317,8 @@ export const {
   giveTitle,
   giveRole,
   removeMessage,
-  removeTournament,
-  createTournamentLobbies,
+  deleteTournament,
+  remakeTournamentLobby,
   participateInTournament,
   giveBooster,
   showEmote,
@@ -349,7 +355,8 @@ export const {
   kick,
   deleteRoom,
   createTournament,
-  setErrorAlertMessage
+  setErrorAlertMessage,
+  deleteAccount
 } = networkSlice.actions
 
 export default networkSlice.reducer

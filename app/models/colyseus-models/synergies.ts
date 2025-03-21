@@ -4,8 +4,7 @@ import { SynergyTriggers } from "../../types/Config"
 import {
   ArtificialItems,
   Item,
-  SynergyGivenByItem,
-  SynergyItems
+  SynergyGivenByItem
 } from "../../types/enum/Item"
 import { Passive } from "../../types/enum/Passive"
 import { Pkm, PkmFamily } from "../../types/enum/Pokemon"
@@ -23,6 +22,11 @@ export default class Synergies
     })
   }
 
+  getSynergyStep(type: Synergy): number {
+    return SynergyTriggers[type].filter((n) => (this.get(type) ?? 0) >= n)
+      .length
+  }
+
   countActiveSynergies() {
     let count = 0
     this.forEach((value, key) => {
@@ -33,14 +37,10 @@ export default class Synergies
     return count
   }
 
-  isActiveSynergy(syn: Synergy, lvl: number) {
-    return lvl >= SynergyTriggers[syn][0]
-  }
-
   getTopSynergies(): Synergy[] {
     const synergiesSortedByLevel: [Synergy, number][] = []
     this.forEach((value, key) => {
-      synergiesSortedByLevel.push([key, value])
+      synergiesSortedByLevel.push([key as Synergy, value])
     })
     synergiesSortedByLevel.sort(([s1, v1], [s2, v2]) => v2 - v1)
     const topSynergyCount = synergiesSortedByLevel[0][1]
@@ -48,6 +48,14 @@ export default class Synergies
       .filter(([s, v]) => v >= topSynergyCount)
       .map(([s, v]) => s)
     return topSynergies
+  }
+
+  toMap() {
+    const map = new Map<Synergy, number>()
+    this.forEach((value, key) => {
+      map.set(key as Synergy, value)
+    })
+    return map
   }
 }
 

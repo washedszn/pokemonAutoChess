@@ -6,7 +6,7 @@ import {
   TournamentSchema
 } from "../../../models/colyseus-models/tournament"
 import {
-  IPokemonConfig,
+  IPokemonCollectionItem,
   IUserMetadata
 } from "../../../models/mongo-models/user-metadata"
 import {
@@ -14,7 +14,7 @@ import {
   IGameMetadata,
   IPreparationMetadata,
   ISuggestionUser,
-  PkmWithConfig
+  PkmWithCustom
 } from "../../../types"
 import { Language } from "../../../types/enum/Language"
 import {
@@ -33,8 +33,8 @@ export interface IUserLobbyState {
   tabIndex: number
   preparationRooms: RoomAvailable[]
   gameRooms: RoomAvailable[]
-  pokemonCollection: IPokemonConfig[]
-  boosterContent: PkmWithConfig[]
+  pokemonCollection: IPokemonCollectionItem[]
+  boosterContent: PkmWithCustom[]
   suggestions: ISuggestionUser[]
   language: Language
   tournaments: TournamentSchema[]
@@ -87,7 +87,7 @@ export const lobbySlice = createSlice({
     setLevelLeaderboard: (state, action: PayloadAction<ILeaderboardInfo[]>) => {
       state.levelLeaderboard = action.payload
     },
-    changePokemonConfig: (
+    changePokemonCollectionItem: (
       state,
       action: PayloadAction<{ id: string; field: string; value: any }>
     ) => {
@@ -137,8 +137,9 @@ export const lobbySlice = createSlice({
       action: PayloadAction<IUserMetadata | undefined>
     ) => {
       state.searchedUser = action.payload
+      state.suggestions = []
     },
-    setBoosterContent: (state, action: PayloadAction<PkmWithConfig[]>) => {
+    setBoosterContent: (state, action: PayloadAction<PkmWithCustom[]>) => {
       state.boosterContent = action.payload
     },
     setSuggestions: (state, action: PayloadAction<ISuggestionUser[]>) => {
@@ -245,7 +246,7 @@ export const lobbySlice = createSlice({
 export const {
   removeMessage,
   setBoosterContent,
-  changePokemonConfig,
+  changePokemonCollectionItem,
   pushMessage,
   setLeaderboard,
   setBotLeaderboard,

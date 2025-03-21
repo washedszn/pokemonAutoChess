@@ -3,7 +3,7 @@ import { Client, ClientArray, Room, updateLobby } from "colyseus"
 import admin from "firebase-admin"
 import { IBot } from "../models/mongo-models/bot-v2"
 import UserMetadata from "../models/mongo-models/user-metadata"
-import { IPreparationMetadata, Transfer } from "../types"
+import { IPreparationMetadata, Role, Transfer } from "../types"
 import { EloRank, MAX_PLAYERS_PER_GAME } from "../types/Config"
 import { CloseCodes } from "../types/enum/CloseCodes"
 import { BotDifficulty, GameMode } from "../types/enum/Game"
@@ -94,7 +94,7 @@ export default class PreparationRoom extends Room<PreparationState> {
     this.clock.start()
 
     // logger.debug(defaultRoomName);
-    this.setState(new PreparationState(options))
+    this.state = new PreparationState(options)
     this.setMetadata(<IPreparationMetadata>{
       name: options.roomName.slice(0, 30),
       ownerName:
@@ -342,13 +342,20 @@ export default class PreparationRoom extends Room<PreparationState> {
 
     this.onGameStart = this.onGameStart.bind(this)
     this.presence.subscribe("game-started", this.onGameStart)
+
+    this.presence.subscribe("room-deleted", (roomId) => {
+      if (this.roomId === roomId) {
+        this.disconnect(CloseCodes.ROOM_DELETED)
+      }
+    })
   }
 
-  async onAuth(client: Client, options: any, request: any) {
+  async onAuth(client: Client, options, context) {
     try {
       const token = await admin.auth().verifyIdToken(options.idToken)
       const user = await admin.auth().getUser(token.uid)
       const userProfile = await UserMetadata.findOne({ uid: user.uid })
+      const isAdmin = userProfile?.role === Role.ADMIN
       client.send(Transfer.USER_PROFILE, userProfile)
 
       const isAlreadyInRoom = this.state.users.has(user.uid)
@@ -356,7 +363,7 @@ export default class PreparationRoom extends Room<PreparationState> {
         (u) => !u.isBot
       ).length
 
-      if (numberOfHumanPlayers >= MAX_PLAYERS_PER_GAME) {
+      if (numberOfHumanPlayers >= MAX_PLAYERS_PER_GAME && !isAdmin) {
         throw "Room is full"
       } else if (isAlreadyInRoom) {
         throw "Already joined"

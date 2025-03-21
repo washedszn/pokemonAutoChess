@@ -5,7 +5,7 @@ import { IPlayer } from "../types"
 import { EvolutionTime } from "../types/Config"
 import { Ability } from "../types/enum/Ability"
 import { PokemonActionState } from "../types/enum/Game"
-import { ItemComponents, Item, ShinyItems } from "../types/enum/Item"
+import { Item, ItemComponents, ShinyItems } from "../types/enum/Item"
 import { Passive } from "../types/enum/Passive"
 import { Pkm } from "../types/enum/Pokemon"
 import { sum } from "../utils/array"
@@ -89,17 +89,17 @@ export class CountEvolutionRule extends EvolutionRule {
 
   canEvolve(pokemon: Pokemon, player: Player, stageLevel: number): boolean {
     if (!pokemon.hasEvolution) return false
-    const copies = values(player.board).filter((p) => p.index === pokemon.index)
-    if (copies.some((p) => p.items.has(Item.EVIOLITE))) return false
+    const copies = values(player.board).filter(
+      (p) => p.index === pokemon.index && !p.items.has(Item.EVIOLITE)
+    )
     return copies.length >= this.numberRequired
   }
 
   canEvolveIfBuyingOne(pokemon: Pokemon, player: Player): boolean {
     if (!pokemon.hasEvolution) return false
-    const copies = values(player.board).filter((p) => p.index === pokemon.index)
-    if (copies.some((p) => p.items.has(Item.EVIOLITE))) {
-      return false
-    }
+    const copies = values(player.board).filter(
+      (p) => p.index === pokemon.index && !p.items.has(Item.EVIOLITE)
+    )
     return copies.length >= this.numberRequired - 1
   }
 
@@ -112,7 +112,11 @@ export class CountEvolutionRule extends EvolutionRule {
     const pokemonsBeforeEvolution: Pokemon[] = []
 
     player.board.forEach((pkm, id) => {
-      if (pkm.index == pokemon.index) {
+      if (
+        pkm.index == pokemon.index &&
+        !pkm.items.has(Item.EVIOLITE) &&
+        pokemonsBeforeEvolution.length < this.numberRequired
+      ) {
         // logger.debug(pkm.name, pokemon.name)
         if (coord) {
           if (pkm.positionY > coord.y) {
@@ -135,6 +139,7 @@ export class CountEvolutionRule extends EvolutionRule {
             itemsToAdd.push(el)
           }
         })
+        pkm.meal = pokemonsBeforeEvolution.find((p) => p.meal)?.meal ?? ""
         player.board.delete(id)
         pokemonsBeforeEvolution.push(pkm)
       }
@@ -201,7 +206,9 @@ export class ItemEvolutionRule extends EvolutionRule {
 
   canEvolve(pokemon: Pokemon, player: Player, stageLevel: number): boolean {
     if (pokemon.items.has(Item.EVIOLITE)) return false
-    const itemEvolution = values(pokemon.items).find((item) =>
+    const items = values(pokemon.items)
+    pokemon.meal !== "" && items.push(pokemon.meal)
+    const itemEvolution = items.find((item) =>
       this.itemsTriggeringEvolution.includes(item)
     )
 

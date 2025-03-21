@@ -5,22 +5,12 @@ import { IBot } from "../../../../../models/mongo-models/bot-v2"
 import { joinLobbyRoom } from "../../../game/lobby-logic"
 import { useAppDispatch, useAppSelector } from "../../../hooks"
 import { addBotDatabase, deleteBotDatabase } from "../../../stores/NetworkStore"
-import { getAvatarSrc } from "../../../../../utils/avatar"
 import { rewriteBotRoundsRequiredto1, validateBot } from "./bot-logic"
+import PokemonPortrait from "../pokemon-portrait"
+import { Transfer } from "../../../../../types"
 import "./bot-manager-panel.css"
 
 export function BotManagerPanel() {
-  const dispatch = useAppDispatch()
-  const navigate = useNavigate()
-
-  const lobbyJoined = useRef<boolean>(false)
-  useEffect(() => {
-    if (!lobbyJoined.current) {
-      joinLobbyRoom(dispatch, navigate)
-      lobbyJoined.current = true
-    }
-  }, [lobbyJoined])
-
   return (
     <div id="bot-manager-panel">
       <BotsList />
@@ -35,8 +25,20 @@ function BotsList() {
   const navigate = useNavigate()
   const [bots, setBots] = useState<IBot[] | null>(null)
 
+  const lobbyJoined = useRef<boolean>(false)
   useEffect(() => {
-    fetch("/bots?withSteps=true").then((res) => res.json()).then((data) => {
+    if (!lobbyJoined.current) {
+      joinLobbyRoom(dispatch, navigate).then(room => {
+        room.onMessage(Transfer.DELETE_BOT_DATABASE, botId => {
+          setBots(bots => bots?.filter(b => b.id !== botId) || [])
+        })
+      })
+      lobbyJoined.current = true
+    }
+  }, [lobbyJoined])
+
+  useEffect(() => {
+    fetch(`/bots?withSteps=true&t=${Date.now()}`).then((res) => res.json()).then((data) => {
       setBots(data)
     })
   }, [])
@@ -62,10 +64,7 @@ function BotsList() {
             {bots.map((b) => (
               <tr key={b.id}>
                 <td>
-                  <img
-                    src={getAvatarSrc(b.avatar)}
-                    className="pokemon-portrait"
-                  />
+                  <PokemonPortrait avatar={b.avatar} />
                 </td>
                 <td>{t(`pkm.${b.name}`)}</td>
                 <td>{b.author}</td>

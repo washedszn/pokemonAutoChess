@@ -2,7 +2,11 @@ import { t } from "i18next"
 import { GameObjects } from "phaser"
 import AnimatedTiles from "phaser-animated-tiles-phaser3.5/dist/AnimatedTiles.min.js"
 import pkg from "../../../../../package.json"
-import { DungeonDetails } from "../../../../types/enum/Dungeon"
+import {
+  DungeonDetails,
+  DungeonMusic,
+  DungeonPMDO
+} from "../../../../types/enum/Dungeon"
 import { values } from "../../../../utils/schemas"
 import indexList from "../../../src/assets/pokemons/indexList.json"
 import atlas from "../../assets/atlas.json"
@@ -128,9 +132,20 @@ export default class LoadingManager {
     if (scene instanceof GameScene) {
       const players = values(scene.room?.state.players!)
       const player = players.find((p) => p.id === scene.uid) ?? players[0]
-      await scene.preloadMaps(players.map((p) => p.map))
+      await scene.preloadMaps(
+        players
+          .map((p) => p.map)
+          .filter<DungeonPMDO>((map): map is DungeonPMDO => map !== "town")
+      )
       preloadMusic(scene, DungeonDetails[player.map].music)
     }
+
+    scene.load.image("town_tileset", "/assets/tilesets/Town/tileset.png")
+    scene.load.tilemapTiledJSON("town", "/assets/tilesets/Town/town.json")
+    preloadMusic(scene, DungeonMusic.TREASURE_TOWN_STAGE_0)
+    preloadMusic(scene, DungeonMusic.TREASURE_TOWN_STAGE_10)
+    preloadMusic(scene, DungeonMusic.TREASURE_TOWN_STAGE_20)
+
     scene.load.image("rain", "/assets/ui/rain.png")
     scene.load.image("sand", "/assets/ui/sand.png")
     scene.load.image("wind", "/assets/ui/wind.png")
@@ -185,7 +200,6 @@ export function loadEnvironmentMultiAtlas(scene: Phaser.Scene) {
     "/assets/environment/shine.json",
     "/assets/environment/"
   )
-
   scene.load.multiatlas(
     "berry_trees",
     "/assets/environment/berry_trees.json",

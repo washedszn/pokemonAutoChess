@@ -1,5 +1,5 @@
 import { Command } from "@colyseus/command"
-import { Client, matchMaker } from "colyseus"
+import { Client, matchMaker, Room } from "colyseus"
 import { nanoid } from "nanoid"
 import { writeHeapSnapshot } from "v8"
 import {
@@ -14,7 +14,7 @@ import {
 import { BotV2 } from "../../models/mongo-models/bot-v2"
 import { Tournament } from "../../models/mongo-models/tournament"
 import UserMetadata, {
-  IPokemonConfig,
+  IPokemonCollectionItem,
   IUserMetadata
 } from "../../models/mongo-models/user-metadata"
 import { PRECOMPUTED_EMOTIONS_PER_POKEMON_INDEX } from "../../models/precomputed/precomputed-emotions"
@@ -32,7 +32,7 @@ import {
   Emotion,
   IPlayer,
   ISuggestionUser,
-  PkmWithConfig,
+  PkmWithCustom,
   Role,
   Title,
   Transfer,
@@ -96,7 +96,7 @@ export class OnJoinCommand extends Command<
           displayName: client.auth.displayName,
           avatar: starterAvatar,
           booster: starterBoosters,
-          pokemonCollection: new Map<string, IPokemonConfig>()
+          pokemonCollection: new Map<string, IPokemonCollectionItem>()
         })
         const newUser: IUserMetadata = {
           uid: client.auth.uid,
@@ -107,7 +107,7 @@ export class OnJoinCommand extends Command<
           exp: 0,
           level: 0,
           elo: 1000,
-          pokemonCollection: new Map<string, IPokemonConfig>(),
+          pokemonCollection: new Map<string, IPokemonCollectionItem>(),
           booster: starterBoosters,
           titles: [],
           title: "",
@@ -165,6 +165,23 @@ export class GiveTitleCommand extends Command<
             targetUser.titles.push(title)
           }
         }
+      }
+    } catch (error) {
+      logger.error(error)
+    }
+  }
+}
+
+export class DeleteAccountCommand extends Command<CustomLobbyRoom> {
+  async execute({
+    client
+  }: {
+    client: Client
+  }) {
+    try {
+      if (client.auth.uid) {
+        await UserMetadata.deleteOne({ uid: client.auth.uid })
+        client.leave(CloseCodes.USER_DELETED)
       }
     } catch (error) {
       logger.error(error)
@@ -306,20 +323,21 @@ export class OpenBoosterCommand extends Command<
       if (!mongoUser) return
 
       const NB_PER_BOOSTER = 10
-      const boosterContent: PkmWithConfig[] = []
+      const boosterContent: PkmWithCustom[] = []
 
       for (let i = 0; i < NB_PER_BOOSTER; i++) {
         const guaranteedUnique = i === NB_PER_BOOSTER - 1
         boosterContent.push(pickRandomPokemonBooster(guaranteedUnique))
       }
 
-      boosterContent.forEach((pkmWithConfig) => {
-        const index = PkmIndex[pkmWithConfig.name]
-        const mongoPokemonConfig = mongoUser.pokemonCollection.get(index)
-        const dustGain = pkmWithConfig.shiny ? DUST_PER_SHINY : DUST_PER_BOOSTER
+      boosterContent.forEach((pkmWithCustom) => {
+        const index = PkmIndex[pkmWithCustom.name]
+        const mongoPokemonCollectionItem =
+          mongoUser.pokemonCollection.get(index)
+        const dustGain = pkmWithCustom.shiny ? DUST_PER_SHINY : DUST_PER_BOOSTER
 
-        if (mongoPokemonConfig) {
-          mongoPokemonConfig.dust += dustGain
+        if (mongoPokemonCollectionItem) {
+          mongoPokemonCollectionItem.dust += dustGain
         } else {
           mongoUser.pokemonCollection.set(index, {
             id: index,
@@ -336,21 +354,24 @@ export class OpenBoosterCommand extends Command<
 
       // resync, db-authoritative
       user.booster = mongoUser.booster - 1
-      boosterContent.forEach((pkmWithConfig) => {
-        const index = PkmIndex[pkmWithConfig.name]
-        const pokemonConfig = user.pokemonCollection.get(index)
-        const mongoPokemonConfig = mongoUser.pokemonCollection.get(index)
-        if (!mongoPokemonConfig) return
-        if (pokemonConfig) {
-          pokemonConfig.dust = mongoPokemonConfig.dust
+      boosterContent.forEach((pkmWithCustom) => {
+        const index = PkmIndex[pkmWithCustom.name]
+        const pokemonCollectionItem = user.pokemonCollection.get(index)
+        const mongoPokemonCollectionItem =
+          mongoUser.pokemonCollection.get(index)
+        if (!mongoPokemonCollectionItem) return
+        if (pokemonCollectionItem) {
+          pokemonCollectionItem.dust = mongoPokemonCollectionItem.dust
         } else {
-          const newConfig: IPokemonConfig = {
-            dust: mongoPokemonConfig.dust,
-            id: mongoPokemonConfig.id,
-            emotions: mongoPokemonConfig.emotions.map((e) => e),
-            shinyEmotions: mongoPokemonConfig.shinyEmotions.map((e) => e),
-            selectedEmotion: mongoPokemonConfig.selectedEmotion,
-            selectedShiny: mongoPokemonConfig.selectedShiny
+          const newConfig: IPokemonCollectionItem = {
+            dust: mongoPokemonCollectionItem.dust,
+            id: mongoPokemonCollectionItem.id,
+            emotions: mongoPokemonCollectionItem.emotions.map((e) => e),
+            shinyEmotions: mongoPokemonCollectionItem.shinyEmotions.map(
+              (e) => e
+            ),
+            selectedEmotion: mongoPokemonCollectionItem.selectedEmotion,
+            selectedShiny: mongoPokemonCollectionItem.selectedShiny
           }
           user.pokemonCollection.set(index, newConfig)
         }
@@ -364,7 +385,7 @@ export class OpenBoosterCommand extends Command<
   }
 }
 
-function pickRandomPokemonBooster(guarantedUnique: boolean): PkmWithConfig {
+function pickRandomPokemonBooster(guarantedUnique: boolean): PkmWithCustom {
   let pkm = Pkm.MAGIKARP,
     emotion = Emotion.NORMAL
   const shiny = chance(0.03)
@@ -415,6 +436,7 @@ export class ChangeNameCommand extends Command<
       const user = this.room.users.get(client.auth.uid)
       if (!user) return
       if (USERNAME_REGEXP.test(name)) {
+        logger.info(`${client.auth.displayName} changed name to ${name}`)
         user.displayName = name
         const mongoUser = await UserMetadata.findOne({ uid: client.auth.uid })
         if (mongoUser) {
@@ -473,18 +495,18 @@ export class ChangeSelectedEmotionCommand extends Command<
     try {
       const user = this.room.users.get(client.auth.uid)
       if (!user) return
-      const pokemonConfig = user.pokemonCollection.get(index)
-      if (pokemonConfig) {
+      const pokemonCollectionItem = user.pokemonCollection.get(index)
+      if (pokemonCollectionItem) {
         const emotionsToCheck = shiny
-          ? pokemonConfig.shinyEmotions
-          : pokemonConfig.emotions
+          ? pokemonCollectionItem.shinyEmotions
+          : pokemonCollectionItem.emotions
         if (
           emotionsToCheck.includes(emotion) &&
-          (emotion != pokemonConfig.selectedEmotion ||
-            shiny != pokemonConfig.selectedShiny)
+          (emotion != pokemonCollectionItem.selectedEmotion ||
+            shiny != pokemonCollectionItem.selectedShiny)
         ) {
-          pokemonConfig.selectedEmotion = emotion
-          pokemonConfig.selectedShiny = shiny
+          pokemonCollectionItem.selectedEmotion = emotion
+          pokemonCollectionItem.selectedShiny = shiny
           const mongoUser = await UserMetadata.findOne({ uid: client.auth.uid })
           const pkmConfig = mongoUser?.pokemonCollection.get(index)
           if (mongoUser && pkmConfig) {
@@ -556,9 +578,9 @@ export class BuyEmotionCommand extends Command<
     try {
       const user = this.room.users.get(client.auth.uid)
       const cost = getEmotionCost(emotion, shiny)
-      if (!user) return
-      const pokemonConfig = user.pokemonCollection.get(index)
-      if (!pokemonConfig) return
+      if (!user || !PkmByIndex.hasOwnProperty(index)) return
+      const pokemonCollectionItem = user.pokemonCollection.get(index)
+      if (!pokemonCollectionItem) return
 
       const mongoUser = await UserMetadata.findOneAndUpdate(
         {
@@ -586,19 +608,21 @@ export class BuyEmotionCommand extends Command<
       // const mongoUser = await UserMetadata.findOne({ uid: client.auth.uid })
       if (!mongoUser) return
 
-      const mongoPokemonConfig = mongoUser.pokemonCollection.get(index)
-      if (!mongoPokemonConfig) return
+      const mongoPokemonCollectionItem = mongoUser.pokemonCollection.get(index)
+      if (!mongoPokemonCollectionItem) return
 
-      pokemonConfig.dust = mongoPokemonConfig.dust // resync shards to database value, db authoritative
-      pokemonConfig.selectedShiny = mongoPokemonConfig.selectedShiny
-      pokemonConfig.selectedEmotion = mongoPokemonConfig.selectedEmotion
+      pokemonCollectionItem.dust = mongoPokemonCollectionItem.dust // resync shards to database value, db authoritative
+      pokemonCollectionItem.selectedShiny =
+        mongoPokemonCollectionItem.selectedShiny
+      pokemonCollectionItem.selectedEmotion =
+        mongoPokemonCollectionItem.selectedEmotion
 
-      if (shiny && mongoPokemonConfig.shinyEmotions.includes(emotion)) {
-        pokemonConfig.shinyEmotions.push(emotion)
+      if (shiny && mongoPokemonCollectionItem.shinyEmotions.includes(emotion)) {
+        pokemonCollectionItem.shinyEmotions.push(emotion)
       }
 
-      if (!shiny && mongoPokemonConfig.emotions.includes(emotion)) {
-        pokemonConfig.emotions.push(emotion)
+      if (!shiny && mongoPokemonCollectionItem.emotions.includes(emotion)) {
+        pokemonCollectionItem.emotions.push(emotion)
       }
 
       if (!mongoUser.titles.includes(Title.SHINY_SEEKER)) {
@@ -648,9 +672,10 @@ export class BuyEmotionCommand extends Command<
 
       if (
         !mongoUser.titles.includes(Title.DUCHESS) &&
-        mongoPokemonConfig.shinyEmotions.length >=
+        mongoPokemonCollectionItem.shinyEmotions.length >=
           Object.keys(Emotion).length &&
-        mongoPokemonConfig.emotions.length >= Object.keys(Emotion).length
+        mongoPokemonCollectionItem.emotions.length >=
+          Object.keys(Emotion).length
       ) {
         mongoUser.titles.push(Title.DUCHESS)
       }
@@ -693,14 +718,14 @@ export class BuyBoosterCommand extends Command<
       )
       if (!mongoUser) return
 
-      const pokemonConfig = user.pokemonCollection.get(index)
-      if (!pokemonConfig) return
+      const pokemonCollectionItem = user.pokemonCollection.get(index)
+      if (!pokemonCollectionItem) return
 
-      const mongoPokemonConfig = mongoUser.pokemonCollection.get(index)
-      if (!mongoPokemonConfig) return
+      const mongoPokemonCollectionItem = mongoUser.pokemonCollection.get(index)
+      if (!mongoPokemonCollectionItem) return
 
       user.booster = mongoUser.booster
-      pokemonConfig.dust = mongoPokemonConfig.dust // resync shards to database value, db authoritative
+      pokemonCollectionItem.dust = mongoPokemonCollectionItem.dust // resync shards to database value, db authoritative
       client.send(Transfer.USER_PROFILE, mongoUser)
     } catch (error) {
       logger.error(error)
@@ -887,9 +912,7 @@ export class AddBotCommand extends Command<
       const user = this.room.users.get(client.auth.uid)
       if (
         user &&
-        (user.role === Role.ADMIN ||
-          user.role === Role.BOT_MANAGER ||
-          user.role === Role.MODERATOR)
+        (user.role === Role.ADMIN || user.role === Role.BOT_MANAGER)
       ) {
         const id = url.slice(21)
         client.send(Transfer.BOT_DATABASE_LOG, `retrieving id : ${id} ...`)
@@ -954,12 +977,10 @@ export class DeleteBotCommand extends Command<
       const user = this.room.users.get(client.auth.uid)
       if (
         user &&
-        (user.role === Role.ADMIN ||
-          user.role === Role.BOT_MANAGER ||
-          user.role === Role.MODERATOR)
+        (user.role === Role.ADMIN || user.role === Role.BOT_MANAGER)
       ) {
         const id = message
-        const botData = getBotData(id)
+        const botData = await getBotData(id)
         if (!botData) {
           client.send(Transfer.BOT_DATABASE_LOG, `Bot not found:${id}`)
           return
@@ -973,6 +994,7 @@ export class DeleteBotCommand extends Command<
           Transfer.BOT_DATABASE_LOG,
           JSON.stringify(resultDelete, null, 2)
         )
+        client.send(Transfer.DELETE_BOT_DATABASE, id)
         discordService.announceBotDeletion(botData, user)
 
         this.room.bots.delete(id)
@@ -1157,7 +1179,7 @@ export class OnCreateTournamentCommand extends Command<
   }
 }
 
-export class RemoveTournamentCommand extends Command<
+export class DeleteTournamentCommand extends Command<
   CustomLobbyRoom,
   { client: Client; tournamentId: string }
 > {
@@ -1317,6 +1339,70 @@ export class CreateTournamentLobbiesCommand extends Command<
         mongoTournament.brackets = convertSchemaToRawObject(tournament.brackets)
         await mongoTournament.save()
       }
+
+      tournament.pendingLobbiesCreation = false
+    } catch (error) {
+      logger.error(error)
+    }
+  }
+}
+
+export class RemakeTournamentLobbyCommand extends Command<
+  CustomLobbyRoom,
+  { client?: Client; tournamentId: string; bracketId: string }
+> {
+  async execute({
+    tournamentId,
+    bracketId,
+    client
+  }: {
+    tournamentId: string
+    bracketId: string
+    client?: Client
+  }) {
+    try {
+      if (client) {
+        const user = this.room.users.get(client.auth.uid)
+        if (!user || !user.role || user.role !== Role.ADMIN) {
+          return
+        }
+      }
+
+      const tournament = this.state.tournaments.find(
+        (t) => t.id === tournamentId
+      )
+      if (!tournament)
+        return logger.error(`Tournament not found: ${tournamentId}`)
+
+      const bracket = tournament.brackets.get(bracketId)
+      if (!bracket)
+        return logger.error(`Tournament bracket not found: ${bracketId}`)
+
+      logger.info(`Remaking tournament game ${bracket.name} id: ${bracketId}`)
+      tournament.brackets.set(
+        bracketId,
+        new TournamentBracketSchema(bracket.name, bracket.playersId)
+      )
+
+      await matchMaker.createRoom("preparation", {
+        gameMode: GameMode.TOURNAMENT,
+        noElo: true,
+        ownerId: null,
+        roomName: bracket.name,
+        autoStartDelayInSeconds: 10 * 60,
+        whitelist: bracket.playersId,
+        tournamentId,
+        bracketId
+      })
+
+      //save brackets to db
+      const mongoTournament = await Tournament.findById(tournamentId)
+      if (mongoTournament) {
+        mongoTournament.brackets = convertSchemaToRawObject(tournament.brackets)
+        await mongoTournament.save()
+      }
+
+      tournament.pendingLobbiesCreation = false
     } catch (error) {
       logger.error(error)
     }
@@ -1373,7 +1459,11 @@ export class EndTournamentMatchCommand extends Command<
         }
       })
 
-      if (values(tournament.brackets).every((b) => b.finished)) {
+      if (
+        !tournament.pendingLobbiesCreation &&
+        values(tournament.brackets).every((b) => b.finished)
+      ) {
+        tournament.pendingLobbiesCreation = true // prevent executing command multiple times
         //save brackets and player ranks to db before moving to next stage
         const mongoTournament = await Tournament.findById(tournamentId)
         if (mongoTournament) {
@@ -1470,6 +1560,64 @@ export class EndTournamentCommand extends Command<
       }
     } catch (error) {
       logger.error(error)
+    }
+  }
+}
+
+export class DeleteRoomCommand extends Command<
+  CustomLobbyRoom,
+  {
+    client: Client
+    roomId?: string
+    tournamentId?: string
+    bracketId?: string
+  }
+> {
+  async execute({ client, roomId, tournamentId, bracketId }) {
+    try {
+      if (client) {
+        const user = this.room.users.get(client.auth.uid)
+        if (!user || !user.role || user.role !== Role.ADMIN) {
+          return
+        }
+      }
+
+      const roomsIdToDelete: string[] = []
+      if (roomId) {
+        roomsIdToDelete.push(roomId)
+      } else if (tournamentId) {
+        const tournament = this.state.tournaments.find(
+          (t) => t.id === tournamentId
+        )
+        if (!tournament)
+          return logger.error(
+            `DeleteRoomCommand ; Tournament not found: ${tournamentId}`
+          )
+
+        const allRooms = await matchMaker.query({})
+        roomsIdToDelete.push(
+          ...allRooms
+            .filter(
+              (result) =>
+                result.metadata?.tournamentId === tournamentId &&
+                (bracketId === "all" ||
+                  result.metadata?.bracketId === bracketId)
+            )
+            .map((result) => result.roomId)
+        )
+      }
+
+      if (roomsIdToDelete.length === 0) {
+        return logger.error(
+          `DeleteRoomCommand ; room not found with query: roomId: ${roomId} tournamentId: ${tournamentId} bracketId: ${bracketId}`
+        )
+      }
+
+      roomsIdToDelete.forEach((roomToDelete) => {
+        this.room.presence.publish("room-deleted", roomId)
+      })
+    } catch (error) {
+      logger.error(`DeleteRoomCommand error:`, error)
     }
   }
 }

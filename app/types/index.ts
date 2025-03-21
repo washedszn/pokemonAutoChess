@@ -9,7 +9,7 @@ import HistoryItem from "../models/colyseus-models/history-item"
 import Message from "../models/colyseus-models/message"
 import Player from "../models/colyseus-models/player"
 import { Pokemon } from "../models/colyseus-models/pokemon"
-import PokemonCollection from "../models/colyseus-models/pokemon-collection"
+import { PokemonCustoms } from "../models/colyseus-models/pokemon-customs"
 import Status from "../models/colyseus-models/status"
 import Synergies from "../models/colyseus-models/synergies"
 import { TournamentSchema } from "../models/colyseus-models/tournament"
@@ -34,6 +34,7 @@ import { Passive } from "./enum/Passive"
 import { Pkm, PkmProposition } from "./enum/Pokemon"
 import { Synergy } from "./enum/Synergy"
 import { Weather } from "./enum/Weather"
+import { Effect as EffectClass } from "../core/effect"
 
 export * from "./enum/Emotion"
 
@@ -45,7 +46,8 @@ export const CDN_URL =
 
 export const USERNAME_REGEXP = /^(\p{Letter}|[0-9]|\.|-|_){3,24}$/u
 
-export type PkmWithConfig = { name: Pkm; shiny?: boolean; emotion?: Emotion }
+export type PkmCustom = { shiny?: boolean; emotion?: Emotion }
+export type PkmWithCustom = { name: Pkm } & PkmCustom
 
 export enum Role {
   ADMIN = "ADMIN",
@@ -80,6 +82,7 @@ export enum Transfer {
   LEVEL_UP = "LEVEL_UP",
   SHOP = "SHOP",
   ITEM = "ITEM",
+  COOK = "COOK",
   GAME_START = "GAME_START",
   GAME_START_REQUEST = "GAME_START_REQUEST",
   GAME_END = "GAME_END",
@@ -98,8 +101,8 @@ export enum Transfer {
   SET_TITLE = "SET_TITLE",
   REMOVE_MESSAGE = "REMOVE_MESSAGE",
   NEW_TOURNAMENT = "NEW_TOURNAMENT",
-  REMOVE_TOURNAMENT = "REMOVE_TOURNAMENT",
-  REMAKE_TOURNAMENT_LOBBIES = "REMAKE_TOURNAMENT_LOBBIES",
+  DELETE_TOURNAMENT = "DELETE_TOURNAMENT",
+  REMAKE_TOURNAMENT_LOBBY = "REMAKE_TOURNAMENT_LOBBY",
   PARTICIPATE_TOURNAMENT = "PARTICIPATE_TOURNAMENT",
   GIVE_BOOSTER = "GIVE_BOOSTER",
   SET_ROLE = "SET_ROLE",
@@ -135,6 +138,7 @@ export enum Transfer {
   PICK_BERRY = "PICK_BERRY",
   PRELOAD_MAPS = "PRELOAD_MAPS",
   NPC_DIALOG = "NPC_DIALOG",
+  DELETE_ACCOUNT = "DELETE_ACCOUNT",
   HEAP_SNAPSHOT = "HEAP_SNAPSHOT"
 }
 
@@ -156,9 +160,11 @@ export enum AttackSprite {
   FIRE_RANGE = "FIRE/range",
   FLYING_MELEE = "FLYING/melee",
   FLYING_RANGE = "FLYING/range",
+  GHOST_MELEE = "GHOST/melee",
   GHOST_RANGE = "GHOST/range",
   GRASS_MELEE = "GRASS/melee",
   GRASS_RANGE = "GRASS/range",
+  GROUND_MELEE = "GROUND/melee",
   ICE_MELEE = "ICE/melee",
   ICE_RANGE = "ICE/range",
   NORMAL_MELEE = "NORMAL/melee",
@@ -171,7 +177,9 @@ export enum AttackSprite {
   ROCK_MELEE = "ROCK/melee",
   ROCK_RANGE = "ROCK/range",
   SOUND_RANGE = "SOUND/range",
-  STEEL_MELEE = "STEEL/melee"
+  STEEL_MELEE = "STEEL/melee",
+  STEEL_RANGE = "STEEL/range",
+  WILD_MELEE = "WILD/melee"
 }
 
 export const AttackSpriteScale: { [sprite in AttackSprite]: [number, number] } =
@@ -193,9 +201,11 @@ export const AttackSpriteScale: { [sprite in AttackSprite]: [number, number] } =
     "FIRE/range": [2, 2],
     "FLYING/melee": [1, 1],
     "FLYING/range": [1.5, 1.5],
+    "GHOST/melee": [1, 1],
     "GHOST/range": [2, 2],
     "GRASS/melee": [1, 1],
     "GRASS/range": [3, 3],
+    "GROUND/melee": [1, 1],
     "ICE/melee": [2, 2],
     "ICE/range": [2, 2],
     "NORMAL/melee": [2, 2],
@@ -206,9 +216,11 @@ export const AttackSpriteScale: { [sprite in AttackSprite]: [number, number] } =
     "ROCK/melee": [1.5, 1.5],
     "ROCK/range": [2, 2],
     "STEEL/melee": [1.5, 1.5],
+    "STEEL/range": [2, 2],
     "SOUND/range": [2, 2],
     "WATER/melee": [2, 2],
-    "WATER/range": [3, 3]
+    "WATER/range": [3, 3],
+    "WILD/melee": [2, 2]
   }
 
 export enum ReadWriteMode {
@@ -355,7 +367,7 @@ export interface IPlayer {
   elo: number
   alive: boolean
   history: ArraySchema<HistoryItem>
-  pokemonCollection: PokemonCollection
+  pokemonCustoms: PokemonCustoms
   title: Title | ""
   role: Role
   itemsProposition: ArraySchema<Item>
@@ -363,7 +375,7 @@ export interface IPlayer {
   loadingProgress: number
   effects: Effects
   isBot: boolean
-  map: DungeonPMDO
+  map: DungeonPMDO | "town"
   regionalPokemons: ArraySchema<Pkm>
   commonRegionalPool: Pkm[]
   uncommonRegionalPool: Pkm[]
@@ -394,7 +406,7 @@ export interface IPokemon {
   positionX: number
   positionY: number
   attackSprite: AttackSprite
-  atkSpeed: number
+  speed: number
   def: number
   speDef: number
   attackType: AttackType
@@ -404,10 +416,12 @@ export interface IPokemon {
   stars: number
   maxPP: number
   luck: number
+  permanentLuck: number
   ap: number
   skill: Ability
   passive: Passive
   items: SetSchema<Item>
+  meal: Item | ""
   tm: Ability | null
   shiny: boolean
   emotion: Emotion
@@ -418,6 +432,7 @@ export interface IPokemon {
   canBeCloned: boolean
   canHoldItems: boolean
   deathCount: number
+  readonly hasEvolution: boolean
 }
 
 export interface IExperienceManager {
@@ -473,7 +488,7 @@ export interface IDps {
 
 export function instanceofPokemonEntity(
   obj: IPokemon | IPokemonEntity | IPokemonAvatar
-) {
+): obj is IPokemonEntity {
   return "pp" in obj
 }
 
@@ -509,7 +524,7 @@ export interface IPokemonEntity {
     crit: boolean,
     permanent?: boolean
   ): void
-  addAttackSpeed(
+  addSpeed(
     value: number,
     caster: IPokemonEntity,
     apBoost: number,
@@ -563,12 +578,7 @@ export interface IPokemonEntity {
   ): void
   addItem(item: Item, permanent?: boolean): void
   removeItem(item: Item, permanent?: boolean): void
-  update(
-    dt: number,
-    board: Board,
-    weather: string,
-    player: Player | undefined
-  ): void
+  update(dt: number, board: Board, player: Player | undefined): void
   skydiveTo(x: number, y: number, board: Board): void
   toIdleState(): void
   toMovingState(): void
@@ -593,12 +603,15 @@ export interface IPokemonEntity {
   def: number
   speDef: number
   luck: number
+  baseAtk: number
+  baseDef: number
+  baseSpeDef: number
   attackType: AttackType
   life: number
   shield: number
   team: number
   range: number
-  atkSpeed: number
+  speed: number
   targetX: number
   targetY: number
   attackSprite: AttackSprite
@@ -617,9 +630,11 @@ export interface IPokemonEntity {
   healDone: number
   shiny: boolean
   emotion: Emotion
-  baseAtk: number
   isClone: boolean
   commands: ISimulationCommand[]
+  effectsSet: Set<EffectClass>
+  flyingProtection: number
+  inSpotlight: boolean
 }
 
 export interface IStatus {
