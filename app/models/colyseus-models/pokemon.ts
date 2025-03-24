@@ -5363,7 +5363,7 @@ export class Zapdos extends Pokemon {
   speed = 57
   def = 6
   speDef = 6
-  maxPP = 80
+  maxPP = 100
   range = 2
   skill = Ability.THUNDER
   passive = Passive.STORM
@@ -9923,6 +9923,11 @@ export class Dipplin extends Pokemon {
   skill = Ability.SYRUP_BOMB
   attackSprite = AttackSprite.GRASS_MELEE
   passive = Passive.DIPPLIN
+
+  onAcquired() {
+    this.meal = "" // consume meal to evolve
+    this.items.delete(Item.SIRUPY_APPLE)
+  }
 }
 
 export class Appletun extends Pokemon {
@@ -9942,6 +9947,11 @@ export class Appletun extends Pokemon {
   range = 1
   skill = Ability.APPLE_ACID
   attackSprite = AttackSprite.GRASS_MELEE
+
+  onAcquired() {
+    this.meal = "" // consume meal to evolve
+    this.items.delete(Item.SWEET_APPLE)
+  }
 }
 
 export class Flapple extends Pokemon {
@@ -9961,6 +9971,11 @@ export class Flapple extends Pokemon {
   range = 2
   skill = Ability.GRAV_APPLE
   attackSprite = AttackSprite.GRASS_RANGE
+
+  onAcquired() {
+    this.meal = "" // consume meal to evolve
+    this.items.delete(Item.TART_APPLE)
+  }
 }
 
 export class Hydrapple extends Pokemon {
@@ -9980,6 +9995,11 @@ export class Hydrapple extends Pokemon {
   range = 3
   skill = Ability.FICKLE_BEAM
   attackSprite = AttackSprite.GRASS_RANGE
+
+  onAcquired() {
+    this.meal = "" // consume meal to evolve
+    this.items.delete(Item.SIRUPY_APPLE)
+  }
 }
 
 export class Staryu extends Pokemon {
