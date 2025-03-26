@@ -86,6 +86,13 @@ export class OnJoinCommand extends Command<
         // load existing account
         this.room.users.set(client.auth.uid, user)
         client.send(Transfer.USER_PROFILE, user)
+        const pendingGameId = await this.room.presence.hget(
+          client.auth.uid,
+          "pending_game_id"
+        )
+        if (pendingGameId != null) {
+          client.send(Transfer.RECONNECT_PROMPT, pendingGameId)
+        }
       } else {
         // create new user account
         const starterBoosters = 3
@@ -1613,8 +1620,8 @@ export class DeleteRoomCommand extends Command<
         )
       }
 
-      roomsIdToDelete.forEach((roomToDelete) => {
-        this.room.presence.publish("room-deleted", roomId)
+      roomsIdToDelete.forEach((roomIdToDelete) => {
+        this.room.presence.publish("room-deleted", roomIdToDelete)
       })
     } catch (error) {
       logger.error(`DeleteRoomCommand error:`, error)
