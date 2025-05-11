@@ -28,10 +28,10 @@ Encoder.BUFFER_SIZE = 512 * 1024
 async function main() {
   if (process.env.NODE_APP_INSTANCE) {
     const processNumber = Number(process.env.NODE_APP_INSTANCE ?? "0")
-    const port = (Number(process.env.PORT) ?? 2567) + processNumber
+    const port = (Number(process.env.PORT) ?? 2569) + processNumber
     initializeMetrics()
     await listen(app)
-    if (port === 2567) {
+    if (port === 2569) {
       // only the first thread of the first instance will create the lobby and init cron jobs
       await matchMaker.createRoom("lobby", {})
       checkLobby()
