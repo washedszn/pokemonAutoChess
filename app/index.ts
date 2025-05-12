@@ -57,9 +57,9 @@ function checkLobby() {
     cronTime: "* * * * *",
     timeZone: "Europe/Paris",
     onTick: async () => {
-      logger.debug(`Refresh lobby room`)
       const lobbies = await matchMaker.query({ name: "lobby" })
       if (lobbies.length === 0) {
+        logger.warn(`Lobby room has not been found, automatically remaking one`)
         matchMaker.createRoom("lobby", {})
       }
     },
