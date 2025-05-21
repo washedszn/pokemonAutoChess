@@ -1,14 +1,13 @@
 import Player from "../models/colyseus-models/player"
-import { Effect } from "../types/enum/Effect"
 import { PokemonActionState } from "../types/enum/Game"
 import { Passive } from "../types/enum/Passive"
 import { Synergy } from "../types/enum/Synergy"
-import { Weather } from "../types/enum/Weather"
 import { distanceC } from "../utils/distance"
 import Board from "./board"
 import { PokemonEntity, getMoveSpeed } from "./pokemon-entity"
 import PokemonState from "./pokemon-state"
 import { findPath } from "../utils/pathfind"
+import { drumBeat, partingShot, stenchJump } from "./effects/passives"
 
 export default class MovingState extends PokemonState {
   name = "moving"
@@ -38,11 +37,18 @@ export default class MovingState extends PokemonState {
         }
       } else if (targetAtRange) {
         pokemon.toAttackingState()
-      } else {
-        const targetAtSight = this.getNearestTargetAtSightCoordinates(
-          pokemon,
-          board
+      } else if (
+        pokemon.passive === Passive.DRUMMER &&
+        board.cells.some(
+          (entity) =>
+            entity?.team === pokemon.team &&
+            entity?.passive !== Passive.DRUMMER &&
+            entity?.passive !== Passive.INANIMATE
         )
+      ) {
+        drumBeat(pokemon, board)
+      } else {
+        const targetAtSight = this.getNearestTargetAtSight(pokemon, board)
         if (targetAtSight && pokemon.canMove) {
           this.move(pokemon, board, targetAtSight)
         }
@@ -80,18 +86,11 @@ export default class MovingState extends PokemonState {
         y = farthestCoordinate.y
 
         if (pokemon.passive === Passive.STENCH) {
-          board
-            .getCellsBetween(x, y, pokemon.positionX, pokemon.positionY)
-            .forEach((cell) => {
-              if (cell.x !== x || cell.y !== y) {
-                board.addBoardEffect(
-                  cell.x,
-                  cell.y,
-                  Effect.POISON_GAS,
-                  pokemon.simulation
-                )
-              }
-            })
+          stenchJump(pokemon, board, x, y)
+        }
+
+        if (pokemon.passive === Passive.PARTING_SHOT) {
+          partingShot(pokemon, farthestCoordinate.target, x, y)
         }
 
         // logger.debug(`pokemon ${pokemon.name} jumped from (${pokemon.positionX},${pokemon.positionY}) to (${x},${y}), (desired direction (${coordinates.x}, ${coordinates.y})), orientation: ${pokemon.orientation}`);

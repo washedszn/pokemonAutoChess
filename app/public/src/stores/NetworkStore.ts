@@ -207,7 +207,11 @@ export const networkSlice = createSlice({
     },
     changeSelectedEmotion: (
       state,
-      action: PayloadAction<{ index: string; emotion: Emotion; shiny: boolean }>
+      action: PayloadAction<{
+        index: string
+        emotion: Emotion | null
+        shiny: boolean
+      }>
     ) => {
       if (state.profile) {
         const pokemonCollectionItem = state.profile.pokemonCollection.get(
@@ -287,12 +291,6 @@ export const networkSlice = createSlice({
     unban: (state, action: PayloadAction<{ uid: string; name: string }>) => {
       state.lobby?.send(Transfer.UNBAN, action.payload)
     },
-    deleteBotDatabase: (state, action: PayloadAction<string>) => {
-      state.lobby?.send(Transfer.DELETE_BOT_DATABASE, action.payload)
-    },
-    addBotDatabase: (state, action: PayloadAction<string>) => {
-      state.lobby?.send(Transfer.ADD_BOT_DATABASE, action.payload)
-    },
     selectLanguage: (state, action: PayloadAction<Language>) => {
       state.lobby?.send(Transfer.SELECT_LANGUAGE, action.payload)
     },
@@ -318,8 +316,6 @@ export const {
   heapSnapshot,
   selectLanguage,
   unban,
-  deleteBotDatabase,
-  addBotDatabase,
   ban,
   pokemonPropositionClick,
   giveTitle,

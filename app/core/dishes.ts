@@ -1,10 +1,16 @@
-import { Effect as EffectEnum } from "../types/enum/Effect"
+import { EffectEnum } from "../types/enum/Effect"
 import { Berries, Dishes, Item } from "../types/enum/Item"
 import { Pkm } from "../types/enum/Pokemon"
 import { Synergy } from "../types/enum/Synergy"
 import { chance } from "../utils/random"
 import { values } from "../utils/schemas"
-import { Effect, OnHitEffect, OnSpawnEffect, PeriodicEffect } from "./effect"
+import { AbilityStrategies } from "./abilities/abilities"
+import {
+  Effect,
+  OnHitEffect,
+  OnSpawnEffect,
+  PeriodicEffect
+} from "./effects/effect"
 
 export const DishByPkm: { [pkm in Pkm]?: Item } = {
   [Pkm.LICKITUNG]: Item.RAGE_CANDY_BAR,
@@ -130,12 +136,18 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
     new OnSpawnEffect((entity) => {
       entity.effects.add(EffectEnum.ABILITY_CRIT)
       entity.addCritPower(100, entity, 0, false)
+      if (AbilityStrategies[entity.skill].canCritByDefault) {
+        entity.addCritPower(50, entity, 0, false)
+      }
     })
   ],
   LEEK: [
     new OnSpawnEffect((entity) => {
       entity.effects.add(EffectEnum.ABILITY_CRIT)
       entity.addCritChance(50, entity, 0, false)
+      if (AbilityStrategies[entity.skill].canCritByDefault) {
+        entity.addCritPower(50, entity, 0, false)
+      }
     })
   ],
   LEFTOVERS: [],
@@ -154,7 +166,7 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
   ],
   POFFIN: [
     new OnSpawnEffect((entity) => {
-      entity.addShield(50, entity, 0, false)
+      entity.addShield(100, entity, 0, false)
       values(entity.items)
         .filter((item) => Berries.includes(item))
         .forEach((item) => {

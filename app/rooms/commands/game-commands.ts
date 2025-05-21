@@ -10,7 +10,7 @@ import {
   HatchEvolutionRule
 } from "../../core/evolution-rules"
 import { selectMatchups } from "../../core/matchmaking"
-import { canSell } from "../../core/pokemon-entity"
+import { canSell, getUnitScore } from "../../core/pokemon-entity"
 import Simulation from "../../core/simulation"
 import { getLevelUpCost } from "../../models/colyseus-models/experience-manager"
 import Player from "../../models/colyseus-models/player"
@@ -18,7 +18,9 @@ import { PokemonClasses } from "../../models/colyseus-models/pokemon"
 import PokemonFactory from "../../models/pokemon-factory"
 import { PVEStages } from "../../models/pve-stages"
 import { getBuyPrice, getSellPrice } from "../../models/shop"
+import UserMetadata from "../../models/mongo-models/user-metadata"
 import {
+  Emotion,
   IClient,
   IDragDropCombineMessage,
   IDragDropItemMessage,
@@ -30,7 +32,6 @@ import {
   AdditionalPicksStages,
   BOARD_SIDE_HEIGHT,
   BOARD_WIDTH,
-  EvolutionTime,
   FIGHTING_PHASE_DURATION,
   ITEM_CAROUSEL_BASE_DURATION,
   ItemCarouselStages,
@@ -42,7 +43,7 @@ import {
 } from "../../types/Config"
 import { Ability } from "../../types/enum/Ability"
 import { DungeonPMDO } from "../../types/enum/Dungeon"
-import { Effect } from "../../types/enum/Effect"
+import { EffectEnum } from "../../types/enum/Effect"
 import {
   BattleResult,
   GamePhaseState,
@@ -62,6 +63,7 @@ import {
   Item,
   ItemComponents,
   ItemRecipe,
+  KubfuScrolls,
   NonHoldableItems,
   OgerponMasks,
   ShinyItems,
@@ -98,6 +100,7 @@ import { chance, pickNRandomIn, pickRandomIn } from "../../utils/random"
 import { resetArraySchema, values } from "../../utils/schemas"
 import { getWeather } from "../../utils/weather"
 import GameRoom from "../game-room"
+import { TownEncounters } from "../../core/town-encounters"
 
 export class OnBuyPokemonCommand extends Command<
   GameRoom,
@@ -192,32 +195,58 @@ export class OnRemoveFromShopCommand extends Command<
 export class OnPokemonCatchCommand extends Command<
   GameRoom,
   {
+    client: Client
     playerId: string
     id: string
   }
 > {
-  execute({ playerId, id }) {
+  async execute({ client, playerId, id }) {
     if (playerId === undefined || !this.state.players.has(playerId)) return
     const player = this.state.players.get(playerId)
     const pkm = this.state.wanderers.get(id)
     if (!player || !player.alive || !pkm) return
     this.state.wanderers.delete(id)
 
-    const pokemon = PokemonFactory.createPokemonFromName(pkm, player)
-    const freeSpaceOnBench = getFreeSpaceOnBench(player.board)
-    const hasSpaceOnBench =
-      freeSpaceOnBench > 0 ||
-      (pokemon.evolutionRule &&
-        pokemon.evolutionRule instanceof CountEvolutionRule &&
-        pokemon.evolutionRule.canEvolveIfBuyingOne(pokemon, player))
+    if (pkm === Pkm.SABLEYE) {
+    } else if (Unowns.includes(pkm)) {
+      const unownIndex = PkmIndex[pkm]
+      if (client.auth) {
+        const DUST_PER_ENCOUNTER = 50
+        const u = await UserMetadata.findOne({ uid: client.auth.uid })
+        if (u) {
+          const c = u.pokemonCollection.get(unownIndex)
+          if (c) {
+            c.dust += DUST_PER_ENCOUNTER
+          } else {
+            u.pokemonCollection.set(unownIndex, {
+              id: unownIndex,
+              emotions: [],
+              shinyEmotions: [],
+              dust: DUST_PER_ENCOUNTER,
+              selectedEmotion: Emotion.NORMAL,
+              selectedShiny: false
+            })
+          }
+          u.save()
+        }
+      }
+    } else {
+      const pokemon = PokemonFactory.createPokemonFromName(pkm, player)
+      const freeSpaceOnBench = getFreeSpaceOnBench(player.board)
+      const hasSpaceOnBench =
+        freeSpaceOnBench > 0 ||
+        (pokemon.evolutionRule &&
+          pokemon.evolutionRule instanceof CountEvolutionRule &&
+          pokemon.evolutionRule.canEvolveIfBuyingOne(pokemon, player))
 
-    if (hasSpaceOnBench) {
-      const x = getFirstAvailablePositionInBench(player.board)
-      pokemon.positionX = x !== undefined ? x : -1
-      pokemon.positionY = 0
-      player.board.set(pokemon.id, pokemon)
-      pokemon.onAcquired(player)
-      this.room.checkEvolutionsAfterPokemonAcquired(playerId)
+      if (hasSpaceOnBench) {
+        const x = getFirstAvailablePositionInBench(player.board)
+        pokemon.positionX = x !== undefined ? x : -1
+        pokemon.positionY = 0
+        player.board.set(pokemon.id, pokemon)
+        pokemon.onAcquired(player)
+        this.room.checkEvolutionsAfterPokemonAcquired(playerId)
+      }
     }
   }
 }
@@ -565,10 +594,7 @@ export class OnDragDropItemCommand extends Command<
     }
 
     if (item === Item.ZYGARDE_CUBE) {
-      if (
-        pokemon?.passive === Passive.ZYGARDE10 ||
-        pokemon?.passive === Passive.ZYGARDE50
-      ) {
+      if (pokemon?.passive === Passive.ZYGARDE) {
         if (pokemon.name === Pkm.ZYGARDE_10) {
           player.transformPokemon(pokemon, Pkm.ZYGARDE_50)
         } else if (pokemon.name === Pkm.ZYGARDE_50) {
@@ -584,11 +610,37 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
-    if (
-      CharcadetArmors.includes(item) &&
-      pokemon.passive !== Passive.CHARCADET
-    ) {
-      client.send(Transfer.DRAG_DROP_FAILED, message)
+    if (CharcadetArmors.includes(item)) {
+      if (pokemon.passive == Passive.CHARCADET) {
+        pokemon.items.add(item)
+        const pokemonEvolved = this.room.checkEvolutionsAfterItemAcquired(
+          playerId,
+          pokemon
+        )
+        if (!pokemonEvolved) {
+          pokemon.items.delete(item)
+          client.send(Transfer.DRAG_DROP_FAILED, message)
+        } else removeInArray(player.items, item)
+      } else {
+        client.send(Transfer.DRAG_DROP_FAILED, message)
+      }
+      return
+    }
+
+    if (KubfuScrolls.includes(item)) {
+      if (pokemon.passive == Passive.KUBFU) {
+        pokemon.items.add(item)
+        const pokemonEvolved = this.room.checkEvolutionsAfterItemAcquired(
+          playerId,
+          pokemon
+        )
+        if (!pokemonEvolved) {
+          pokemon.items.delete(item)
+          client.send(Transfer.DRAG_DROP_FAILED, message)
+        } else removeInArray(player.items, item)
+      } else {
+        client.send(Transfer.DRAG_DROP_FAILED, message)
+      }
       return
     }
 
@@ -640,7 +692,7 @@ export class OnDragDropItemCommand extends Command<
     }
 
     if (Dishes.includes(item)) {
-      if (pokemon.meal === "") {
+      if (pokemon.meal === "" && pokemon.canEat) {
         pokemon.meal = item
         pokemon.action = PokemonActionState.EAT
         removeInArray(player.items, item)
@@ -656,7 +708,7 @@ export class OnDragDropItemCommand extends Command<
       } else {
         client.send(Transfer.DRAG_DROP_FAILED, {
           ...message,
-          text: "belly_full",
+          text: pokemon.canEat ? "belly_full" : "not_hungry",
           pokemonId: pokemon.id
         })
         return
@@ -673,10 +725,11 @@ export class OnDragDropItemCommand extends Command<
 
     if (item === Item.PICNIC_SET) {
       if (pokemon.meal == "") {
+        let nbSandwiches = 0
         values(player.board).forEach((pkm) => {
           if (
             pkm.meal === "" &&
-            pkm.canHoldItems &&
+            pkm.canEat &&
             pokemon &&
             distanceC(
               pkm.positionX,
@@ -687,9 +740,13 @@ export class OnDragDropItemCommand extends Command<
           ) {
             pkm.meal = Item.SANDWICH
             pkm.action = PokemonActionState.EAT
+            nbSandwiches++
           }
         })
         removeInArray(player.items, item)
+        if (nbSandwiches >= 9) {
+          player.titles.add(Title.PICNICKER)
+        }
       }
       client.send(Transfer.DRAG_DROP_FAILED, message)
       return
@@ -780,15 +837,6 @@ export class OnDragDropItemCommand extends Command<
       pokemon = pokemonEvolved
     }
 
-    if (item === Item.SHINY_STONE) {
-      if (
-        pokemon.passive === Passive.PRISM ||
-        pokemon.passive === Passive.BLOSSOM
-      ) {
-        pokemon.onChangePosition(pokemon.positionX, pokemon.positionY, player)
-      }
-    }
-
     if (isBasicItem && existingBasicItemToCombine) {
       const recipe = Object.entries(ItemRecipe).find(
         ([_result, recipe]) =>
@@ -820,9 +868,11 @@ export class OnDragDropItemCommand extends Command<
         player.items.push(itemCombined)
       } else {
         pokemon.items.add(itemCombined)
+        pokemon.onItemGiven(itemCombined, player)
       }
     } else {
       pokemon.items.add(item)
+      pokemon.onItemGiven(item, player)
       removeInArray(player.items, item)
     }
 
@@ -922,7 +972,7 @@ export class OnSpectateCommand extends Command<
 > {
   execute({ id, spectatedPlayerId }) {
     const player = this.state.players.get(id)
-    if (!player || !player.alive) return
+    if (!player) return
     player.spectatedPlayerId = spectatedPlayerId
   }
 }
@@ -1005,7 +1055,7 @@ export class OnUpdateCommand extends Command<
 
         this.state.simulations.forEach((simulation) => {
           if (!simulation.finished) {
-            simulation.update(deltaTime)
+            if (simulation.started) simulation.update(deltaTime)
             everySimulationFinished = false
           }
         })
@@ -1067,97 +1117,97 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
     if (effects) {
       effects.forEach((effect) => {
         switch (effect) {
-          case Effect.PURE_POWER:
+          case EffectEnum.PURE_POWER:
             player.titles.add(Title.POKEFAN)
             break
-          case Effect.SPORE:
+          case EffectEnum.SPORE:
             player.titles.add(Title.POKEMON_RANGER)
             break
-          case Effect.DESOLATE_LAND:
+          case EffectEnum.DESOLATE_LAND:
             player.titles.add(Title.KINDLER)
             break
-          case Effect.PRIMORDIAL_SEA:
+          case EffectEnum.PRIMORDIAL_SEA:
             player.titles.add(Title.FIREFIGHTER)
             break
-          case Effect.POWER_SURGE:
+          case EffectEnum.POWER_SURGE:
             player.titles.add(Title.ELECTRICIAN)
             break
-          case Effect.JUSTIFIED:
+          case EffectEnum.JUSTIFIED:
             player.titles.add(Title.BLACK_BELT)
             break
-          case Effect.EERIE_SPELL:
+          case EffectEnum.EERIE_SPELL:
             player.titles.add(Title.TELEKINESIST)
             break
-          case Effect.BEAT_UP:
+          case EffectEnum.BEAT_UP:
             player.titles.add(Title.DELINQUENT)
             break
-          case Effect.MAX_MELTDOWN:
+          case EffectEnum.MAX_MELTDOWN:
             player.titles.add(Title.ENGINEER)
             break
-          case Effect.DEEP_MINER:
+          case EffectEnum.DEEP_MINER:
             player.titles.add(Title.GEOLOGIST)
             break
-          case Effect.TOXIC:
+          case EffectEnum.TOXIC:
             player.titles.add(Title.TEAM_ROCKET_GRUNT)
             break
-          case Effect.DRAGON_DANCE:
+          case EffectEnum.DRAGON_DANCE:
             player.titles.add(Title.DRAGON_TAMER)
             break
-          case Effect.ANGER_POINT:
+          case EffectEnum.ANGER_POINT:
             player.titles.add(Title.CAMPER)
             break
-          case Effect.MERCILESS:
+          case EffectEnum.MERCILESS:
             player.titles.add(Title.MYTH_TRAINER)
             break
-          case Effect.CALM_MIND:
+          case EffectEnum.CALM_MIND:
             player.titles.add(Title.RIVAL)
             break
-          case Effect.WATER_VEIL:
+          case EffectEnum.WATER_VEIL:
             player.titles.add(Title.DIVER)
             break
-          case Effect.HEART_OF_THE_SWARM:
+          case EffectEnum.HEART_OF_THE_SWARM:
             player.titles.add(Title.BUG_MANIAC)
             break
-          case Effect.SKYDIVE:
+          case EffectEnum.SKYDIVE:
             player.titles.add(Title.BIRD_KEEPER)
             break
-          case Effect.SUN_FLOWER:
+          case EffectEnum.SUN_FLOWER:
             player.titles.add(Title.GARDENER)
             break
-          case Effect.GOOGLE_SPECS:
+          case EffectEnum.GOOGLE_SPECS:
             player.titles.add(Title.ALCHEMIST)
             break
-          case Effect.BERSERK:
+          case EffectEnum.BERSERK:
             player.titles.add(Title.BERSERKER)
             break
-          case Effect.ETHEREAL:
+          case EffectEnum.ETHEREAL:
             player.titles.add(Title.BLOB)
             break
-          case Effect.BANQUET:
+          case EffectEnum.BANQUET:
             player.titles.add(Title.CHEF)
             break
-          case Effect.DIAMOND_STORM:
+          case EffectEnum.DIAMOND_STORM:
             player.titles.add(Title.HIKER)
             break
-          case Effect.CURSE_OF_FATE:
+          case EffectEnum.CURSE_OF_FATE:
             player.titles.add(Title.HEX_MANIAC)
             break
-          case Effect.MOON_FORCE:
+          case EffectEnum.MOON_FORCE:
             player.titles.add(Title.CUTE_MANIAC)
             break
-          case Effect.SHEER_COLD:
+          case EffectEnum.SHEER_COLD:
             player.titles.add(Title.SKIER)
             break
-          case Effect.FORGOTTEN_POWER:
+          case EffectEnum.FORGOTTEN_POWER:
             player.titles.add(Title.MUSEUM_DIRECTOR)
             break
-          case Effect.PRESTO:
+          case EffectEnum.PRESTO:
             player.titles.add(Title.MUSICIAN)
             break
-          case Effect.GOLDEN_EGGS:
+          case EffectEnum.GOLDEN_EGGS:
             player.titles.add(Title.BABYSITTER)
             break
-          case Effect.MAX_ILLUMINATION:
+          case EffectEnum.MAX_ILLUMINATION:
             player.titles.add(Title.CHOSEN_ONE)
             break
           default:
@@ -1450,7 +1500,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           }
 
           if (chef.passive === Passive.GLUTTON) {
-            chef.hp += 20
+            chef.hp += 30
             if (chef.hp > 750) {
               player.titles.add(Title.GLUTTON)
             }
@@ -1478,6 +1528,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
                   const candidates = values(player.board).filter(
                     (p) =>
                       p.meal === "" &&
+                      p.canEat &&
                       !isOnBench(p) &&
                       distanceC(
                         chef.positionX,
@@ -1486,7 +1537,8 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
                         p.positionY
                       ) === 1
                   )
-                  for (const meal of dishes) {
+                  candidates.sort((a, b) => getUnitScore(b) - getUnitScore(a))
+                  dishes.forEach((meal, i) => {
                     if (
                       [
                         Item.TART_APPLE,
@@ -1497,12 +1549,12 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
                     ) {
                       player.items.push(meal)
                     } else {
-                      const pokemon = pickRandomIn(candidates) ?? chef
+                      const pokemon = candidates[i] ?? chef
                       pokemon.meal = meal
                       pokemon.action = PokemonActionState.EAT
                       removeInArray(candidates, pokemon)
                     }
-                  }
+                  })
                 }, 2000)
               }, 1000)
             }
@@ -1540,6 +1592,16 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
     })
 
     this.spawnWanderingPokemons()
+
+    // PvE stage initialization
+    const pveStage = PVEStages[this.state.stageLevel]
+    if (pveStage) {
+      this.state.shinyEncounter =
+        this.state.townEncounter === TownEncounters.CELEBI ||
+        (this.state.specialGameRule === SpecialGameRule.SHINY_HUNTER &&
+          pveStage.shinyChance !== undefined) ||
+        chance(pveStage.shinyChance ?? 0)
+    }
 
     return commands
   }
@@ -1610,7 +1672,9 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
     const isGameFinished = this.checkEndGame()
 
     if (!isGameFinished) {
+      this.state.botManager.updateBots()
       this.state.stageLevel += 1
+      this.room.setMetadata({ stageLevel: this.state.stageLevel })
       this.computeIncome(isPVE, this.state.specialGameRule)
       this.state.players.forEach((player: Player) => {
         if (player.alive) {
@@ -1708,16 +1772,11 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
     this.state.simulations.clear()
     this.state.phase = GamePhaseState.FIGHT
     this.state.time = FIGHTING_PHASE_DURATION
-    this.room.setMetadata({ stageLevel: this.state.stageLevel })
+    this.state.roundTime = Math.round(this.state.time / 1000)
     updateLobby(this.room)
-    this.state.botManager.updateBots()
 
     const pveStage = PVEStages[this.state.stageLevel]
-
     if (pveStage) {
-      this.state.shinyEncounter =
-        this.state.specialGameRule === SpecialGameRule.SHINY_HUNTER ||
-        chance(pveStage.shinyChance ?? 0)
       this.state.players.forEach((player: Player) => {
         if (player.alive) {
           player.opponentId = "pve"
@@ -1733,9 +1792,10 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           const rewards = pveStage.getRewards?.(player) ?? ([] as Item[])
           resetArraySchema(player.pveRewards, rewards)
 
-          const rewardsPropositions = this.state.shinyEncounter
-            ? pickNRandomIn(ShinyItems, 3)
-            : (pveStage.getRewardsPropositions?.(player) ?? ([] as Item[]))
+          const rewardsPropositions =
+            this.state.shinyEncounter && this.state.stageLevel > 1
+              ? pickNRandomIn(ShinyItems, 3)
+              : (pveStage.getRewardsPropositions?.(player) ?? ([] as Item[]))
 
           resetArraySchema(player.pveRewardsPropositions, rewardsPropositions)
 
@@ -1757,14 +1817,21 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           )
           player.simulationId = simulation.id
           this.state.simulations.set(simulation.id, simulation)
+          simulation.start()
         }
       })
     } else {
       const matchups = selectMatchups(this.state)
+      this.state.simulationPaused = true // 2 seconds pause for portal transition animation
 
       matchups.forEach((matchup) => {
-        const { bluePlayer, redPlayer } = matchup
-        const weather = getWeather(bluePlayer, redPlayer, redPlayer.board)
+        const { bluePlayer, redPlayer, ghost } = matchup
+        const weather = getWeather(
+          bluePlayer,
+          redPlayer,
+          redPlayer.board,
+          ghost
+        )
         const simulationId = nanoid()
 
         bluePlayer.simulationId = simulationId
@@ -1806,6 +1873,10 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
         )
 
         this.state.simulations.set(simulation.id, simulation)
+        setTimeout(() => {
+          this.state.simulationPaused = false
+          simulation.start()
+        }, 2000) // 2 seconds for portal transition animation
       })
     }
   }
@@ -1827,10 +1898,41 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           this.state.wanderers.set(id, pkm)
           this.clock.setTimeout(
             () => {
-              client.send(Transfer.UNOWN_WANDERING, { id, pkm })
+              client.send(Transfer.POKEMON_WANDERING, { id, pkm })
             },
             Math.round((5 + 15 * Math.random()) * 1000)
           )
+        }
+
+        if (
+          this.state.townEncounter === TownEncounters.SABLEYE &&
+          player.items.length > 0 &&
+          chance(0.1)
+        ) {
+          const id = nanoid()
+          let itemStolen
+          this.state.wanderers.set(id, Pkm.SABLEYE)
+          this.clock.setTimeout(
+            () => {
+              client.send(Transfer.POKEMON_WANDERING, { id, pkm: Pkm.SABLEYE })
+              this.clock.setTimeout(() => {
+                if (this.state.wanderers.has(id)) {
+                  itemStolen = pickRandomIn(values(player.items))
+                  if (itemStolen) {
+                    const index = player.items.indexOf(itemStolen)
+                    player.items.splice(index, 1)
+                  }
+                  this.clock.setTimeout(() => {
+                    if (itemStolen && this.state.wanderers.has(id) === false) {
+                      player.items.push(itemStolen) // give back the item if sableye has been caught
+                    }
+                  }, 2000)
+                }
+              }, 3000)
+            },
+            Math.round((5 + 15 * Math.random()) * 1000)
+          )
+          //TODO: steal an item after 5 seconds
         }
 
         if (
@@ -1840,7 +1942,12 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
           const nbPokemonsToSpawn = Math.ceil(this.state.stageLevel / 2)
           for (let i = 0; i < nbPokemonsToSpawn; i++) {
             const id = nanoid()
-            const pkm = this.state.shop.pickPokemon(player, this.state)
+            const pkm = this.state.shop.pickPokemon(
+              player,
+              this.state,
+              -1,
+              true
+            )
             this.state.wanderers.set(id, pkm)
             this.clock.setTimeout(
               () => {
@@ -1856,9 +1963,9 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
 
   spawnBabyEggs(player: Player, isPVE: boolean) {
     const hasBabyActive =
-      player.effects.has(Effect.HATCHER) ||
-      player.effects.has(Effect.BREEDER) ||
-      player.effects.has(Effect.GOLDEN_EGGS)
+      player.effects.has(EffectEnum.HATCHER) ||
+      player.effects.has(EffectEnum.BREEDER) ||
+      player.effects.has(EffectEnum.GOLDEN_EGGS)
     const hasLostLastBattle =
       player.history.at(-1)?.result === BattleResult.DEFEAT
     const eggsOnBench = values(player.board).filter((p) => p.name === Pkm.EGG)
@@ -1877,7 +1984,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
 
       for (const baby of babies) {
         if (
-          player.effects.has(Effect.GOLDEN_EGGS) &&
+          player.effects.has(EffectEnum.GOLDEN_EGGS) &&
           nbOfGoldenEggsOnBench === 0 &&
           chance(GOLDEN_EGG_CHANCE, baby)
         ) {
@@ -1886,9 +1993,12 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
         } else if (chance(EGG_CHANCE, baby)) {
           nbEggsFound++
         }
-        if (player.effects.has(Effect.GOLDEN_EGGS) && !goldenEggFound) {
+        if (player.effects.has(EffectEnum.GOLDEN_EGGS) && !goldenEggFound) {
           player.goldenEggChance += GOLDEN_EGG_CHANCE * (1 + baby.luck / 100)
-        } else if (player.effects.has(Effect.HATCHER) && nbEggsFound === 0) {
+        } else if (
+          player.effects.has(EffectEnum.HATCHER) &&
+          nbEggsFound === 0
+        ) {
           player.eggChance += EGG_CHANCE * (1 + baby.luck / 100)
         }
       }
@@ -1896,15 +2006,15 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
       // Second chance with chance stacked after lose streaks
       if (
         nbEggsFound === 0 &&
-        (player.effects.has(Effect.BREEDER) ||
-          player.effects.has(Effect.GOLDEN_EGGS) ||
+        (player.effects.has(EffectEnum.BREEDER) ||
+          player.effects.has(EffectEnum.GOLDEN_EGGS) ||
           chance(playerEggChanceStacked))
       ) {
         nbEggsFound = 1 // baby >= 5 guarantees at least 1 egg after a defeat
       }
       if (
         goldenEggFound === false &&
-        player.effects.has(Effect.GOLDEN_EGGS) &&
+        player.effects.has(EffectEnum.GOLDEN_EGGS) &&
         nbOfGoldenEggsOnBench === 0 &&
         chance(playerGoldenEggChanceStacked)
       ) {
@@ -1928,10 +2038,10 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
       const isGoldenEgg =
         goldenEggFound && i === 0 && nbOfGoldenEggsOnBench === 0
       giveRandomEgg(player, isGoldenEgg)
-      if (player.effects.has(Effect.HATCHER)) {
+      if (player.effects.has(EffectEnum.HATCHER)) {
         player.eggChance = 0 // getting an egg resets the stacked egg chance
       }
-      if (player.effects.has(Effect.GOLDEN_EGGS) && isGoldenEgg) {
+      if (player.effects.has(EffectEnum.GOLDEN_EGGS) && isGoldenEgg) {
         player.goldenEggChance = 0 // getting a golden egg resets the stacked egg chance
       }
     }

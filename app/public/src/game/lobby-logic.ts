@@ -25,13 +25,13 @@ import {
   pushMessage,
   setCcu,
   addTournament,
+  removeTournament,
   changeTournament,
   updateTournament,
   changeTournamentPlayer,
   addTournamentBracket,
   changeTournamentBracket,
   removeTournamentBracket,
-  pushBotLog,
   addRoom,
   removeRoom,
   setSearchedUser,
@@ -42,7 +42,6 @@ import {
 import {
   logIn,
   removeMessage,
-  deleteTournament,
   setProfile,
   joinLobby,
   setErrorAlertMessage,
@@ -229,15 +228,11 @@ export async function joinLobbyRoom(
           })
 
           $state.tournaments.onRemove((tournament) => {
-            dispatch(deleteTournament(tournament))
+            dispatch(removeTournament(tournament))
           })
 
           room.onMessage(Transfer.BANNED, (message) => {
             alert(message)
-          })
-
-          room.onMessage(Transfer.BOT_DATABASE_LOG, (message) => {
-            dispatch(pushBotLog(message))
           })
 
           room.onMessage(Transfer.ROOMS, (rooms: RoomAvailable[]) => {

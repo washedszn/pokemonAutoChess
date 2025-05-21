@@ -275,6 +275,7 @@ export enum Pkm {
   GALARIAN_RAPIDASH = "GALARIAN_RAPIDASH",
   GALARIAN_ZAPDOS = "GALARIAN_ZAPDOS",
   GALARIAN_ZIGZAGOON = "GALARIAN_ZIGZAGOON",
+  GALLADE = "GALLADE",
   GALVANTULA = "GALVANTULA",
   GARBODOR = "GARBODOR",
   GARCHOMP = "GARCHOMP",
@@ -315,6 +316,7 @@ export enum Pkm {
   GRENINJA = "GRENINJA",
   GRIMER = "GRIMER",
   GRIMMSNARL = "GRIMMSNARL",
+  GROOKEY = "GROOKEY",
   GROTLE = "GROTLE",
   GROUDON = "GROUDON",
   GROVYLE = "GROVYLE",
@@ -377,6 +379,7 @@ export enum Pkm {
   INTELEON = "INTELEON",
   IRON_BUNDLE = "IRON_BUNDLE",
   IRON_HANDS = "IRON_HANDS",
+  IRON_VALIANT = "IRON_VALIANT",
   IVYSAUR = "IVYSAUR",
   JANGMO_O = "JANGMO_O",
   JIGGLYPUFF = "JIGGLYPUFF",
@@ -407,6 +410,7 @@ export enum Pkm {
   KRICKETUNE = "KRICKETUNE",
   KROKOROK = "KROKOROK",
   KROOKODILE = "KROOKODILE",
+  KUBFU = "KUBFU",
   KYOGRE = "KYOGRE",
   KYUREM = "KYUREM",
   LAIRON = "LAIRON",
@@ -567,6 +571,8 @@ export enum Pkm {
   PALKIA = "PALKIA",
   PALOSSAND = "PALOSSAND",
   PALPITOAD = "PALPITOAD",
+  PANCHAM = "PANCHAM",
+  PANGORO = "PANGORO",
   PARAS = "PARAS",
   PARASECT = "PARASECT",
   PATRAT = "PATRAT",
@@ -647,6 +653,7 @@ export enum Pkm {
   RHYHORN = "RHYHORN",
   RHYPERIOR = "RHYPERIOR",
   RIBOMBEE = "RIBOMBEE",
+  RILLABOOM = "RILLABOOM",
   RIOLU = "RIOLU",
   ROCKRUFF = "ROCKRUFF",
   ROOKIDEE = "ROOKIDEE",
@@ -784,6 +791,7 @@ export enum Pkm {
   TERRAKION = "TERRAKION",
   THIEVUL = "THIEVUL",
   THUNDURUS = "THUNDURUS",
+  THWACKEY = "THWACKEY",
   TIMBURR = "TIMBURR",
   TINKATINK = "TINKATINK",
   TINKATON = "TINKATON",
@@ -853,6 +861,8 @@ export enum Pkm {
   URSALUNA = "URSALUNA",
   URSALUNA_BLOODMOON = "URSALUNA_BLOODMOON",
   URSARING = "URSARING",
+  URSHIFU_RAPID = "URSHIFU_RAPID",
+  URSHIFU_SINGLE = "URSHIFU_SINGLE",
   UXIE = "UXIE",
   VANILLISH = "VANILLISH",
   VANILLITE = "VANILLITE",
@@ -946,7 +956,9 @@ export enum Pkm {
   CERULEDGE = "CERULEDGE",
   TYNAMO = "TYNAMO",
   EELEKTRIK = "EELEKTRIK",
-  EELEKTROSS = "EELEKTROSS"
+  EELEKTROSS = "EELEKTROSS",
+  ZACIAN = "ZACIAN",
+  ZACIAN_CROWNED = "ZACIAN_CROWNED"
 }
 
 export const PkmIndex: { [key in Pkm]: string } = {
@@ -1523,7 +1535,7 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.GLISCOR]: "0472",
   [Pkm.MAMOSWINE]: "0473",
   [Pkm.PORYGON_Z]: "0474",
-  //[Pkm.GALLADE]: "0475",
+  [Pkm.GALLADE]: "0475",
   [Pkm.PROBOPASS]: "0476",
   [Pkm.DUSKNOIR]: "0477",
   [Pkm.FROSLASS]: "0478",
@@ -1735,8 +1747,8 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.FLORGES]: "0671",
   //[Pkm.SKIDDO]: "0672",
   //[Pkm.GOGOAT]: "0673",
-  //[Pkm.PANCHAM]: "0674",
-  //[Pkm.PANGORO]: "0675",
+  [Pkm.PANCHAM]: "0674",
+  [Pkm.PANGORO]: "0675",
   //[Pkm.FURFROU]: "0676",
   //[Pkm.ESPURR]: "0677",
   //[Pkm.MEOWSTIC]: "0678",
@@ -1888,9 +1900,9 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.MELMETAL]: "0809",
 
   // Gen 8
-  //[Pkm.GROOKEY]: "0810",
-  //[Pkm.THWACKEY]: "0811",
-  //[Pkm.RILLABOOM]: "0812",
+  [Pkm.GROOKEY]: "0810",
+  [Pkm.THWACKEY]: "0811",
+  [Pkm.RILLABOOM]: "0812",
   [Pkm.SCORBUNNY]: "0813",
   [Pkm.RABOOT]: "0814",
   [Pkm.CINDERACE]: "0815",
@@ -1975,15 +1987,15 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.DREEPY]: "0885",
   [Pkm.DRAKLOAK]: "0886",
   [Pkm.DRAGAPULT]: "0887",
-  //[Pkm.ZACIAN]: "0888",
-  //[Pkm.ZACIAN_CROWNED]: "0888-0001",
+  [Pkm.ZACIAN]: "0888",
+  [Pkm.ZACIAN_CROWNED]: "0888-0001",
   //[Pkm.ZAMAZENTA]: "0889",
   //[Pkm.ZAMAZENTA_CROWNED]: "0889-0001",
   [Pkm.ETERNATUS]: "0890",
   //[Pkm.ETERNATUS_ETERNAMAX]: "0890-0001",
-  //[Pkm.KUBFU]: "0891",
-  //[Pkm.URSHIFU_SINGLE]: "0892",
-  //[Pkm.URSHIFU_RAPID]: "0892-0001",
+  [Pkm.KUBFU]: "0891",
+  [Pkm.URSHIFU_SINGLE]: "0892",
+  [Pkm.URSHIFU_RAPID]: "0892-0001",
   //[Pkm.ZARUDE]: "0893",
   [Pkm.REGIELEKI]: "0894",
   [Pkm.REGIDRAGO]: "0895",
@@ -2100,6 +2112,7 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.GIMMIGHOUL]: "0999-0001",
   [Pkm.GHOLDENGO]: "1000",
   [Pkm.ROARING_MOON]: "1005",
+  [Pkm.IRON_VALIANT]: "1006",
   [Pkm.DIPPLIN]: "1011",
   [Pkm.OGERPON_TEAL]: "1017",
   [Pkm.OGERPON_WELLSPRING]: "1017-0001",
@@ -2258,6 +2271,7 @@ export const PkmFamily: { [key in Pkm]: Pkm } = {
   [Pkm.RALTS]: Pkm.RALTS,
   [Pkm.KIRLIA]: Pkm.RALTS,
   [Pkm.GARDEVOIR]: Pkm.RALTS,
+  [Pkm.GALLADE]: Pkm.RALTS,
   [Pkm.BAGON]: Pkm.BAGON,
   [Pkm.SHELGON]: Pkm.BAGON,
   [Pkm.SALAMENCE]: Pkm.BAGON,
@@ -3064,7 +3078,18 @@ export const PkmFamily: { [key in Pkm]: Pkm } = {
   [Pkm.EELEKTROSS]: Pkm.TYNAMO,
   [Pkm.PIDOVE]: Pkm.PIDOVE,
   [Pkm.TRANQUILL]: Pkm.PIDOVE,
-  [Pkm.UNFEZANT]: Pkm.PIDOVE
+  [Pkm.UNFEZANT]: Pkm.PIDOVE,
+  [Pkm.ZACIAN]: Pkm.ZACIAN,
+  [Pkm.ZACIAN_CROWNED]: Pkm.ZACIAN,
+  [Pkm.IRON_VALIANT]: Pkm.IRON_VALIANT,
+  [Pkm.PANCHAM]: Pkm.PANCHAM,
+  [Pkm.PANGORO]: Pkm.PANCHAM,
+  [Pkm.GROOKEY]: Pkm.GROOKEY,
+  [Pkm.THWACKEY]: Pkm.GROOKEY,
+  [Pkm.RILLABOOM]: Pkm.GROOKEY,
+  [Pkm.KUBFU]: Pkm.KUBFU,
+  [Pkm.URSHIFU_SINGLE]: Pkm.KUBFU,
+  [Pkm.URSHIFU_RAPID]: Pkm.KUBFU
 }
 
 export const PkmRegionalVariants: { [key in Pkm]?: readonly Pkm[] } = {
@@ -3365,7 +3390,7 @@ export const AnimationConfig: {
   },
   [Pkm.IGGLYBUFF]: {
     attack: AnimationType.Shoot,
-    ability: AnimationType.Special6,
+    ability: AnimationType.Sing,
     emote: AnimationType.Shoot
   },
   [Pkm.WIGGLYTUFF]: {
@@ -3918,6 +3943,11 @@ export const AnimationConfig: {
     ability: AnimationType.SpAttack,
     emote: AnimationType.Shoot
   },
+  [Pkm.GALLADE]: {
+    attack: AnimationType.Strike,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.RearUp
+  },
   [Pkm.BAGON]: {
     attack: AnimationType.Shoot,
     ability: AnimationType.Bite,
@@ -4025,12 +4055,12 @@ export const AnimationConfig: {
   },
   [Pkm.ONIX]: {
     attack: AnimationType.Shoot,
-    ability: AnimationType.Charge,
+    ability: AnimationType.Swing,
     emote: AnimationType.Shoot
   },
   [Pkm.STEELIX]: {
     attack: AnimationType.Shoot,
-    ability: AnimationType.Charge,
+    ability: AnimationType.Swing,
     emote: AnimationType.Shoot
   },
   [Pkm.MEGA_STEELIX]: {
@@ -5309,8 +5339,7 @@ export const AnimationConfig: {
   [Pkm.HISUI_ELECTRODE]: {
     attack: AnimationType.Attack,
     ability: AnimationType.Hurt,
-    emote: AnimationType.Twirl,
-    shinyUnavailable: true
+    emote: AnimationType.Twirl
   },
   [Pkm.SLUGMA]: {
     attack: AnimationType.Shoot,
@@ -5675,8 +5704,7 @@ export const AnimationConfig: {
   [Pkm.ALOLAN_SANDSLASH]: {
     attack: AnimationType.Strike,
     ability: AnimationType.Attack,
-    emote: AnimationType.Shoot,
-    shinyUnavailable: true
+    emote: AnimationType.Shoot
   },
   [Pkm.FARFETCH_D]: {
     attack: AnimationType.Strike,
@@ -6114,18 +6142,18 @@ export const AnimationConfig: {
     emote: AnimationType.Shoot
   },
   [Pkm.TEPIG]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
+    attack: AnimationType.Shoot,
+    ability: AnimationType.Attack,
     emote: AnimationType.Shoot
   },
   [Pkm.PIGNITE]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
+    attack: AnimationType.Shoot,
+    ability: AnimationType.Attack,
     emote: AnimationType.Shoot
   },
   [Pkm.EMBOAR]: {
-    attack: AnimationType.Attack,
-    ability: AnimationType.Shoot,
+    attack: AnimationType.Shoot,
+    ability: AnimationType.Attack,
     emote: AnimationType.Shoot
   },
   [Pkm.WYNAUT]: {
@@ -7606,8 +7634,7 @@ export const AnimationConfig: {
   [Pkm.ZYGARDE_100]: {
     attack: AnimationType.Attack,
     ability: AnimationType.Emit,
-    emote: AnimationType.Emit,
-    shinyUnavailable: true
+    emote: AnimationType.Emit
   },
   [Pkm.SIZZLIPEDE]: {
     attack: AnimationType.Attack,
@@ -7754,8 +7781,7 @@ export const AnimationConfig: {
     emote: AnimationType.Twirl,
     hop: AnimationType.Twirl,
     hurt: AnimationType.Idle,
-    sleep: AnimationType.Idle,
-    shinyUnavailable: true
+    sleep: AnimationType.Idle
   },
   [Pkm.CRYOGONAL]: {
     attack: AnimationType.Attack,
@@ -7951,8 +7977,7 @@ export const AnimationConfig: {
   [Pkm.ROARING_MOON]: {
     attack: AnimationType.Attack,
     ability: AnimationType.RearUp,
-    emote: AnimationType.RearUp,
-    shinyUnavailable: true
+    emote: AnimationType.RearUp
   },
   [Pkm.CHARCADET]: {
     attack: AnimationType.Strike,
@@ -7999,6 +8024,63 @@ export const AnimationConfig: {
   [Pkm.UNFEZANT]: {
     attack: AnimationType.Attack,
     ability: AnimationType.Hover,
+    emote: AnimationType.Shoot
+  },
+  [Pkm.ZACIAN]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.RearUp
+  },
+  [Pkm.ZACIAN_CROWNED]: {
+    attack: AnimationType.Scratch,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Charge
+  },
+  [Pkm.IRON_VALIANT]: {
+    attack: AnimationType.Slice,
+    ability: AnimationType.Twirl,
+    emote: AnimationType.SpAttack
+  },
+  [Pkm.PANCHAM]: {
+    attack: AnimationType.Punch,
+    ability: AnimationType.Strike,
+    emote: AnimationType.Shoot
+  },
+  [Pkm.PANGORO]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Strike,
+    emote: AnimationType.Shoot
+  },
+  [Pkm.GROOKEY]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Charge,
+    emote: AnimationType.Strike
+  },
+  [Pkm.THWACKEY]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Sing,
+    shinyUnavailable: true
+  },
+  [Pkm.RILLABOOM]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Sing,
+    shinyUnavailable: true
+  },
+  [Pkm.KUBFU]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Strike,
+    emote: AnimationType.Pose
+  },
+  [Pkm.URSHIFU_RAPID]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Attack,
+    emote: AnimationType.Shoot
+  },
+  [Pkm.URSHIFU_SINGLE]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Attack,
     emote: AnimationType.Shoot
   }
 }

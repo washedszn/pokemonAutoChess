@@ -9,7 +9,7 @@ import { getPokemonData } from "../../../../models/precomputed/precomputed-pokem
 import { IBoardEvent, IPokemonEntity } from "../../../../types"
 import { BOARD_HEIGHT, BOARD_WIDTH } from "../../../../types/Config"
 import { Ability } from "../../../../types/enum/Ability"
-import { Effect } from "../../../../types/enum/Effect"
+import { EffectEnum } from "../../../../types/enum/Effect"
 import {
   AttackType,
   HealType,
@@ -19,9 +19,9 @@ import {
 } from "../../../../types/enum/Game"
 import { Item } from "../../../../types/enum/Item"
 import { Passive } from "../../../../types/enum/Passive"
-import { AnimationConfig, PkmByIndex } from "../../../../types/enum/Pokemon"
+import { PkmByIndex } from "../../../../types/enum/Pokemon"
 import { max } from "../../../../utils/number"
-import { transformAttackCoordinate } from "../../pages/utils/utils"
+import { transformEntityCoordinates } from "../../pages/utils/utils"
 import AnimationManager from "../animation-manager"
 import GameScene from "../scenes/game-scene"
 import { displayAbility } from "./abilities-animations"
@@ -31,6 +31,7 @@ import { pickRandomIn } from "../../../../utils/random"
 import { displayBoost } from "./boosts-animations"
 import type { NonFunctionPropNames } from "../../../../types/HelperTypes"
 import { DEPTH } from "../depths"
+import { PokemonClasses } from "../../../../models/colyseus-models/pokemon"
 
 export default class BattleManager {
   group: GameObjects.Group
@@ -78,7 +79,7 @@ export default class BattleManager {
       this.simulation?.id === simulationId &&
       this.pokemonSprites.has(pokemon.id) === false
     ) {
-      const coordinates = transformAttackCoordinate(
+      const coordinates = transformEntityCoordinates(
         pokemon.positionX,
         pokemon.positionY,
         this.flip
@@ -92,6 +93,7 @@ export default class BattleManager {
         true,
         this.flip
       )
+      pokemonUI.setVisible(this.simulation?.started ?? false)
       this.animationManager.animatePokemon(
         pokemonUI,
         pokemon.status.tree ? PokemonActionState.IDLE : PokemonActionState.WALK,
@@ -372,12 +374,7 @@ export default class BattleManager {
         }
       } else if (field == "ult") {
         if (value != 0) {
-          this.animationManager.play(
-            pkm,
-            AnimationConfig[PkmByIndex[pkm.index]].ability,
-            { flip: this.flip, lock: true, repeat: 0 }
-          )
-          pkm.specialAttackAnimation(this.group, value)
+          pkm.specialAttackAnimation(pokemon)
         }
       } else if (field === "fieldCount") {
         if (value != 0) {
@@ -520,7 +517,7 @@ export default class BattleManager {
         } else if (field == "positionY") {
           pkm.positionY = pokemon.positionY
         }
-        const coordinates = transformAttackCoordinate(
+        const coordinates = transformEntityCoordinates(
           pokemon.positionX,
           pokemon.positionY,
           this.flip
@@ -528,7 +525,7 @@ export default class BattleManager {
         if (pokemon.skill == Ability.TELEPORT) {
           pkm.x = coordinates[0]
           pkm.y = coordinates[1]
-          pkm.specialAttackAnimation(this.group, pokemon.count.ult)
+          pkm.specialAttackAnimation(pokemon)
         } else if (!pokemon.status.skydiving) {
           pkm.moveManager.setSpeed(
             3 *
@@ -603,10 +600,10 @@ export default class BattleManager {
         const baseHP = getPokemonData(pokemon.name).hp
         const sizeBuff = (pokemon.hp - baseHP) / baseHP
         pkm.sprite.setScale(2 + sizeBuff)
-        pkm.lifebar?.setMaxAmount(pokemon.hp)
+        pkm.lifebar?.setMaxLife(pokemon.hp)
       } else if (field == "life") {
         pkm.life = pokemon.life
-        pkm.lifebar?.setAmount(pkm.life)
+        pkm.lifebar?.setLife(pkm.life)
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.hp.textContent = pokemon.life.toString()
         }
@@ -616,11 +613,11 @@ export default class BattleManager {
             this.displayBoost(Stat.SHIELD, pkm.positionX, pkm.positionY)
           }
           pkm.shield = pokemon.shield
-          pkm.lifebar?.setShieldAmount(pkm.shield)
+          pkm.lifebar?.setShield(pkm.shield)
         }
       } else if (field === "pp") {
         pkm.pp = pokemon.pp
-        pkm.powerbar?.setAmount(max(pkm.maxPP)(pkm.pp))
+        pkm.lifebar?.setPP(max(pkm.maxPP)(pkm.pp))
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
           pkm.detail.updateValue(
             pkm.detail.pp,
@@ -693,6 +690,9 @@ export default class BattleManager {
         if (pkm.index !== value) {
           pkm.lazyloadAnimations(this.scene, true) // unload previous index animations
           pkm.index = value as IPokemonEntity["index"]
+          pkm.attackSprite =
+            new PokemonClasses[PkmByIndex[value as string]]()?.attackSprite ??
+            pkm.attackSprite
           pkm.lazyloadAnimations(this.scene) // load the new ones
           pkm.displayAnimation("EVOLUTION")
           this.animationManager.animatePokemon(
@@ -765,7 +765,7 @@ export default class BattleManager {
   }
 
   displayBoost(stat: Stat, positionX: number, positionY: number) {
-    const coords = transformAttackCoordinate(positionX, positionY, this.flip)
+    const coords = transformEntityCoordinates(positionX, positionY, this.flip)
     displayBoost(this.scene, coords[0], coords[1], stat)
   }
 
@@ -956,7 +956,7 @@ export default class BattleManager {
   }
 
   displayBoardEvent(event: IBoardEvent) {
-    const coordinates = transformAttackCoordinate(event.x, event.y, this.flip)
+    const coordinates = transformEntityCoordinates(event.x, event.y, this.flip)
     const index = event.y * BOARD_WIDTH + event.x
 
     const existingBoardEventSprite = this.boardEventSprites[index]
@@ -965,7 +965,7 @@ export default class BattleManager {
       this.boardEventSprites[index] = null
     }
 
-    if (event.effect === Effect.LIGHTNING_STRIKE) {
+    if (event.effect === EffectEnum.LIGHTNING_STRIKE) {
       const thunderSprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -980,7 +980,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.effect === Effect.SMOKE) {
+    if (event.effect === EffectEnum.SMOKE) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -988,7 +988,7 @@ export default class BattleManager {
         "SMOKE/000.png"
       )
       sprite.setDepth(DEPTH.BOARD_EFFECT_AIR_LEVEL)
-      sprite.anims.play(Effect.SMOKE)
+      sprite.anims.play(EffectEnum.SMOKE)
       sprite.setScale(3, 3)
       sprite.setAlpha(0)
       this.boardEventSprites[index] = sprite
@@ -1001,16 +1001,16 @@ export default class BattleManager {
       })
     }
 
-    if (event.effect === Effect.POISON_GAS) {
+    if (event.effect === EffectEnum.POISON_GAS) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
         "abilities",
-        `${Effect.SMOKE}/000.png`
+        `${EffectEnum.SMOKE}/000.png`
       )
       sprite.setDepth(DEPTH.BOARD_EFFECT_AIR_LEVEL)
       sprite.setScale(3, 3)
-      sprite.anims.play(Effect.SMOKE)
+      sprite.anims.play(EffectEnum.SMOKE)
       sprite.setTint(0xa0ff20)
       sprite.setFlipX(true)
       sprite.setAlpha(0)
@@ -1025,7 +1025,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.effect === Effect.STEALTH_ROCKS) {
+    if (event.effect === EffectEnum.STEALTH_ROCKS) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -1045,7 +1045,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.effect === Effect.SPIKES) {
+    if (event.effect === EffectEnum.SPIKES) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1] + 16,
@@ -1069,7 +1069,7 @@ export default class BattleManager {
       })
     }
 
-    if (event.effect === Effect.TOXIC_SPIKES) {
+    if (event.effect === EffectEnum.TOXIC_SPIKES) {
       const spriteNumber = pickRandomIn([0, 1, 2]).toString()
       const sprite = this.scene.add.sprite(
         coordinates[0],
@@ -1094,16 +1094,16 @@ export default class BattleManager {
       })
     }
 
-    if (event.effect === Effect.STICKY_WEB) {
+    if (event.effect === EffectEnum.STICKY_WEB) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
         "abilities",
-        `${Effect.STICKY_WEB}/000.png`
+        `${EffectEnum.STICKY_WEB}/000.png`
       )
       sprite.setDepth(DEPTH.BOARD_EFFECT_POKEMON_LEVEL)
       sprite.setScale(3, 3)
-      sprite.anims.play(Effect.STICKY_WEB)
+      sprite.anims.play(EffectEnum.STICKY_WEB)
       sprite.setAlpha(0)
       this.boardEventSprites[index] = sprite
       this.group.add(sprite)
@@ -1116,15 +1116,15 @@ export default class BattleManager {
       })
     }
 
-    if (event.effect === Effect.HAIL) {
+    if (event.effect === EffectEnum.HAIL) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
         "abilities",
-        `${Effect.HAIL}/000.png`
+        `${EffectEnum.HAIL}/000.png`
       )
       sprite.setDepth(DEPTH.BOARD_EFFECT_GROUND_LEVEL).setScale(1).setAlpha(0)
-      sprite.anims.play(Effect.HAIL)
+      sprite.anims.play(EffectEnum.HAIL)
       this.boardEventSprites[index] = sprite
       this.group.add(sprite)
 
@@ -1136,15 +1136,15 @@ export default class BattleManager {
       })
     }
 
-    if (event.effect === Effect.EMBER) {
+    if (event.effect === EffectEnum.EMBER) {
       const sprite = this.scene.add.sprite(
         coordinates[0],
         coordinates[1] + 12,
         "abilities",
-        `${Effect.EMBER}/000.png`
+        `${EffectEnum.EMBER}/000.png`
       )
       sprite.setDepth(DEPTH.BOARD_EFFECT_GROUND_LEVEL).setScale(2).setAlpha(0)
-      sprite.anims.play(Effect.EMBER)
+      sprite.anims.play(EffectEnum.EMBER)
       this.boardEventSprites[index] = sprite
       this.group.add(sprite)
 
@@ -1190,7 +1190,7 @@ export default class BattleManager {
     id: string
   ) {
     if (this.simulation?.id === id) {
-      const coordinates = transformAttackCoordinate(
+      const coordinates = transformEntityCoordinates(
         positionX,
         positionY,
         this.flip
@@ -1215,7 +1215,7 @@ export default class BattleManager {
     id: string
   ) {
     if (this.simulation?.id === id) {
-      const coordinates = transformAttackCoordinate(
+      const coordinates = transformEntityCoordinates(
         positionX,
         positionY,
         this.flip
@@ -1304,6 +1304,12 @@ export default class BattleManager {
     this.simulation = simulation
     this.clear()
     this.buildPokemons()
+  }
+
+  onSimulationStart() {
+    this.pokemonSprites.forEach((pkm) => {
+      pkm.setVisible(true)
+    })
   }
 
   setPlayer(player: Player) {

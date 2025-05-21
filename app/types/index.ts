@@ -18,7 +18,7 @@ import GameRoom from "../rooms/game-room"
 import { ILeaderboardInfo } from "../types/interfaces/LeaderboardInfo"
 import { Ability } from "./enum/Ability"
 import { DungeonPMDO } from "./enum/Dungeon"
-import { BoardEffect, Effect } from "./enum/Effect"
+import { BoardEffect, EffectEnum } from "./enum/Effect"
 import { Emotion } from "./enum/Emotion"
 import {
   AttackType,
@@ -34,7 +34,7 @@ import { Passive } from "./enum/Passive"
 import { Pkm, PkmProposition } from "./enum/Pokemon"
 import { Synergy } from "./enum/Synergy"
 import { Weather } from "./enum/Weather"
-import { Effect as EffectClass } from "../core/effect"
+import { Effect as EffectClass } from "../core/effects/effect"
 
 export * from "./enum/Emotion"
 
@@ -117,7 +117,6 @@ export enum Transfer {
   POKEMON_DAMAGE = "POKEMON_DAMAGE",
   POKEMON_HEAL = "POKEMON_HEAL",
   POKEMON_WANDERING = "POKEMON_WANDERING",
-  UNOWN_WANDERING = "UNOWN_WANDERING",
   VECTOR = "VECTOR",
   LOADING_PROGRESS = "LOADING_PROGRESS",
   LOADING_COMPLETE = "LOADING_COMPLETE",
@@ -127,9 +126,6 @@ export enum Transfer {
   REQUEST_ROOM = "REQUEST_ROOM",
   ADD_ROOM = "ADD_ROOM",
   REMOVE_ROOM = "REMOVE_ROOM",
-  ADD_BOT_DATABASE = "ADD_BOT_DATABASE",
-  DELETE_BOT_DATABASE = "DELETE_BOT_DATABASE",
-  BOT_DATABASE_LOG = "BOT_DATABASE_LOG",
   UNBAN = "UNBAN",
   BOARD_EVENT = "BOARD_EVENT",
   CLEAR_BOARD = "CLEAR_BOARD",
@@ -200,7 +196,7 @@ export const AttackSpriteScale: { [sprite in AttackSprite]: [number, number] } =
     "FAIRY/range": [2, 2],
     "FIGHTING/melee": [2, 2],
     "FIGHTING/range": [2, 2],
-    "FIRE/melee": [1, 1],
+    "FIRE/melee": [1.5, 1.5],
     "FIRE/range": [2, 2],
     "FLYING/melee": [1, 1],
     "FLYING/range": [1.5, 1.5],
@@ -211,7 +207,7 @@ export const AttackSpriteScale: { [sprite in AttackSprite]: [number, number] } =
     "GROUND/melee": [1, 1],
     "ICE/melee": [2, 2],
     "ICE/range": [2, 2],
-    "NORMAL/melee": [2, 2],
+    "NORMAL/melee": [1.5, 1.5],
     "POISON/melee": [2, 2],
     "POISON/range": [1, 1],
     "PSYCHIC/melee": [1.5, 1.5],
@@ -434,6 +430,7 @@ export interface IPokemon {
   canBePlaced: boolean
   canBeCloned: boolean
   canHoldItems: boolean
+  canEat: boolean
   deathCount: number
   readonly hasEvolution: boolean
 }
@@ -449,8 +446,8 @@ export interface ISimulation {
   room: GameRoom
   id: string
   weather: Weather
-  blueEffects: Set<Effect>
-  redEffects: Set<Effect>
+  blueEffects: Set<EffectEnum>
+  redEffects: Set<EffectEnum>
   blueTeam: MapSchema<IPokemonEntity>
   redTeam: MapSchema<IPokemonEntity>
   blueDpsMeter: MapSchema<Dps>
@@ -614,7 +611,7 @@ export interface IPokemonEntity {
   attackSprite: AttackSprite
   rarity: Rarity
   name: Pkm
-  effects: SetSchema<Effect>
+  effects: SetSchema<EffectEnum>
   items: SetSchema<Item>
   types: SetSchema<Synergy>
   stars: number
@@ -787,6 +784,7 @@ export enum Title {
   VANQUISHER = "VANQUISHER",
   OUTSIDER = "OUTSIDER",
   GLUTTON = "GLUTTON",
+  PICNICKER = "PICNICKER",
   STARGAZER = "STARGAZER",
   BLOODY = "BLOODY",
   ETERNAL = "ETERNAL"

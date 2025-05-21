@@ -194,7 +194,10 @@ export enum Item {
   GIMMIGHOUL_COIN = "GIMMIGHOUL_COIN",
   EXCHANGE_TICKET = "EXCHANGE_TICKET",
   AUSPICIOUS_ARMOR = "AUSPICIOUS_ARMOR",
-  MALICIOUS_ARMOR = "MALICIOUS_ARMOR"
+  MALICIOUS_ARMOR = "MALICIOUS_ARMOR",
+  RUSTED_SWORD = "RUSTED_SWORD",
+  SCROLL_OF_WATERS = "SCROLL_OF_WATERS",
+  SCROLL_OF_DARKNESS = "SCROLL_OF_DARKNESS"
 }
 
 export const AllItems: Item[] = Object.values(Item)
@@ -229,7 +232,10 @@ export const SpecialItems: Item[] = [
   Item.RAINBOW_SWIRL_FLAVOR,
   Item.EGG_FOR_SELL,
   Item.GIMMIGHOUL_COIN,
-  Item.EXCHANGE_TICKET
+  Item.EXCHANGE_TICKET,
+  Item.RUSTED_SWORD,
+  Item.SCROLL_OF_WATERS,
+  Item.SCROLL_OF_DARKNESS
 ]
 
 export const FishingRods = [
@@ -640,3 +646,4 @@ export const Sweets = [
 ]
 
 export const CharcadetArmors = [Item.AUSPICIOUS_ARMOR, Item.MALICIOUS_ARMOR]
+export const KubfuScrolls = [Item.SCROLL_OF_WATERS, Item.SCROLL_OF_DARKNESS]

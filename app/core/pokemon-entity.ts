@@ -22,12 +22,12 @@ import {
   BOARD_WIDTH,
   DEFAULT_CRIT_CHANCE,
   DEFAULT_CRIT_POWER,
-  MANA_SCARF_MANA,
   ON_ATTACK_MANA,
   SCOPE_LENS_MANA
 } from "../types/Config"
 import { Ability } from "../types/enum/Ability"
-import { Effect } from "../types/enum/Effect"
+import { EffectEnum } from "../types/enum/Effect"
+import { ItemEffects } from "./effects/items"
 import {
   AttackType,
   Orientation,
@@ -65,13 +65,14 @@ import {
   OnItemGainedEffect,
   OnItemRemovedEffect,
   OnKillEffect
-} from "./effect"
+} from "./effects/effect"
 import { IdleState } from "./idle-state"
-import { ItemEffects, ItemStats } from "./items"
+import { ItemStats } from "./items"
 import MovingState from "./moving-state"
 import PokemonState from "./pokemon-state"
 import Simulation from "./simulation"
 import { DelayedCommand, SimulationCommand } from "./simulation-command"
+import { PassiveEffects } from "./effects/passives"
 
 export class PokemonEntity extends Schema implements IPokemonEntity {
   @type("boolean") shiny: boolean
@@ -102,7 +103,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
   @type("string") attackSprite: AttackSprite
   @type("string") rarity: Rarity
   @type("string") name: Pkm
-  @type({ set: "string" }) effects = new SetSchema<Effect>()
+  @type({ set: "string" }) effects = new SetSchema<EffectEnum>()
   @type({ set: "string" }) items = new SetSchema<Item>()
   @type({ set: "string" }) types = new SetSchema<Synergy>()
   @type("uint8") stars: number
@@ -202,6 +203,13 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     pokemon.types.forEach((type) => {
       this.types.add(type)
     })
+
+    const passiveEffects = PassiveEffects[this.passive]
+    if (passiveEffects) {
+      for (const effect of passiveEffects) {
+        this.effectsSet.add(effect)
+      }
+    }
   }
 
   update(dt: number, board: Board, player: Player | undefined) {
@@ -234,7 +242,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       !this.status.resurecting &&
       ((targetAllies && this.team === attacker.team) ||
         (targetEnemies && this.team !== attacker.team) ||
-        (attacker.effects.has(Effect.MERCILESS) &&
+        (attacker.effects.has(EffectEnum.MERCILESS) &&
           attacker.id !== this.id &&
           this.life <= 0.1 * this.hp))
     )
@@ -302,7 +310,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       ) {
         const bounceCrit =
           crit ||
-          (this.effects.has(Effect.ABILITY_CRIT) &&
+          (this.effects.has(EffectEnum.ABILITY_CRIT) &&
             chance(this.critChance, this))
         const bounceDamage = Math.round(
           ([0.5, 1][this.stars - 1] ?? 1) *
@@ -323,9 +331,9 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     } else {
       let specialDamage =
         damage + (damage * (attacker && apBoost ? attacker.ap : 0)) / 100
-      if (attacker && attacker.effects.has(Effect.DOUBLE_DAMAGE)) {
+      if (attacker && attacker.effects.has(EffectEnum.DOUBLE_DAMAGE)) {
         specialDamage *= 2
-        attacker.effects.delete(Effect.DOUBLE_DAMAGE)
+        attacker.effects.delete(EffectEnum.DOUBLE_DAMAGE)
       }
       if (crit && attacker && this.items.has(Item.ROCKY_HELMET) === false) {
         specialDamage = Math.round(specialDamage * attacker.critPower)
@@ -357,7 +365,8 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         !attacker.items.has(Item.PROTECTIVE_PADS) &&
         attackType === AttackType.SPECIAL
       ) {
-        const damageAfterReduction = damage / (1 + ARMOR_FACTOR * this.speDef)
+        let speDef = this.status.armorReduction ? Math.round(this.speDef / 2) : this.speDef
+        const damageAfterReduction = specialDamage / (1 + ARMOR_FACTOR * speDef)
         const damageBlocked = min(0)(specialDamage - damageAfterReduction)
         attacker.handleDamage({
           damage: Math.round(damageBlocked),
@@ -620,8 +629,11 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     ) {
       return
     }
-    this.items.add(item)
-    this.simulation.applyItemEffect(this, item)
+
+    if (this.items.has(item) == false) {
+      this.items.add(item)
+      this.simulation.applyItemEffect(this, item)
+    }
     if (permanent && !this.isGhostOpponent) {
       this.refToBoardPokemon.items.add(item)
     }
@@ -682,7 +694,8 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     physicalDamage,
     specialDamage,
     trueDamage,
-    totalDamage
+    totalDamage,
+    isTripleAttack
   }: {
     target: PokemonEntity
     board: Board
@@ -690,218 +703,44 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     specialDamage: number
     trueDamage: number
     totalDamage: number
+    isTripleAttack: boolean
   }) {
     this.addPP(ON_ATTACK_MANA, this, 0, false)
 
     this.effectsSet.forEach((effect) => {
       if (effect instanceof OnAttackEffect) {
-        effect.apply(this, target, board)
+        effect.apply({
+          pokemon: this,
+          target,
+          board,
+          physicalDamage,
+          specialDamage,
+          trueDamage,
+          totalDamage,
+          isTripleAttack
+        })
       }
     })
 
-    if (this.items.has(Item.BLUE_ORB)) {
-      this.count.staticHolderCount++
-      if (this.count.staticHolderCount >= 4) {
-        this.count.staticHolderCount = 0
-        const nbBounces = 2
-        const closestEnemies = new Array<PokemonEntity>()
-        board.forEach(
-          (x: number, y: number, enemy: PokemonEntity | undefined) => {
-            if (enemy && this.team !== enemy.team) {
-              closestEnemies.push(enemy)
-            }
-          }
-        )
-        closestEnemies.sort((a, b) => {
-          const distanceA = distanceC(
-            a.positionX,
-            a.positionY,
-            this.positionX,
-            this.positionY
-          )
-          const distanceB = distanceC(
-            b.positionX,
-            b.positionY,
-            this.positionX,
-            this.positionY
-          )
-          return distanceA - distanceB
-        })
-
-        let previousTg: PokemonEntity = this
-        let tg: PokemonEntity | undefined = target
-
-        for (let i = 0; i < nbBounces; i++) {
-          tg = closestEnemies[i]
-          if (tg) {
-            this.simulation.room.broadcast(Transfer.ABILITY, {
-              id: this.simulation.id,
-              skill: "LINK_CABLE_link",
-              positionX: previousTg.positionX,
-              positionY: previousTg.positionY,
-              targetX: tg.positionX,
-              targetY: tg.positionY
-            })
-            tg.handleSpecialDamage(10, board, AttackType.SPECIAL, this, false)
-            tg.addPP(-20, this, 0, false)
-            tg.count.manaBurnCount++
-            previousTg = tg
-          } else {
-            break
-          }
-        }
-      }
-    }
-
-    if (this.passive === Passive.DURANT) {
-      const bugAllies =
-        board.cells.filter(
-          (entity) =>
-            entity && entity.team === this.team && entity.types.has(Synergy.BUG)
-        ).length - 1
-      if (bugAllies > 0) {
-        target.handleDamage({
-          damage: bugAllies,
-          board,
-          attackType: AttackType.TRUE,
-          attacker: this,
-          shouldTargetGainMana: true
-        })
-      }
-    }
-
-    if (
-      this.name === Pkm.MINIOR_KERNEL_BLUE ||
-      this.name === Pkm.MINIOR_KERNEL_GREEN ||
-      this.name === Pkm.MINIOR_KERNEL_RED ||
-      this.name === Pkm.MINIOR_KERNEL_ORANGE
-    ) {
-      const cells = board.getAdjacentCells(target.positionX, target.positionY)
-      const targets = cells
-        .filter((cell) => cell.value && this.team != cell.value.team)
-        .map((cell) => cell.value!)
-        .concat(target)
-      targets.forEach((t) => {
-        this.simulation.room.broadcast(Transfer.ABILITY, {
-          id: this.simulation.id,
-          skill: Ability.SHIELDS_DOWN,
-          targetX: t.positionX,
-          targetY: t.positionY
-        })
-        if (this.name === Pkm.MINIOR_KERNEL_BLUE) {
-          t.handleDamage({
-            damage: Math.ceil(physicalDamage * (1 + this.ap / 100)),
-            board,
-            attackType: AttackType.SPECIAL,
-            attacker: this,
-            shouldTargetGainMana: false
-          })
-        }
-        if (this.name === Pkm.MINIOR_KERNEL_RED) {
-          t.handleDamage({
-            damage: Math.ceil(physicalDamage * 1.5 * (1 + this.ap / 100)),
-            board,
-            attackType: AttackType.PHYSICAL,
-            attacker: this,
-            shouldTargetGainMana: false
-          })
-        }
-        if (this.name === Pkm.MINIOR_KERNEL_ORANGE) {
-          t.handleDamage({
-            damage: Math.ceil(physicalDamage * 0.5 * (1 + this.ap / 100)),
-            board,
-            attackType: AttackType.TRUE,
-            attacker: this,
-            shouldTargetGainMana: false
-          })
-        }
+    const itemEffects: OnAttackEffect[] = values(this.items)
+      .flatMap((item) => ItemEffects[item] ?? [])
+      .filter((effect) => effect instanceof OnAttackEffect)
+    itemEffects.forEach((effect) => {
+      effect.apply({
+        pokemon: this,
+        target,
+        board,
+        physicalDamage,
+        specialDamage,
+        trueDamage,
+        totalDamage,
+        isTripleAttack
       })
-      if (this.name === Pkm.MINIOR_KERNEL_GREEN) {
-        cells.forEach((v) => {
-          if (v && v.value && v.value.team === this.team) {
-            v.value.handleHeal(physicalDamage, this, 1, false)
-          }
-        })
-      }
-    }
+    })
 
-    if (this.items.has(Item.CHOICE_SCARF) && totalDamage > 0) {
-      const cells = board.getAdjacentCells(target.positionX, target.positionY)
-      const candidateTargets = cells
-        .filter((cell) => cell.value && this.team != cell.value.team)
-        .map((cell) => cell.value!)
-      candidateTargets.sort((a, b) => a.life - b.life) // target lowest life first
-
-      let targetCount = 1
-      candidateTargets.forEach((target) => {
-        if (targetCount > 0) {
-          let totalTakenDamage = 0
-          if (physicalDamage > 0) {
-            const { takenDamage } = target.handleDamage({
-              damage: Math.ceil(0.5 * physicalDamage),
-              board,
-              attackType: AttackType.PHYSICAL,
-              attacker: this,
-              shouldTargetGainMana: true
-            })
-            totalTakenDamage += takenDamage
-          }
-          if (specialDamage > 0) {
-            const { takenDamage } = target.handleDamage({
-              damage: Math.ceil(0.5 * specialDamage),
-              board,
-              attackType: AttackType.SPECIAL,
-              attacker: this,
-              shouldTargetGainMana: true
-            })
-            totalTakenDamage += takenDamage
-          }
-          if (trueDamage > 0) {
-            const { takenDamage } = target.handleDamage({
-              damage: Math.ceil(0.5 * trueDamage),
-              board,
-              attackType: AttackType.TRUE,
-              attacker: this,
-              shouldTargetGainMana: true
-            })
-            totalTakenDamage += takenDamage
-          }
-          this.onHit({
-            target,
-            board,
-            totalTakenDamage,
-            physicalDamage,
-            specialDamage,
-            trueDamage
-          })
-
-          targetCount--
-        }
-      })
-    }
-
-    if (this.items.has(Item.MANA_SCARF)) {
-      this.addPP(MANA_SCARF_MANA, this, 0, false)
-    }
-
-    if (this.items.has(Item.UPGRADE)) {
-      this.addSpeed(5, this, 0, false)
-      this.count.upgradeCount++
-    }
-
-    if (this.items.has(Item.MAGMARIZER)) {
-      this.addAttack(1, this, 0, false)
-      this.count.magmarizerCount++
-    }
-
-    if (this.items.has(Item.ELECTIRIZER) && this.count.attackCount % 3 === 0) {
-      target.addPP(-15, this, 0, false)
-      target.count.manaBurnCount++
-    }
-
-    if (this.effects.has(Effect.TELEPORT_NEXT_ATTACK)) {
+    if (this.effects.has(EffectEnum.TELEPORT_NEXT_ATTACK)) {
       const crit =
-        this.effects.has(Effect.ABILITY_CRIT) &&
+        this.effects.has(EffectEnum.ABILITY_CRIT) &&
         chance(this.critChance / 100, this)
       target.handleSpecialDamage(
         [15, 30, 60][this.stars - 1],
@@ -910,12 +749,12 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         this,
         crit
       )
-      this.effects.delete(Effect.TELEPORT_NEXT_ATTACK)
+      this.effects.delete(EffectEnum.TELEPORT_NEXT_ATTACK)
     }
 
-    if (this.effects.has(Effect.SHADOW_PUNCH_NEXT_ATTACK)) {
+    if (this.effects.has(EffectEnum.SHADOW_PUNCH_NEXT_ATTACK)) {
       const crit =
-        this.effects.has(Effect.ABILITY_CRIT) &&
+        this.effects.has(EffectEnum.ABILITY_CRIT) &&
         chance(this.critChance / 100, this)
       target.handleSpecialDamage(
         [30, 60, 120][this.stars - 1],
@@ -924,25 +763,11 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         this,
         crit
       )
-      this.effects.delete(Effect.SHADOW_PUNCH_NEXT_ATTACK)
+      this.effects.delete(EffectEnum.SHADOW_PUNCH_NEXT_ATTACK)
     }
 
-    if (target.effects.has(Effect.OBSTRUCT)) {
+    if (target.effects.has(EffectEnum.OBSTRUCT)) {
       this.addDefense(-2, target, 0, false)
-    }
-
-    if (this.passive === Passive.SHARED_VISION) {
-      board.forEach((x: number, y: number, ally: PokemonEntity | undefined) => {
-        if (
-          ally &&
-          ally.passive === Passive.SHARED_VISION &&
-          this.team === ally.team &&
-          !(this.targetX === ally.positionX && this.targetY === ally.positionY) // do not self inflict damage if ally is confused and targeting you
-        ) {
-          ally.targetX = this.targetX
-          ally.targetY = this.targetY
-        }
-      })
     }
   }
 
@@ -1022,13 +847,13 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
           : 0
       if (this.types.has(Synergy.ICE) || nbIcyRocks > 0) {
         let freezeChance = 0
-        if (this.effects.has(Effect.CHILLY)) {
+        if (this.effects.has(EffectEnum.CHILLY)) {
           freezeChance = 0.2
-        } else if (this.effects.has(Effect.FROSTY)) {
+        } else if (this.effects.has(EffectEnum.FROSTY)) {
           freezeChance = 0.3
-        } else if (this.effects.has(Effect.FREEZING)) {
+        } else if (this.effects.has(EffectEnum.FREEZING)) {
           freezeChance = 0.4
-        } else if (this.effects.has(Effect.SHEER_COLD)) {
+        } else if (this.effects.has(EffectEnum.SHEER_COLD)) {
           freezeChance = 0.4
         }
         freezeChance += nbIcyRocks * 0.05
@@ -1061,13 +886,13 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
 
     if (this.hasSynergyEffect(Synergy.POISON)) {
       let poisonChance = 0
-      if (this.effects.has(Effect.POISONOUS)) {
+      if (this.effects.has(EffectEnum.POISONOUS)) {
         poisonChance = 0.3
       }
-      if (this.effects.has(Effect.VENOMOUS)) {
+      if (this.effects.has(EffectEnum.VENOMOUS)) {
         poisonChance = 0.6
       }
-      if (this.effects.has(Effect.TOXIC)) {
+      if (this.effects.has(EffectEnum.TOXIC)) {
         poisonChance = 1.0
       }
       if (target.player) {
@@ -1097,9 +922,9 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       ) === 1 &&
       !this.items.has(Item.PROTECTIVE_PADS)
     ) {
-      const damage = Math.round(target.def * 0.5 * (1 + target.ap / 100))
+      const damage = Math.round(target.def * (1 + target.ap / 100))
       const crit =
-        target.effects.has(Effect.ABILITY_CRIT) &&
+        target.effects.has(EffectEnum.ABILITY_CRIT) &&
         chance(target.critChance, this)
       this.status.triggerWound(2000, this, target)
       this.handleSpecialDamage(
@@ -1112,12 +937,12 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       )
     }
 
-    if (target.effects.has(Effect.SHELL_TRAP) && physicalDamage > 0) {
+    if (target.effects.has(EffectEnum.SHELL_TRAP) && physicalDamage > 0) {
       const cells = board.getAdjacentCells(target.positionX, target.positionY)
       const crit =
-        target.effects.has(Effect.ABILITY_CRIT) &&
+        target.effects.has(EffectEnum.ABILITY_CRIT) &&
         chance(target.critChance, this)
-      target.effects.delete(Effect.SHELL_TRAP)
+      target.effects.delete(EffectEnum.SHELL_TRAP)
       this.simulation.room.broadcast(Transfer.ABILITY, {
         id: this.simulation.id,
         skill: "SHELL_TRAP_trigger",
@@ -1144,11 +969,11 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
   onDamageDealt({ target, damage }: { target: PokemonEntity; damage: number }) {
     if (this.hasSynergyEffect(Synergy.HUMAN)) {
       let lifesteal = 0
-      if (this.effects.has(Effect.MEDITATE)) {
+      if (this.effects.has(EffectEnum.MEDITATE)) {
         lifesteal = 0.25
-      } else if (this.effects.has(Effect.FOCUS_ENERGY)) {
+      } else if (this.effects.has(EffectEnum.FOCUS_ENERGY)) {
         lifesteal = 0.4
-      } else if (this.effects.has(Effect.CALM_MIND)) {
+      } else if (this.effects.has(EffectEnum.CALM_MIND)) {
         lifesteal = 0.6
       }
       this.handleHeal(Math.ceil(lifesteal * damage), this, 0, false)
@@ -1166,7 +991,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     ) {
       const nbBloodStones = count(this.player.items, Item.BLOOD_STONE)
       if (nbBloodStones > 0) {
-        this.handleHeal(Math.ceil(0.2 * damage), this, 0, false)
+        this.handleHeal(Math.ceil(0.2 * nbBloodStones * damage), this, 0, false)
       }
     }
   }
@@ -1248,14 +1073,14 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     ) {
       const pcLife = this.life / this.hp
 
-      if (this.effects.has(Effect.TAILWIND) && pcLife < 0.2) {
+      if (this.effects.has(EffectEnum.TAILWIND) && pcLife < 0.2) {
         this.flyAway(board)
         this.flyingProtection--
-      } else if (this.effects.has(Effect.FEATHER_DANCE) && pcLife < 0.2) {
+      } else if (this.effects.has(EffectEnum.FEATHER_DANCE) && pcLife < 0.2) {
         this.status.triggerProtect(2000)
         this.flyAway(board)
         this.flyingProtection--
-      } else if (this.effects.has(Effect.MAX_AIRSTREAM)) {
+      } else if (this.effects.has(EffectEnum.MAX_AIRSTREAM)) {
         if (
           (this.flyingProtection === 2 && pcLife < 0.5) ||
           (this.flyingProtection === 1 && pcLife < 0.2)
@@ -1264,7 +1089,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
           this.flyAway(board)
           this.flyingProtection--
         }
-      } else if (this.effects.has(Effect.SKYDIVE)) {
+      } else if (this.effects.has(EffectEnum.SKYDIVE)) {
         if (
           (this.flyingProtection === 2 && pcLife < 0.5) ||
           (this.flyingProtection === 1 && pcLife < 0.2)
@@ -1374,7 +1199,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       this.passive = Passive.DARMANITAN_ZEN
       this.skill = Ability.TRANSE
       this.pp = 0
-      this.effects.add(Effect.ZEN_MODE)
+      this.effects.add(EffectEnum.ZEN_MODE)
       const destination = board.getTeleportationCell(
         this.positionX,
         this.positionY
@@ -1385,33 +1210,6 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       this.addAttack(-10, this, 0, false)
       this.addDefense(5, this, 0, false)
       this.addSpecialDefense(5, this, 0, false)
-    }
-
-    if (
-      (this.passive === Passive.ZYGARDE10 ||
-        this.passive === Passive.ZYGARDE50) &&
-      this.life < 0.3 * this.hp
-    ) {
-      this.handleHeal(0.2 * this.hp, this, 0, false)
-      this.addSpeed(-25, this, 0, false)
-      if (this.passive === Passive.ZYGARDE10) {
-        this.addDefense(1, this, 0, false)
-        this.addSpecialDefense(1, this, 0, false)
-        this.addMaxHP(50, this, 0, false)
-      } else {
-        this.addAttack(5, this, 0, false)
-        this.addDefense(2, this, 0, false)
-        this.addSpecialDefense(2, this, 0, false)
-        this.addMaxHP(80, this, 0, false)
-        this.range = min(1)(this.range - 1)
-      }
-
-      this.index = PkmIndex[Pkm.ZYGARDE_100]
-      this.name = Pkm.ZYGARDE_100
-      this.passive = Passive.NONE
-      this.skill = Ability.CORE_ENFORCER
-      this.pp = 0
-      this.maxPP = 120
     }
 
     if (this.passive === Passive.GLIMMORA && this.life < 0.5 * this.hp) {
@@ -1452,7 +1250,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         board.addBoardEffect(
           cell.x,
           cell.y,
-          Effect.TOXIC_SPIKES,
+          EffectEnum.TOXIC_SPIKES,
           this.simulation
         )
 
@@ -1486,13 +1284,13 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     // proc fairy splash damage for both the attacker and the target
     if (target.fairySplashCooldown === 0 && target.types.has(Synergy.FAIRY)) {
       let shockDamageFactor = 0.3
-      if (target.effects.has(Effect.AROMATIC_MIST)) {
+      if (target.effects.has(EffectEnum.AROMATIC_MIST)) {
         shockDamageFactor += 0.2
-      } else if (target.effects.has(Effect.FAIRY_WIND)) {
+      } else if (target.effects.has(EffectEnum.FAIRY_WIND)) {
         shockDamageFactor += 0.4
-      } else if (target.effects.has(Effect.STRANGE_STEAM)) {
+      } else if (target.effects.has(EffectEnum.STRANGE_STEAM)) {
         shockDamageFactor += 0.6
-      } else if (target.effects.has(Effect.MOON_FORCE)) {
+      } else if (target.effects.has(EffectEnum.MOON_FORCE)) {
         shockDamageFactor += 0.8
       }
 
@@ -1535,17 +1333,21 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
   }
 
   // called after killing an opponent (does not proc if resurection)
-  onKill({ target, board }: { target: PokemonEntity; board: Board }) {
+  onKill({
+    target,
+    board,
+    attackType
+  }: { target: PokemonEntity; board: Board; attackType: AttackType }) {
     const itemEffects: OnKillEffect[] = values(this.items)
       .flatMap((item) => ItemEffects[item] ?? [])
       .filter((effect) => effect instanceof OnKillEffect)
     itemEffects.forEach((effect) => {
-      effect.apply(this, target, board)
+      effect.apply(this, target, board, attackType)
     })
 
     this.effectsSet.forEach((effect) => {
       if (effect instanceof OnKillEffect) {
-        effect.apply(this, target, board)
+        effect.apply(this, target, board, attackType)
       }
     })
 
@@ -1570,10 +1372,10 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     )
 
     if (
-      target.effects.has(Effect.ODD_FLOWER) ||
-      target.effects.has(Effect.GLOOM_FLOWER) ||
-      target.effects.has(Effect.VILE_FLOWER) ||
-      target.effects.has(Effect.SUN_FLOWER)
+      target.effects.has(EffectEnum.ODD_FLOWER) ||
+      target.effects.has(EffectEnum.GLOOM_FLOWER) ||
+      target.effects.has(EffectEnum.VILE_FLOWER) ||
+      target.effects.has(EffectEnum.SUN_FLOWER)
     ) {
       if (!target.simulation.flowerSpawn[target.team]) {
         target.simulation.flowerSpawn[target.team] = true
@@ -1581,11 +1383,11 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
           board.getFarthestTargetCoordinateAvailablePlace(target)
         if (spawnSpot) {
           let flowerSpawnName = Pkm.ODDISH
-          if (target.effects.has(Effect.GLOOM_FLOWER)) {
+          if (target.effects.has(EffectEnum.GLOOM_FLOWER)) {
             flowerSpawnName = Pkm.GLOOM
-          } else if (target.effects.has(Effect.VILE_FLOWER)) {
+          } else if (target.effects.has(EffectEnum.VILE_FLOWER)) {
             flowerSpawnName = Pkm.VILEPLUME
-          } else if (target.effects.has(Effect.SUN_FLOWER)) {
+          } else if (target.effects.has(EffectEnum.SUN_FLOWER)) {
             flowerSpawnName = Pkm.BELLOSSOM
           }
 
@@ -1653,6 +1455,16 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       this.player.addMoney(1, true, this)
       this.count.moneyCount += 1
     }
+
+    if (
+      target.name === Pkm.MAGIKARP &&
+      target.shiny &&
+      target.simulation.stageLevel === 1 &&
+      this.player
+    ) {
+      this.player.addMoney(10, true, this)
+      this.count.moneyCount += 10
+    }
   }
 
   // called after death (does not proc if resurection)
@@ -1660,9 +1472,9 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     if (!this.isGhostOpponent) {
       this.refToBoardPokemon.deathCount++
     }
-    const isWorkUp = this.effects.has(Effect.BULK_UP)
-    const isRage = this.effects.has(Effect.RAGE)
-    const isAngerPoint = this.effects.has(Effect.ANGER_POINT)
+    const isWorkUp = this.effects.has(EffectEnum.BULK_UP)
+    const isRage = this.effects.has(EffectEnum.RAGE)
+    const isAngerPoint = this.effects.has(EffectEnum.ANGER_POINT)
 
     if (isWorkUp || isRage || isAngerPoint) {
       let heal = 0
@@ -1694,16 +1506,16 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     }
 
     if (this.status.curseVulnerability) {
-      this.simulation.applyCurse(Effect.CURSE_OF_VULNERABILITY, this.team)
+      this.simulation.applyCurse(EffectEnum.CURSE_OF_VULNERABILITY, this.team)
     }
     if (this.status.curseWeakness) {
-      this.simulation.applyCurse(Effect.CURSE_OF_WEAKNESS, this.team)
+      this.simulation.applyCurse(EffectEnum.CURSE_OF_WEAKNESS, this.team)
     }
     if (this.status.curseTorment) {
-      this.simulation.applyCurse(Effect.CURSE_OF_TORMENT, this.team)
+      this.simulation.applyCurse(EffectEnum.CURSE_OF_TORMENT, this.team)
     }
     if (this.status.curseFate) {
-      this.simulation.applyCurse(Effect.CURSE_OF_FATE, this.team)
+      this.simulation.applyCurse(EffectEnum.CURSE_OF_FATE, this.team)
     }
 
     if (this.passive === Passive.PYUKUMUKU) {
@@ -1725,6 +1537,21 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
           )
         }
       })
+    }
+
+    if (this.items.has(Item.RUSTED_SWORD)) {
+      this.items.delete(Item.RUSTED_SWORD)
+      const alliesSortByLowestAtk = (
+        board.cells.filter(
+          (p) =>
+            p && p.team === this.team && p.id !== this.id && p.items.size < 3
+        ) as PokemonEntity[]
+      ).sort((a, b) => a.atk - b.atk)
+
+      const target = alliesSortByLowestAtk[0]
+      if (target) {
+        target.addItem(Item.RUSTED_SWORD)
+      }
     }
   }
 
@@ -1884,7 +1711,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       effect.count = 0
     }
 
-    const resetSoundStacks = (effect: Effect) => {
+    const resetSoundStacks = (effect: EffectEnum) => {
       const synergyLevel = SynergyEffects[Synergy.SOUND].indexOf(effect)
       const attackBoost =
         ([2, 1, 1][synergyLevel] ?? 0) * -this.count.soundCryCount
@@ -1937,20 +1764,20 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
       case Item.ASPEAR_BERRY:
         this.status.freeze = false
         this.status.freezeCooldown = 0
-        this.effects.add(Effect.IMMUNITY_FREEZE)
+        this.effects.add(EffectEnum.IMMUNITY_FREEZE)
         heal(20)
         this.addSpeed(15, this, 0, false)
         break
       case Item.CHERI_BERRY:
         this.status.healParalysis(this)
-        this.effects.add(Effect.IMMUNITY_PARALYSIS)
+        this.effects.add(EffectEnum.IMMUNITY_PARALYSIS)
         heal(20)
         this.addAttack(10, this, 0, false)
         break
       case Item.CHESTO_BERRY:
         this.status.sleep = false
         this.status.sleepCooldown = 0
-        this.effects.add(Effect.IMMUNITY_SLEEP)
+        this.effects.add(EffectEnum.IMMUNITY_SLEEP)
         heal(20)
         this.addAbilityPower(50, this, 0, false)
         break
@@ -1988,12 +1815,12 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         this.status.poisonOrigin = undefined
         this.status.poisonStacks = 0
         this.status.poisonDamageCooldown = 0
-        this.effects.add(Effect.IMMUNITY_POISON)
+        this.effects.add(EffectEnum.IMMUNITY_POISON)
         break
       case Item.PERSIM_BERRY:
         this.status.confusion = false
         this.status.confusionCooldown = 0
-        this.effects.add(Effect.IMMUNITY_CONFUSION)
+        this.effects.add(EffectEnum.IMMUNITY_CONFUSION)
         heal(20)
         this.addSpecialDefense(10, this, 0, false)
         break
@@ -2007,7 +1834,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         break
       case Item.RAWST_BERRY:
         this.status.healBurn(this)
-        this.effects.add(Effect.IMMUNITY_BURN)
+        this.effects.add(EffectEnum.IMMUNITY_BURN)
         heal(20)
         this.addDefense(10, this, 0, false)
         break
@@ -2016,15 +1843,15 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         this.addSpeed(50, this, 0, false)
         break
       case Item.SITRUS_BERRY:
-        this.effects.add(Effect.BUFF_HEAL_RECEIVED)
+        this.effects.add(EffectEnum.BUFF_HEAL_RECEIVED)
         heal(20)
         break
       case Item.BERRY_JUICE:
         heal(this.hp - this.life)
         break
       case Item.BABIRI_BERRY:
-        this.status.triggerProtect(2000)
         heal(20)
+        this.status.triggerProtect(2000)
         break
     }
 
@@ -2035,13 +1862,13 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     }
 
     if (this.passive === Passive.GLUTTON) {
-      this.applyStat(Stat.HP, 5, true)
+      this.applyStat(Stat.HP, 10, true)
       if (this.refToBoardPokemon.hp > 750) {
         this.player?.titles.add(Title.GLUTTON)
       }
     }
 
-    if (this.effects.has(Effect.BERRY_JUICE)) {
+    if (this.effects.has(EffectEnum.BERRY_JUICE)) {
       this.addShield(80, this, 0, false)
     }
   }
@@ -2083,7 +1910,7 @@ export function getUnitScore(pokemon: IPokemonEntity | IPokemon) {
   let score = 0
   score += 100 * pokemon.items.size
   score += 10 * pokemon.stars
-  score += getSellPrice(pokemon)
+  score += getSellPrice(pokemon, null, true)
   return score
 }
 

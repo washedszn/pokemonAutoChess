@@ -42,7 +42,7 @@ import {
   ExpPlace,
   LegendaryPool,
   MAX_SIMULATION_DELTA_TIME,
-  MinStageLevelForGameToCount,
+  MinStageForGameToCount,
   PortalCarouselStages,
   UniquePool
 } from "../types/Config"
@@ -52,7 +52,6 @@ import { Passive } from "../types/enum/Passive"
 import {
   Pkm,
   PkmDuos,
-  PkmIndex,
   PkmProposition,
   PkmRegionalVariants
 } from "../types/enum/Pokemon"
@@ -443,44 +442,11 @@ export default class GameRoom extends Room<GameState> {
       }
     })
 
-    this.onMessage(
-      Transfer.UNOWN_WANDERING,
-      async (client, { id: unownId }) => {
-        try {
-          const pkm = this.state.wanderers.get(unownId)
-          if (!pkm) return
-          const unownIndex = PkmIndex[pkm]
-          this.state.wanderers.delete(unownId)
-          if (client.auth) {
-            const DUST_PER_ENCOUNTER = 50
-            const u = await UserMetadata.findOne({ uid: client.auth.uid })
-            if (u) {
-              const c = u.pokemonCollection.get(unownIndex)
-              if (c) {
-                c.dust += DUST_PER_ENCOUNTER
-              } else {
-                u.pokemonCollection.set(unownIndex, {
-                  id: unownIndex,
-                  emotions: [],
-                  shinyEmotions: [],
-                  dust: DUST_PER_ENCOUNTER,
-                  selectedEmotion: Emotion.NORMAL,
-                  selectedShiny: false
-                })
-              }
-              u.save()
-            }
-          }
-        } catch (error) {
-          logger.error(error)
-        }
-      }
-    )
-
     this.onMessage(Transfer.POKEMON_WANDERING, async (client, msg) => {
       if (client.auth) {
         try {
           this.dispatcher.dispatch(new OnPokemonCatchCommand(), {
+            client,
             playerId: client.auth.uid,
             id: msg.id
           })
@@ -539,7 +505,7 @@ export default class GameRoom extends Room<GameState> {
       /* in case of lag spikes, the game should feel slower, 
       but this max simulation dt helps preserving the correctness of simulation result */
       deltaTime = Math.min(MAX_SIMULATION_DELTA_TIME, deltaTime)
-      if (!this.state.gameFinished) {
+      if (!this.state.gameFinished && !this.state.simulationPaused) {
         try {
           this.dispatcher.dispatch(new OnUpdateCommand(), { deltaTime })
         } catch (error) {
@@ -653,13 +619,14 @@ export default class GameRoom extends Room<GameState> {
           player.hasLeftGame = true
           player.spectatedPlayerId = player.id
 
-          if (!this.state.gameFinished && player.life > 0) {
+          const hasLeftBeforeEnd = player.life > 0 && !this.state.gameFinished
+          if (hasLeftBeforeEnd) {
             // player left before being eliminated, in that case we consider this a surrender and give them the worst possible rank
             player.life = -99
             this.rankPlayers()
           }
 
-          this.updatePlayerAfterGame(player)
+          this.updatePlayerAfterGame(player, hasLeftBeforeEnd)
         }
       }
       if (
@@ -718,7 +685,7 @@ export default class GameRoom extends Room<GameState> {
         players: humans.map((p) => this.transformToSimplePlayer(p))
       })
 
-      if (this.state.stageLevel >= MinStageLevelForGameToCount) {
+      if (this.state.stageLevel >= MinStageForGameToCount) {
         const elligibleToXP = this.state.players.size >= 2
         if (elligibleToXP) {
           for (let i = 0; i < bots.length; i++) {
@@ -740,7 +707,7 @@ export default class GameRoom extends Room<GameState> {
             const player = humans[i]
             if (!player.hasLeftGame) {
               player.hasLeftGame = true
-              this.updatePlayerAfterGame(player)
+              this.updatePlayerAfterGame(player, false)
             }
           }
         }
@@ -761,11 +728,11 @@ export default class GameRoom extends Room<GameState> {
   }
 
   // when a player leaves the game
-  async updatePlayerAfterGame(player: Player) {
+  async updatePlayerAfterGame(player: Player, hasLeftBeforeEnd: boolean) {
     // if player left before stage 10, they do not earn experience to prevent xp farming abuse
     const elligibleToXP =
       this.state.players.size >= 2 &&
-      this.state.stageLevel >= MinStageLevelForGameToCount
+      this.state.stageLevel >= MinStageForGameToCount
 
     const humans: Player[] = []
     const bots: Player[] = []
@@ -780,7 +747,7 @@ export default class GameRoom extends Room<GameState> {
 
     const elligibleToELO =
       !this.state.noElo &&
-      this.state.stageLevel >= MinStageLevelForGameToCount &&
+      (this.state.stageLevel >= MinStageForGameToCount || hasLeftBeforeEnd) &&
       humans.length >= 2
 
     const rank = player.rank
@@ -880,7 +847,7 @@ export default class GameRoom extends Room<GameState> {
         })
       }
 
-      if (player.life === 100 && rank === 1) {
+      if (player.life >= 100 && rank === 1) {
         player.titles.add(Title.TYRANT)
       }
       if (player.life === 1 && rank === 1) {

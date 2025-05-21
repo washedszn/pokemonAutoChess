@@ -12,14 +12,18 @@ import {
   GamePhaseState,
   Orientation,
   PokemonActionState,
-  Stat
+  Stat,
+  Team
 } from "../../../../types/enum/Game"
 import { AnimationConfig, Pkm } from "../../../../types/enum/Pokemon"
 import { SpecialGameRule } from "../../../../types/enum/SpecialGameRule"
 import { Synergy } from "../../../../types/enum/Synergy"
 import { isOnBench } from "../../../../utils/board"
 import { values } from "../../../../utils/schemas"
-import { transformCoordinate } from "../../pages/utils/utils"
+import {
+  transformBoardCoordinates,
+  transformEntityCoordinates
+} from "../../pages/utils/utils"
 import store from "../../stores"
 import AnimationManager from "../animation-manager"
 import GameScene from "../scenes/game-scene"
@@ -33,6 +37,10 @@ import { DEPTH } from "../depths"
 import { DungeonDetails, DungeonMusic } from "../../../../types/enum/Dungeon"
 import { refreshShopUI } from "../../stores/GameStore"
 import { Portal } from "./portal"
+import { logger } from "../../../../utils/logger"
+import { PVEStage, PVEStages } from "../../../../models/pve-stages"
+import PokemonFactory from "../../../../models/pokemon-factory"
+import { randomBetween } from "../../../../utils/random"
 
 export enum BoardMode {
   PICK = "pick",
@@ -46,6 +54,7 @@ export default class BoardManager {
   scene: GameScene
   state: GameState
   player: Player
+  gameMode: GameMode
   mode: BoardMode
   animationManager: AnimationManager
   playerAvatar: PokemonAvatar | null
@@ -57,7 +66,7 @@ export default class BoardManager {
   lightY: number
   lightCell: Phaser.GameObjects.Sprite | null
   berryTrees: Phaser.GameObjects.Sprite[] = []
-  gameMode: GameMode
+  portal: Portal | undefined
   smeargle: PokemonSprite | null = null
   specialGameRule: SpecialGameRule | null = null
 
@@ -86,7 +95,7 @@ export default class BoardManager {
     this.pveChestGroup = null
 
     if (state.phase == GamePhaseState.FIGHT) {
-      this.battleMode()
+      this.battleMode(false)
     } else if (state.phase === GamePhaseState.TOWN) {
       this.renderBoard()
       this.minigameMode()
@@ -171,7 +180,7 @@ export default class BoardManager {
     if (this.pokemons.has(pokemon.id)) {
       return this.pokemons.get(pokemon.id)!
     }
-    const coordinates = transformCoordinate(
+    const coordinates = transformBoardCoordinates(
       pokemon.positionX,
       pokemon.positionY
     )
@@ -226,7 +235,7 @@ export default class BoardManager {
     this.hideLightCell()
     const lightCount = this.player.synergies.get(Synergy.LIGHT)
     if (lightCount && lightCount >= SynergyTriggers[Synergy.LIGHT][0]) {
-      const coordinates = transformCoordinate(this.lightX, this.lightY)
+      const coordinates = transformBoardCoordinates(this.lightX, this.lightY)
       this.lightCell = this.scene.add.sprite(
         coordinates[0],
         coordinates[1],
@@ -510,16 +519,11 @@ export default class BoardManager {
     }
   }
 
-  battleMode() {
+  battleMode(phaseChanged: boolean) {
     // logger.debug('battleMode');
     this.mode = BoardMode.BATTLE
     this.hideLightCell()
-    this.pokemons.forEach((pokemon) => {
-      if (!isOnBench(pokemon)) {
-        pokemon.destroy()
-        this.pokemons.delete(pokemon.id)
-      }
-    })
+    if (!phaseChanged) this.removePokemonsOnBoard() // remove immediately board sprites if arriving in battle mode
     this.closeTooltips()
     this.scene.input.setDragState(this.scene.input.activePointer, 0)
     setTimeout(() => {
@@ -528,12 +532,27 @@ export default class BoardManager {
         (p) => p.id === gameState.currentPlayerId
       )
       if (currentPlayer) {
-        this.updateOpponentAvatar(
-          currentPlayer.opponentId,
-          currentPlayer.opponentAvatar
-        )
+        const isPVERound = currentPlayer.opponentId === "pve"
+        const isRedPlayer = gameState.currentTeam === Team.RED_TEAM
+        if (!isPVERound && phaseChanged) {
+          this.portalTransition(isRedPlayer)
+        } else {
+          this.updateOpponentAvatar(
+            currentPlayer.opponentId,
+            currentPlayer.opponentAvatar
+          )
+        }
       }
     }, 0) // need to wait for next event loop for state to be up to date
+  }
+
+  removePokemonsOnBoard() {
+    this.pokemons.forEach((pokemon) => {
+      if (!isOnBench(pokemon)) {
+        pokemon.destroy()
+        this.pokemons.delete(pokemon.id)
+      }
+    })
   }
 
   pickMode() {
@@ -553,6 +572,13 @@ export default class BoardManager {
     this.updatePlayerAvatar()
     this.updateOpponentAvatar(null, null)
     this.updateScoutingAvatars(true)
+
+    if (this.state.stageLevel in PVEStages) {
+      setTimeout(
+        () => this.addPvePokemons(PVEStages[this.state.stageLevel]),
+        1500
+      )
+    }
   }
 
   minigameMode() {
@@ -624,7 +650,7 @@ export default class BoardManager {
         case "positionX":
           pokemonUI.positionX = value as IPokemon["positionX"]
           pokemonUI.positionY = pokemon.positionY
-          coordinates = transformCoordinate(
+          coordinates = transformBoardCoordinates(
             pokemon.positionX,
             pokemon.positionY
           )
@@ -636,7 +662,7 @@ export default class BoardManager {
         case "positionY":
           pokemonUI.positionY = value as IPokemon["positionY"]
           pokemonUI.positionX = pokemon.positionX
-          coordinates = transformCoordinate(
+          coordinates = transformBoardCoordinates(
             pokemon.positionX,
             pokemon.positionY
           )
@@ -757,9 +783,302 @@ export default class BoardManager {
     })
   }
 
+  addPvePokemons(pveStage: PVEStage) {
+    pveStage.board.forEach(([pkm, boardX, boardY], i) => {
+      const [x, y] = transformEntityCoordinates(boardX, boardY - 1, true)
+      const id = `pve_${this.state.stageLevel}_${i}`
+
+      const pkmSprite = new PokemonSprite(
+        this.scene,
+        x,
+        y,
+        PokemonFactory.createPokemonFromName(pkm, {
+          shiny: this.state.shinyEncounter
+        }),
+        id,
+        false,
+        true
+      )
+
+      this.pokemons.set(id, pkmSprite)
+
+      pkmSprite.setDepth(DEPTH.POKEMON)
+      pkmSprite.y -= 500
+      pkmSprite.orientation = Orientation.DOWN
+      this.scene.animationManager?.animatePokemon(
+        pkmSprite,
+        PokemonActionState.WALK,
+        false
+      )
+      this.scene.tweens.add({
+        targets: pkmSprite,
+        y,
+        ease: "Linear",
+        duration: 3000,
+        onComplete: () => {
+          if (pkmSprite) {
+            pkmSprite.orientation = Orientation.DOWNLEFT
+            this.scene.animationManager?.animatePokemon(
+              pkmSprite,
+              PokemonActionState.IDLE,
+              false
+            )
+          }
+        }
+      })
+    })
+  }
+
   displayBoost(stat: Stat, pokemon: PokemonSprite) {
     pokemon.emoteAnimation()
-    const coords = transformCoordinate(pokemon.positionX, pokemon.positionY)
+    const coords = transformBoardCoordinates(
+      pokemon.positionX,
+      pokemon.positionY
+    )
     displayBoost(this.scene, coords[0], coords[1], stat)
+  }
+
+  addPortal() {
+    if (this.portal) this.portal.destroy()
+    const [x, y] = transformBoardCoordinates(3.5, 5)
+    this.portal = new Portal(this.scene, "portal", x, y).setScale(0)
+    this.scene.tweens.add({
+      targets: this.portal,
+      scale: 1.5,
+      duration: 5000,
+      ease: Phaser.Math.Easing.Sine.Out
+    })
+  }
+
+  portalTransition(isRedPlayer: boolean) {
+    const [portalX, portalY] = transformBoardCoordinates(3.5, 5)
+    const opponent = values(this.state.players).find(
+      (p) => p.id === this.player.opponentId
+    )
+    if (!opponent) {
+      logger.error("No opponent found for portal transition")
+      return
+    }
+
+    if (isRedPlayer) {
+      // avatar goes first in the portal
+      this.scene.tweens.add({
+        targets: this.playerAvatar,
+        ease: Phaser.Math.Easing.Quadratic.In,
+        duration: 700,
+        scale: 0,
+        x: portalX,
+        y: portalY
+      })
+
+      // move board pokemons into the portal
+      const pokemonsToTeleport = [...this.pokemons.values()]
+      for (const pokemon of pokemonsToTeleport) {
+        const delay = randomBetween(0, 300)
+        this.scene.tweens.add({
+          targets: pokemon,
+          ease: Phaser.Math.Easing.Quadratic.In,
+          delay,
+          duration: 700,
+          scale: 0,
+          x: portalX,
+          y: portalY
+        })
+      }
+
+      // portal close
+      this.scene.tweens.add({
+        targets: this.portal,
+        ease: Phaser.Math.Easing.Quadratic.In,
+        delay: 700,
+        duration: 300,
+        scale: 0,
+        onComplete: () => {
+          // switch to opponent map
+
+          this.scene.setMap(opponent.map)
+
+          // move portal to the other side when spawning
+          const [x, y] = transformBoardCoordinates(3.5, 2)
+          this.portal?.setPosition(x, y).setScale(1)
+
+          // show the opponent pokemons
+          opponent.board.forEach((pokemon) => {
+            const [x, y] = transformEntityCoordinates(
+              pokemon.positionX,
+              pokemon.positionY - 1,
+              true
+            )
+            const pokemonSprite = new PokemonSprite(
+              this.scene,
+              x,
+              y,
+              pokemon,
+              this.player.opponentId,
+              false,
+              false
+            )
+            this.animationManager.animatePokemon(
+              pokemonSprite,
+              PokemonActionState.IDLE,
+              true
+            )
+            this.pokemons.set(pokemonSprite.id, pokemonSprite)
+          })
+
+          // show the opponent avatar
+          this.updateOpponentAvatar(opponent.id, opponent.avatar)
+
+          // replace the red pokemon avatar
+          if (this.playerAvatar) {
+            this.playerAvatar.x = x
+            this.playerAvatar.y = y
+            this.scene.tweens.add({
+              targets: this.playerAvatar,
+              ease: Phaser.Math.Easing.Quadratic.Out,
+              duration: 1000,
+              scale: 1,
+              x: 504,
+              y: 696,
+              onStart: () => {
+                if (this.playerAvatar) {
+                  this.animationManager.animatePokemon(
+                    this.playerAvatar,
+                    PokemonActionState.HOP,
+                    false,
+                    false
+                  )
+                }
+              }
+            })
+          }
+
+          // replace the red pokemons
+          pokemonsToTeleport.forEach((pokemon) => {
+            const [originalX, originalY] = transformBoardCoordinates(
+              pokemon.positionX,
+              pokemon.positionY
+            )
+            pokemon.x = x
+            pokemon.y = y
+            const delay = randomBetween(0, 300)
+            this.scene.tweens.add({
+              targets: pokemon,
+              ease: Phaser.Math.Easing.Quadratic.Out,
+              delay,
+              duration: 700,
+              scale: 1,
+              x: originalX,
+              y: originalY,
+              onStart: () => {
+                this.animationManager.animatePokemon(
+                  pokemon,
+                  PokemonActionState.HOP,
+                  false,
+                  false
+                )
+              }
+            })
+          })
+
+          // close the other side portal
+          this.scene.tweens.add({
+            targets: this.portal,
+            ease: Phaser.Math.Easing.Cubic.In,
+            delay: 700,
+            duration: 300,
+            scale: 0,
+            onComplete: () => {
+              this.portal?.destroy()
+              this.portal = undefined
+            }
+          })
+        }
+      })
+    } else {
+      // opponent avatar move out of the portal
+      this.updateOpponentAvatar(opponent.id, opponent.avatar)
+      if (this.opponentAvatar) {
+        this.opponentAvatar.x = portalX
+        this.opponentAvatar.y = portalY
+        this.opponentAvatar.setScale(0)
+        this.scene.tweens.add({
+          targets: this.opponentAvatar,
+          ease: Phaser.Math.Easing.Quadratic.Out,
+          duration: 1500,
+          scale: 1,
+          x: 1512,
+          y: 122,
+          onStart: () => {
+            if (this.opponentAvatar) {
+              this.animationManager.animatePokemon(
+                this.opponentAvatar,
+                PokemonActionState.HOP,
+                false,
+                false
+              )
+            }
+          }
+        })
+      }
+
+      // opponent pokemons move out of the portal
+      setTimeout(() => {
+        const opponent = values(this.state.players).find(
+          (p) => p.id === this.player.opponentId
+        )
+        if (!opponent) return
+        opponent.board.forEach((pokemon) => {
+          const pokemonSprite = new PokemonSprite(
+            this.scene,
+            portalX,
+            portalY,
+            pokemon,
+            this.player.opponentId,
+            false,
+            false
+          )
+          pokemonSprite.setScale(0)
+          this.pokemons.set(pokemonSprite.id, pokemonSprite)
+
+          const [originalX, originalY] = transformEntityCoordinates(
+            pokemon.positionX,
+            pokemon.positionY - 1,
+            true
+          )
+          const delay = randomBetween(0, 300)
+          this.scene.tweens.add({
+            targets: pokemonSprite,
+            ease: Phaser.Math.Easing.Quadratic.Out,
+            delay,
+            duration: 700,
+            scale: 1,
+            x: originalX,
+            y: originalY,
+            onStart: () => {
+              this.animationManager.animatePokemon(
+                pokemonSprite,
+                PokemonActionState.HOP,
+                false,
+                false
+              )
+            }
+          })
+        })
+      }, 1000)
+
+      // close portal
+      this.scene.tweens.add({
+        targets: this.portal,
+        ease: Phaser.Math.Easing.Cubic.In,
+        delay: 1700,
+        duration: 300,
+        scale: 0,
+        onComplete: () => {
+          this.portal?.destroy()
+          this.portal = undefined
+        }
+      })
+    }
   }
 }

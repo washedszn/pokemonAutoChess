@@ -4,11 +4,11 @@ import { getPokemonData } from "../../../../../models/precomputed/precomputed-po
 import { RarityColor } from "../../../../../types/Config"
 import { PkmDuo, PkmDuos } from "../../../../../types/enum/Pokemon"
 import { selectCurrentPlayer, useAppSelector } from "../../../hooks"
-import { getPortraitSrc } from "../../../../../utils/avatar"
 import { cc } from "../../utils/jsx"
 import SynergyIcon from "../icons/synergy-icon"
 import { GamePokemonDetail } from "./game-pokemon-detail"
 import { getPkmWithCustom } from "../../../../../models/colyseus-models/pokemon-customs"
+import { getCachedPortrait } from "./game-pokemon-portrait"
 import "./game-pokemon-portrait.css"
 
 export default function GamePokemonDuoPortrait(props: {
@@ -16,6 +16,7 @@ export default function GamePokemonDuoPortrait(props: {
   origin: string
   duo: PkmDuo
   click?: React.MouseEventHandler<HTMLDivElement>
+  inPlanner?: boolean
 }) {
   const duo = PkmDuos[props.duo].map((p) => getPokemonData(p))
   const rarityColor = RarityColor[duo[0].rarity]
@@ -24,7 +25,7 @@ export default function GamePokemonDuoPortrait(props: {
 
   return (
     <div
-      className={`my-container game-pokemon-portrait game-pokemon-portrait-duo`}
+      className={cc(`my-container game-pokemon-portrait game-pokemon-portrait-duo`, { planned: props.inPlanner ?? false })}
       style={{
         backgroundColor: rarityColor,
         borderColor: rarityColor
@@ -40,11 +41,7 @@ export default function GamePokemonDuoPortrait(props: {
             )}
             data-tooltip-id={`tooltip-${props.origin}-${props.index}-${p.index}`}
             style={{
-              backgroundImage: `url("${getPortraitSrc(
-                p.index,
-                duoCustom[i]?.shiny,
-                duoCustom[i]?.emotion
-              )}")`
+              backgroundImage: `url("${getCachedPortrait(p.index, currentPlayer?.pokemonCustoms)}")`
             }}
           ></div>
           <Tooltip
@@ -60,6 +57,13 @@ export default function GamePokemonDuoPortrait(props: {
           </Tooltip>
         </React.Fragment>
       ))}
+      {props.inPlanner && (
+        <img
+          src="/assets/ui/planned.png"
+          alt=""
+          className="game-pokemon-portrait-planned-icon"
+        />
+      )}
       <ul className="game-pokemon-portrait-types">
         {Array.from(duo[0].types.values()).map((type) => {
           return (

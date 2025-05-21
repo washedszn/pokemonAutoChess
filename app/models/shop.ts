@@ -15,7 +15,7 @@ import {
   UniquePool
 } from "../types/Config"
 import { Ability } from "../types/enum/Ability"
-import { Effect } from "../types/enum/Effect"
+import { EffectEnum } from "../types/enum/Effect"
 import { Rarity } from "../types/enum/Game"
 import { FishingRod, Item } from "../types/enum/Item"
 import {
@@ -77,7 +77,8 @@ export function getAdditionalsTier1(pokemons: Pkm[]) {
 
 export function getSellPrice(
   pokemon: IPokemon | IPokemonEntity,
-  specialGameRule?: SpecialGameRule | null
+  specialGameRule?: SpecialGameRule | null,
+  ignoreRareCandy = false
 ): number {
   const name = pokemon.name
 
@@ -90,7 +91,7 @@ export function getSellPrice(
   let stars = pokemon.stars
   const hasRareCandy = pokemon.items && pokemon.items.has(Item.RARE_CANDY)
 
-  if (hasRareCandy) {
+  if (hasRareCandy && !ignoreRareCandy) {
     stars = min(1)(stars - 1)
   }
 
@@ -107,7 +108,7 @@ export function getSellPrice(
   } else if (name === Pkm.REMORAID) {
     price = 3
   } else if (name === Pkm.OCTILLERY) {
-    price = 10
+    price = hasRareCandy ? 3 : 10
   } else if (name === Pkm.GYARADOS) {
     price = hasRareCandy ? 0 : 10
   } else if (name === Pkm.MILOTIC) {
@@ -297,7 +298,7 @@ export default class Shop {
     player.shop.forEach((pkm) => this.releasePokemon(pkm, player, state))
 
     if (
-      player.effects.has(Effect.EERIE_SPELL) &&
+      player.effects.has(EffectEnum.EERIE_SPELL) &&
       !manualRefresh &&
       !player.shopLocked
     ) {
@@ -433,26 +434,34 @@ export default class Shop {
     return pkm
   }
 
-  pickPokemon(player: Player, state: GameState, shopIndex: number = -1): Pkm {
+  pickPokemon(
+    player: Player,
+    state: GameState,
+    shopIndex: number = -1,
+    noSpecial = false
+  ): Pkm {
     if (
       state.specialGameRule !== SpecialGameRule.DITTO_PARTY &&
       chance(DITTO_RATE) &&
-      state.stageLevel >= 2
+      state.stageLevel >= 2 &&
+      !noSpecial
     ) {
       return Pkm.DITTO
     }
 
     if (
-      player.effects.has(Effect.LIGHT_SCREEN) &&
+      player.effects.has(EffectEnum.LIGHT_SCREEN) &&
       shopIndex === 5 &&
-      (player.rerollCount + state.stageLevel) % 3 === 0
+      (player.rerollCount + state.stageLevel) % 3 === 0 &&
+      !noSpecial
     ) {
       const unowns = getUnownsPoolPerStage(state.stageLevel)
       return pickRandomIn(unowns)
     }
 
     const isPVE = state.stageLevel in PVEStages
-    const wildChance = player.wildChance + (isPVE ? 0.05 : 0)
+    const wildChance =
+      player.wildChance + (isPVE || state.stageLevel === 0 ? 0.05 : 0)
 
     const finals = new Set(
       values(player.board)
@@ -491,7 +500,8 @@ export default class Shop {
 
     if (
       state.specialGameRule === SpecialGameRule.HIGH_ROLLER &&
-      chance(2 / 100)
+      chance(2 / 100) &&
+      !noSpecial
     ) {
       if (state.stageLevel < 10) return this.pickSpecialPokemon(Rarity.HATCH)
       if (state.stageLevel < 20) return this.pickSpecialPokemon(Rarity.UNIQUE)
@@ -513,7 +523,8 @@ export default class Shop {
     if (
       repeatBallHolders.length > 0 &&
       shopIndex >= 0 &&
-      shopIndex < repeatBallHolders.length
+      shopIndex < repeatBallHolders.length &&
+      !noSpecial
     ) {
       if (totalRerolls >= 150 && totalRerolls % 10 === 0) {
         return this.pickSpecialPokemon(Rarity.LEGENDARY)
@@ -561,7 +572,7 @@ export default class Shop {
     const mantine = values(player.board).find(
       (p) => p.name === Pkm.MANTYKE || p.name === Pkm.MANTINE
     )
-    if (mantine && chance(0.3, mantine)) return Pkm.REMORAID
+    if (mantine && chance(0.33, mantine)) return Pkm.REMORAID
 
     const rarityProbability = FishRarityProbability[rod]
     const rarity_seed = Math.random()

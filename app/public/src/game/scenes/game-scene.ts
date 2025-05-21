@@ -26,7 +26,7 @@ import { logger } from "../../../../utils/logger"
 import { values } from "../../../../utils/schemas"
 import { clearTitleNotificationIcon } from "../../../../utils/window"
 import { SOUNDS, playMusic, playSound } from "../../pages/utils/audio"
-import { transformCoordinate } from "../../pages/utils/utils"
+import { transformBoardCoordinates } from "../../pages/utils/utils"
 import { preference } from "../../preferences"
 import AnimationManager from "../animation-manager"
 import BattleManager from "../components/battle-manager"
@@ -37,7 +37,7 @@ import LoadingManager from "../components/loading-manager"
 import MinigameManager from "../components/minigame-manager"
 import PokemonSprite from "../components/pokemon"
 import { SellZone } from "../components/sell-zone"
-import UnownManager from "../components/unown-manager"
+import WanderersManager from "../components/wanderers-manager"
 import WeatherManager from "../components/weather-manager"
 import { DEPTH } from "../depths"
 import { clamp } from "../../../../utils/number"
@@ -53,7 +53,7 @@ export default class GameScene extends Scene {
   board: BoardManager | undefined
   battle: BattleManager | undefined
   weatherManager: WeatherManager | undefined
-  unownManager?: UnownManager
+  wandererManager?: WanderersManager
   music: Phaser.Sound.WebAudioSound | undefined
   pokemonHovered: PokemonSprite | null = null
   pokemonDragged: PokemonSprite | null = null
@@ -152,7 +152,7 @@ export default class GameScene extends Scene {
       this.weatherManager = new WeatherManager(this)
       this.weatherManager?.setTownDaytime(0)
 
-      this.unownManager = new UnownManager(this)
+      this.wandererManager = new WanderersManager(this)
       if (!this.music) {
         playMusic(
           this,
@@ -290,7 +290,7 @@ export default class GameScene extends Scene {
     }
 
     if (newPhase === GamePhaseState.FIGHT) {
-      this.board?.battleMode()
+      this.board?.battleMode(true)
     } else if (newPhase === GamePhaseState.TOWN) {
       this.board?.minigameMode()
       this.weatherManager?.setTownDaytime(this.room?.state.stageLevel ?? 0)
@@ -384,15 +384,16 @@ export default class GameScene extends Scene {
 
     for (let y = 0; y < 4; y++) {
       for (let x = 0; x < 8; x++) {
-        const coord = transformCoordinate(x, y)
+        const coord = transformBoardCoordinates(x, y)
         const zone = this.add.zone(coord[0], coord[1], 96, 96)
         zone.setRectangleDropZone(96, 96)
         zone.setName("board-zone")
         const spotSprite = this.add
-          .image(zone.x, zone.y, "cell", 0)
+          .image(zone.x, zone.y, "board_cell", 0)
           .setVisible(false)
           .setData({ x, y })
           .setDepth(DEPTH.DROP_ZONE)
+          .setScale(2, 2)
         zone.setData({ x, y, sprite: spotSprite })
         this.dropSpots.push(spotSprite)
       }
@@ -408,6 +409,9 @@ export default class GameScene extends Scene {
         const camera = this.cameras.main
         const x = camera.worldView.left + pointer.x / camera.zoom
         const y = camera.worldView.top + pointer.y / camera.zoom
+        const [minX, maxY] = transformBoardCoordinates(-1, 0)
+        const [maxX, minY] = transformBoardCoordinates(8, 7)
+        if (x < minX || x > maxX || y > maxY || y < minY) return
         const vector = this.minigameManager.getVector(x, y)
         this.room?.send(Transfer.VECTOR, vector)
 
@@ -545,7 +549,7 @@ export default class GameScene extends Scene {
               this.lastDragDropPokemon = gameObject
             } else {
               // RETURN TO ORIGINAL SPOT
-              gameObject.setPosition(...transformCoordinate(x, y))
+              gameObject.setPosition(...transformBoardCoordinates(x, y))
             }
           }
           // POKEMON -> SELL-ZONE = SELL POKEMON
@@ -556,7 +560,7 @@ export default class GameScene extends Scene {
           }
           // RETURN TO ORIGINAL SPOT
           else {
-            const [x, y] = transformCoordinate(
+            const [x, y] = transformBoardCoordinates(
               gameObject.positionX,
               gameObject.positionY
             )

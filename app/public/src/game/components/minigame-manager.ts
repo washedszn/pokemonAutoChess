@@ -361,7 +361,7 @@ export default class MinigameManager {
   }
 
   addVillagers(encounter: TownEncounter | null, podium: ILeaderboardInfo[]) {
-    const cx = 964,
+    const cx = 980,
       cy = 404
     const kecleon = new PokemonSpecial({
       scene: this.scene,
@@ -426,6 +426,15 @@ export default class MinigameManager {
       name: Pkm.MAROWAK
     })
 
+    const celebi = new PokemonSpecial({
+      scene: this.scene,
+      x: encounter === TownEncounters.CELEBI ? cx : 36 * 48,
+      y: encounter === TownEncounters.CELEBI ? cy : 25 * 48,
+      name: Pkm.CELEBI,
+      shiny: true,
+      orientation: Orientation.DOWNLEFT
+    })
+
     const wobbuffet = new PokemonSpecial({
       scene: this.scene,
       x: encounter === TownEncounters.WOBBUFFET ? cx + 24 : 44.5 * 48,
@@ -447,6 +456,14 @@ export default class MinigameManager {
       name: Pkm.SPINDA
     })
 
+    const sableye = new PokemonSpecial({
+      scene: this.scene,
+      x: encounter === TownEncounters.SABLEYE ? cx : 37 * 48,
+      y: encounter === TownEncounters.SABLEYE ? cy : 4 * 48,
+      orientation: Orientation.DOWNLEFT,
+      name: Pkm.SABLEYE
+    })
+
     const mareep = new PokemonSpecial({
       scene: this.scene,
       x: 46 * 48,
@@ -462,7 +479,10 @@ export default class MinigameManager {
       y: encounter === TownEncounters.MUNCHLAX ? cy : 17 * 48,
       name: Pkm.MUNCHLAX,
       orientation: Orientation.DOWNLEFT,
-      animation: encounter === TownEncounters.MUNCHLAX ? PokemonActionState.EAT : PokemonActionState.SLEEP
+      animation:
+        encounter === TownEncounters.MUNCHLAX
+          ? PokemonActionState.EAT
+          : PokemonActionState.SLEEP
     })
 
     const podiumPokemons = podium.map((p, rank) => {
@@ -492,10 +512,12 @@ export default class MinigameManager {
       duskull,
       regirock,
       marowak,
+      celebi,
       mareep,
       wobbuffet,
       wynaut,
       spinda,
+      sableye,
       munchlax,
       ...podiumPokemons
     )

@@ -1,5 +1,8 @@
 import { ArraySchema, MapSchema, Schema, type } from "@colyseus/schema"
-import { carryOverPermanentStats } from "../../core/evolution-rules"
+import {
+  carryOverPermanentStats,
+  ConditionBasedEvolutionRule
+} from "../../core/evolution-rules"
 import { PokemonEntity } from "../../core/pokemon-entity"
 import { getUnitPowerScore } from "../../core/bot-logic"
 import type GameState from "../../rooms/states/game-state"
@@ -150,7 +153,7 @@ export default class Player extends Schema implements IPlayer {
       PkmIndex[avatarCustom.name]
     )
     this.emotesUnlocked = (
-      (avatarInCollection?.selectedShiny
+      (avatarCustom.shiny
         ? avatarInCollection?.shinyEmotions
         : avatarInCollection?.emotions) ?? []
     ).join(",")
@@ -230,6 +233,11 @@ export default class Player extends Schema implements IPlayer {
     }
     this.money += value
     if (countTotalEarned && value > 0) this.totalMoneyEarned += value
+    this.board.forEach((pokemon) => {
+      if (pokemon.evolutionRule instanceof ConditionBasedEvolutionRule) {
+        pokemon.evolutionRule.tryEvolve(pokemon, this, 0) // for Goldengo evolution ; TOFIX: pass stagelevel instead of 0
+      }
+    })
   }
 
   addBattleResult(
@@ -283,14 +291,7 @@ export default class Player extends Schema implements IPlayer {
   updateSynergies() {
     const pokemons: Pokemon[] = values(this.board)
     const previousSynergies = this.synergies.toMap()
-    let updatedSynergies = computeSynergies(pokemons)
-
-    this.bonusSynergies.forEach((value, synergy) => {
-      updatedSynergies.set(
-        synergy,
-        (updatedSynergies.get(synergy) ?? 0) + value
-      )
-    })
+    let updatedSynergies = computeSynergies(pokemons, this.bonusSynergies)
 
     const artifNeedsRecomputing = this.updateArtificialItems(
       previousSynergies,
@@ -302,7 +303,7 @@ export default class Player extends Schema implements IPlayer {
       losing a type (Axew double dragon + artif item for example) ; it's not as easy as just 
       decrementing by 1 in updatedSynergies map count
       */
-      updatedSynergies = computeSynergies(pokemons)
+      updatedSynergies = computeSynergies(pokemons, this.bonusSynergies)
     }
 
     const previousLight = previousSynergies.get(Synergy.LIGHT) ?? 0
@@ -400,9 +401,6 @@ export default class Player extends Schema implements IPlayer {
                   nativeTypes.length === pokemon.types.size
                 ) {
                   this.transformPokemon(pokemon, Pkm.TYPE_NULL)
-                }
-                if (pokemon.name === Pkm.ARCHALUDON) {
-                  this.transformPokemon(pokemon, Pkm.DURALUDON)
                 }
                 if (!isOnBench(pokemon)) {
                   needsRecomputingSynergiesAgain = true
@@ -545,7 +543,9 @@ export default class Player extends Schema implements IPlayer {
         this.updateSynergies()
         if (regionalSpeciality) {
           this.board.forEach((pokemon) => {
-            pokemon.meal = regionalSpeciality
+            if (pokemon.canEat) {
+              pokemon.meal = regionalSpeciality
+            }
           })
         }
       }

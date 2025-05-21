@@ -1,4 +1,5 @@
 import { getStateCallbacks, Room } from "colyseus.js"
+import { SchemaCallbackProxy } from "@colyseus/schema"
 import Phaser from "phaser"
 import MoveToPlugin from "phaser3-rex-plugins/plugins/moveto-plugin.js"
 import OutlinePlugin from "phaser3-rex-plugins/plugins/outlinepipeline-plugin.js"
@@ -37,18 +38,16 @@ import { Weather } from "../../../types/enum/Weather"
 import { logger } from "../../../utils/logger"
 import { clamp, max } from "../../../utils/number"
 import { SOUNDS, playSound } from "../pages/utils/audio"
-import { transformCoordinate } from "../pages/utils/utils"
+import { transformBoardCoordinates } from "../pages/utils/utils"
 import { preference, subscribeToPreferences } from "../preferences"
 import store from "../stores"
 import { changePlayer, setPlayer, setSimulation } from "../stores/GameStore"
-import { getPortraitSrc } from "../../../utils/avatar"
 import { BoardMode } from "./components/board-manager"
 import GameScene from "./scenes/game-scene"
 import { t } from "i18next"
 import { values } from "../../../utils/schemas"
-import { SchemaCallbackProxy } from "@colyseus/schema"
-import { getPkmWithCustom } from "../../../models/colyseus-models/pokemon-customs"
 import { DEPTH } from "./depths"
+import { getCachedPortrait } from "../pages/component/game/game-pokemon-portrait"
 
 class GameContainer {
   room: Room<GameState>
@@ -100,6 +99,17 @@ class GameContainer {
         // logger.debug('remove pokemon');
         this.gameScene?.battle?.removePokemon(simulation.id, pokemon)
       })
+    })
+
+    $simulation.listen("started", (value, previousValue) => {
+      if (
+        this.gameScene?.board?.player.simulationId === simulation.id &&
+        value === true &&
+        value !== previousValue
+      ) {
+        this.gameScene?.board?.removePokemonsOnBoard()
+        this.gameScene?.battle?.onSimulationStart()
+      }
     })
   }
 
@@ -439,11 +449,10 @@ class GameContainer {
 
     $player.board.onAdd((pokemon, key) => {
       if (pokemon.stars > 1) {
-        const custom = getPkmWithCustom(pokemon.index, player.pokemonCustoms)
         const i = React.createElement(
           "img",
           {
-            src: getPortraitSrc(pokemon.index, custom.shiny, custom.emotion)
+            src: getCachedPortrait(pokemon.index, player.pokemonCustoms)
           },
           null
         )
@@ -632,7 +641,7 @@ class GameContainer {
     const gameScene = this.gameScene
     if (gameScene?.lastDragDropPokemon && message.updateBoard) {
       const tg = gameScene.lastDragDropPokemon
-      const coordinates = transformCoordinate(tg.positionX, tg.positionY)
+      const coordinates = transformBoardCoordinates(tg.positionX, tg.positionY)
       tg.x = coordinates[0]
       tg.y = coordinates[1]
     }
@@ -644,7 +653,10 @@ class GameContainer {
     if (message.text && message.pokemonId) {
       const pokemon = this.player?.board.get(message.pokemonId)
       if (pokemon) {
-        const [x, y] = transformCoordinate(pokemon.positionX, pokemon.positionY)
+        const [x, y] = transformBoardCoordinates(
+          pokemon.positionX,
+          pokemon.positionY
+        )
         gameScene?.board?.displayText(x, y, t(message.text))
       }
     }

@@ -21,14 +21,12 @@ import {
   Role,
   Transfer
 } from "../../../types"
-import { MinStageLevelForGameToCount, PortalCarouselStages } from "../../../types/Config"
+import { MinStageForGameToCount, PortalCarouselStages } from "../../../types/Config"
 import { DungeonDetails } from "../../../types/enum/Dungeon"
-import { Team } from "../../../types/enum/Game"
+import { GamePhaseState, Team } from "../../../types/enum/Game"
 import { Pkm } from "../../../types/enum/Pokemon"
 import { Synergy } from "../../../types/enum/Synergy"
-import { getFreeSpaceOnBench } from "../../../utils/board"
 import { logger } from "../../../utils/logger"
-import { addWanderingPokemon } from "../game/components/pokemon"
 import GameContainer from "../game/game-container"
 import GameScene from "../game/scenes/game-scene"
 import { selectCurrentPlayer, useAppDispatch, useAppSelector } from "../hooks"
@@ -85,6 +83,7 @@ import { Passive } from "../../../types/enum/Passive"
 import { Item } from "../../../types/enum/Item"
 import { CloseCodes, CloseCodesMessages } from "../../../types/enum/CloseCodes"
 import { ConnectionStatus } from "../../../types/enum/ConnectionStatus"
+import { PVEStages } from "../../../models/pve-stages"
 
 let gameContainer: GameContainer
 
@@ -210,6 +209,7 @@ export default function Game() {
     }
 
     const nbPlayers = room?.state.players.size ?? 0
+    const hasLeftBeforeEnd = currentPlayer?.alive === true && room?.state?.gameFinished === false
 
     if (nbPlayers > 0) {
       room?.state.players.forEach((p) => {
@@ -254,9 +254,10 @@ export default function Game() {
 
     const elligibleToXP =
       nbPlayers >= 2 &&
-      (room?.state.stageLevel ?? 0) >= MinStageLevelForGameToCount
+      (room?.state.stageLevel ?? 0) >= MinStageForGameToCount
     const elligibleToELO =
-      elligibleToXP &&
+      nbPlayers >= 2 &&
+      ((room?.state.stageLevel ?? 0) >= MinStageForGameToCount || hasLeftBeforeEnd) &&
       !room?.state.noElo &&
       afterPlayers.filter((p) => p.role !== Role.BOT).length >= 2
     const gameMode = room?.state.gameMode
@@ -447,31 +448,12 @@ export default function Game() {
         )
       })
 
-      room.onMessage(Transfer.UNOWN_WANDERING, ({ id, pkm }: { id: string, pkm: Pkm }) => {
+      room.onMessage(Transfer.POKEMON_WANDERING, ({ id, pkm }: { id: string, pkm: Pkm }) => {
         if (gameContainer.game) {
           const g = getGameScene()
-          if (g && g.unownManager) {
-            g.unownManager.addWanderingUnown(pkm, id)
+          if (g && g.wandererManager) {
+            g.wandererManager.addWanderer(pkm, id)
           }
-        }
-      })
-
-      room.onMessage(Transfer.POKEMON_WANDERING, (data: { id: string, pkm: Pkm }) => {
-        const scene = getGameScene()
-        const { id, pkm } = data
-        if (scene) {
-          addWanderingPokemon(scene, id, pkm, (sprite, id, pointer, tween) => {
-            if (
-              scene.board &&
-              getFreeSpaceOnBench(scene.board.player.board) > 0
-            ) {
-              room.send(Transfer.POKEMON_WANDERING, { id })
-              sprite.destroy()
-              tween.destroy()
-            } else if (scene.board) {
-              scene.board.displayText(pointer.x, pointer.y, t("full"))
-            }
-          })
         }
       })
 
@@ -529,8 +511,13 @@ export default function Game() {
           // Between 1001 and 1015 - Abnormal socket shutdown
           if (connectionStatus === ConnectionStatus.CONNECTED) {
             dispatch(setConnectionStatus(ConnectionStatus.CONNECTION_LOST))
-            // attempting to auto reconnect
-            connectToGame()
+            // attempting to auto reconnect after 3 seconds
+            /* We leave 3 seconds because when refreshing the page, the connection is closed with code 1001 on Firefox
+              and this code is called, so the reconnection token might be reused before the page reload, causing the
+              reconnection token to be invalid the second time after page reload
+              3 seconds should be enough for the browser to kill all existing connections and timeouts for the tab
+              before reloading the page */
+            setTimeout(() => connectToGame(), 3000) //TOFIX: find a better way to handle this
           } else {
             dispatch(setConnectionStatus(ConnectionStatus.CONNECTION_FAILED))
           }
@@ -542,6 +529,10 @@ export default function Game() {
 
       $state.listen("roundTime", (value) => {
         dispatch(setRoundTime(value))
+        const stageLevel = room.state.stageLevel ?? 0
+        if (room.state.phase === GamePhaseState.PICK && stageLevel in PVEStages === false && value < 5 && gameContainer.gameScene?.board && !gameContainer.gameScene.board.portal) {
+          gameContainer.gameScene.board.addPortal()
+        }
       })
 
       $state.listen("phase", (newPhase, previousPhase) => {
@@ -669,6 +660,7 @@ export default function Game() {
           }
         })
         $player.listen("experienceManager", (experienceManager) => {
+          const $experienceManager = $(experienceManager)
           if (player.id === uid) {
             dispatch(updateExperienceManager(experienceManager))
             const fields: NonFunctionPropNames<IExperienceManager>[] = [
@@ -676,7 +668,6 @@ export default function Game() {
               "expNeeded",
               "level"
             ]
-            const $experienceManager = $(experienceManager)
             fields.forEach((field) => {
               $experienceManager.listen(field, (value) => {
                 dispatch(
@@ -688,6 +679,14 @@ export default function Game() {
               })
             })
           }
+          $experienceManager.listen("level", (value) => {
+            if (value > 1) {
+              toast(<p>{t("level")} {value}</p>, {
+                containerId: player.rank.toString(),
+                className: "toast-level-up"
+              })
+            }
+          })
         })
         $player.listen("loadingProgress", (value) => {
           dispatch(setLoadingProgress({ id: player.id, value: value }))

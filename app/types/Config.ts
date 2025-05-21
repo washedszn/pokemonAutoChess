@@ -1,6 +1,6 @@
 import { Emotion } from "."
 import { EloRank } from "./enum/EloRank"
-import { AttackType, Rarity, Stat } from "./enum/Game"
+import { AttackType, Rarity } from "./enum/Game"
 import { FishingRod, Item } from "./enum/Item"
 import { Pkm, PkmDuo, PkmProposition } from "./enum/Pokemon"
 import { Synergy } from "./enum/Synergy"
@@ -13,6 +13,7 @@ export const ARMOR_FACTOR = 0.05
 export const BOARD_WIDTH = 8
 export const BOARD_HEIGHT = 6
 export const BOARD_SIDE_HEIGHT = 4 // 0 = bench
+export const MAX_LEVEL = 9
 
 export const RarityHpCost: { [key in Rarity]: number } = Object.freeze({
   [Rarity.COMMON]: 1,
@@ -112,8 +113,8 @@ export const SynergyTriggers: { [key in Synergy]: number[] } = {
   [Synergy.GOURMET]: [3, 4, 5]
 }
 
-// games that finish before level 10 are not counted for XP and ELO to avoid potential abuse
-export const MinStageLevelForGameToCount = 10
+// games that finish before level 10 are not counted for XP and ELO gains to avoid potential abuse
+export const MinStageForGameToCount = 10
 
 export const ExpPlace = [700, 400, 350, 300, 250, 200, 200, 200]
 
@@ -290,7 +291,8 @@ export const UniquePool = new Array<PkmProposition>(
   Pkm.MILCERY,
   Pkm.VELUZA,
   Pkm.DURALUDON,
-  Pkm.CHARCADET
+  Pkm.CHARCADET,
+  Pkm.KUBFU
 )
 
 export const LegendaryPool = new Array<PkmProposition>(
@@ -353,7 +355,9 @@ export const LegendaryPool = new Array<PkmProposition>(
   Pkm.COBALION,
   Pkm.KELDEO,
   Pkm.PECHARUNT,
-  Pkm.ROARING_MOON
+  Pkm.ROARING_MOON,
+  Pkm.ZACIAN,
+  Pkm.IRON_VALIANT
 )
 
 export const NB_UNIQUE_PROPOSITIONS = 6

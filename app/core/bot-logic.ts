@@ -18,7 +18,8 @@ export const DEFAULT_BOT_STATE = {
   author: "",
   elo: 1200,
   name: Pkm.DITTO,
-  id: ""
+  id: "",
+  approved: false
 }
 
 export const POWER_SCORE_BY_CATEGORY = {
