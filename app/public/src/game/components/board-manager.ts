@@ -97,7 +97,7 @@ export default class BoardManager {
     if (state.phase == GamePhaseState.FIGHT) {
       this.battleMode(false)
     } else if (state.phase === GamePhaseState.TOWN) {
-      this.renderBoard()
+      this.renderBoard(true)
       this.minigameMode()
     } else {
       this.pickMode()
@@ -208,7 +208,7 @@ export default class BoardManager {
     this.pokemons.delete(pokemonToRemove.id)
   }
 
-  renderBoard() {
+  renderBoard(phaseChanged: boolean) {
     this.showBerryTrees()
     this.pokemons.forEach((p) => p.destroy())
     this.pokemons.clear()
@@ -228,6 +228,18 @@ export default class BoardManager {
         this.smeargle = null
       }
       this.addSmeargle()
+    }
+
+    if (this.state.stageLevel in PVEStages) {
+      if (phaseChanged) {
+        setTimeout(
+          () => this.addPvePokemons(PVEStages[this.state.stageLevel], false),
+          1500
+        )
+      } else {
+        // immediately add PVE pokemons
+        this.addPvePokemons(PVEStages[this.state.stageLevel], true)
+      }
     }
   }
 
@@ -523,7 +535,7 @@ export default class BoardManager {
     // logger.debug('battleMode');
     this.mode = BoardMode.BATTLE
     this.hideLightCell()
-    if (!phaseChanged) this.removePokemonsOnBoard(false) // remove immediately board sprites if arriving in battle mode
+    if (!phaseChanged) this.removePokemonsOnBoard() // remove immediately board sprites if arriving in battle mode
     this.closeTooltips()
     this.scene.input.setDragState(this.scene.input.activePointer, 0)
     setTimeout(() => {
@@ -546,9 +558,9 @@ export default class BoardManager {
     }, 0) // need to wait for next event loop for state to be up to date
   }
 
-  removePokemonsOnBoard(includingBench: boolean = false) {
+  removePokemonsOnBoard() {
     this.pokemons.forEach((pokemon) => {
-      if (includingBench === true || !isOnBench(pokemon)) {
+      if (!isOnBench(pokemon)) {
         pokemon.destroy()
         this.pokemons.delete(pokemon.id)
       }
@@ -568,17 +580,10 @@ export default class BoardManager {
       // play back original region music when leaving town
       playMusic(this.scene, DungeonDetails[this.player.map].music)
     }
-    this.renderBoard()
+    this.renderBoard(true)
     this.updatePlayerAvatar()
     this.updateOpponentAvatar(null, null)
     this.updateScoutingAvatars(true)
-
-    if (this.state.stageLevel in PVEStages) {
-      setTimeout(
-        () => this.addPvePokemons(PVEStages[this.state.stageLevel]),
-        1500
-      )
-    }
   }
 
   minigameMode() {
@@ -592,7 +597,7 @@ export default class BoardManager {
       playMusic(this.scene, DungeonMusic.TREASURE_TOWN_STAGE_20)
     this.hideLightCell()
     this.hideBerryTrees()
-    this.removePokemonsOnBoard(true)
+    this.removePokemonsOnBoard()
     this.closeTooltips()
     this.scene.input.setDragState(this.scene.input.activePointer, 0)
 
@@ -610,7 +615,7 @@ export default class BoardManager {
   setPlayer(player: Player) {
     if (player.id != this.player.id) {
       this.player = player
-      this.renderBoard()
+      this.renderBoard(false)
       this.updatePlayerAvatar()
       this.updateOpponentAvatar(
         this.player.opponentId,
@@ -779,7 +784,7 @@ export default class BoardManager {
     })
   }
 
-  addPvePokemons(pveStage: PVEStage) {
+  addPvePokemons(pveStage: PVEStage, immediately: boolean) {
     pveStage.board.forEach(([pkm, boardX, boardY], i) => {
       const [x, y] = transformEntityCoordinates(boardX, boardY - 1, true)
       const id = `pve_${this.state.stageLevel}_${i}`
@@ -797,31 +802,41 @@ export default class BoardManager {
       )
 
       this.pokemons.set(id, pkmSprite)
-
       pkmSprite.setDepth(DEPTH.POKEMON)
-      pkmSprite.y -= 500
-      pkmSprite.orientation = Orientation.DOWN
-      this.scene.animationManager?.animatePokemon(
-        pkmSprite,
-        PokemonActionState.WALK,
-        false
-      )
-      this.scene.tweens.add({
-        targets: pkmSprite,
-        y,
-        ease: "Linear",
-        duration: 3000,
-        onComplete: () => {
-          if (pkmSprite) {
-            pkmSprite.orientation = Orientation.DOWNLEFT
-            this.scene.animationManager?.animatePokemon(
-              pkmSprite,
-              PokemonActionState.IDLE,
-              false
-            )
+
+      if (immediately) {
+        pkmSprite.orientation = Orientation.DOWNLEFT
+        this.scene.animationManager?.animatePokemon(
+          pkmSprite,
+          PokemonActionState.IDLE,
+          false
+        )
+      } else {
+        pkmSprite.y -= 500
+        pkmSprite.orientation = Orientation.DOWN
+        this.scene.animationManager?.animatePokemon(
+          pkmSprite,
+          PokemonActionState.WALK,
+          false
+        )
+
+        this.scene.tweens.add({
+          targets: pkmSprite,
+          y,
+          ease: "Linear",
+          duration: 3000,
+          onComplete: () => {
+            if (pkmSprite) {
+              pkmSprite.orientation = Orientation.DOWNLEFT
+              this.scene.animationManager?.animatePokemon(
+                pkmSprite,
+                PokemonActionState.IDLE,
+                false
+              )
+            }
           }
-        }
-      })
+        })
+      }
     })
   }
 
