@@ -1,5 +1,5 @@
 import { Dispatcher } from "@colyseus/command"
-import { Client, IRoomCache, Room, matchMaker, subscribeLobby } from "colyseus"
+import { Client, IRoomCache, matchMaker, Room, subscribeLobby } from "colyseus"
 import { CronJob } from "cron"
 import admin from "firebase-admin"
 import Message from "../models/colyseus-models/message"
@@ -32,6 +32,9 @@ import {
   ChangeSelectedEmotionCommand,
   ChangeTitleCommand,
   CreateTournamentLobbiesCommand,
+  DeleteAccountCommand,
+  DeleteRoomCommand,
+  DeleteTournamentCommand,
   EndTournamentMatchCommand,
   GiveBoostersCommand,
   GiveRoleCommand,
@@ -40,7 +43,6 @@ import {
   JoinOrOpenRoomCommand,
   NextTournamentStageCommand,
   OnCreateTournamentCommand,
-  DeleteRoomCommand,
   OnJoinCommand,
   OnLeaveCommand,
   OnNewMessageCommand,
@@ -48,15 +50,12 @@ import {
   OnSearchCommand,
   OpenBoosterCommand,
   ParticipateInTournamentCommand,
-  RemoveMessageCommand,
-  DeleteTournamentCommand,
-  SelectLanguageCommand,
-  UnbanUserCommand,
   RemakeTournamentLobbyCommand,
-  DeleteAccountCommand
+  RemoveMessageCommand,
+  SelectLanguageCommand,
+  UnbanUserCommand
 } from "./commands/lobby-commands"
 import LobbyState from "./states/lobby-state"
-import { fetchBots } from "../services/bots"
 
 export default class CustomLobbyRoom extends Room<LobbyState> {
   unsubscribeLobby: (() => void) | undefined
@@ -422,12 +421,6 @@ export default class CustomLobbyRoom extends Room<LobbyState> {
     this.initCronJobs()
     //this.fetchChat()
     this.fetchTournaments()
-
-    // Fetching bots is done on lobby room because the info is then shared to all processes through Redis presence
-    logger.info("Fetching bots...")
-    await fetchBots()
-    logger.info("Bots fetched")
-    setInterval(() => fetchBots(), 1000 * 60 * 24) // refresh every 24 hours
   }
 
   async onAuth(client: Client, options, context) {
@@ -445,8 +438,7 @@ export default class CustomLobbyRoom extends Room<LobbyState> {
 
       return user
     } catch (error) {
-      //logger.info(error)
-      // biome-ignore lint/complexity/noUselessCatch: <explanation>
+      logger.error(`Error on authentication on lobby room`, error)
       throw error // https://docs.colyseus.io/community/deny-player-join-a-room/
     }
   }

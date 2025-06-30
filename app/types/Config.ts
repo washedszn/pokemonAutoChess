@@ -7,13 +7,18 @@ import { Synergy } from "./enum/Synergy"
 import { Weather } from "./enum/Weather"
 
 export const ON_ATTACK_MANA = 5
-export const MANA_SCARF_MANA = 8
-export const SCOPE_LENS_MANA = 15
 export const ARMOR_FACTOR = 0.05
 export const BOARD_WIDTH = 8
 export const BOARD_HEIGHT = 6
 export const BOARD_SIDE_HEIGHT = 4 // 0 = bench
+export const BOARD_X_START = 672  // 28 * 24
+export const BOARD_Y_START = 808
+export const CELL_WIDTH = 96
+export const CELL_HEIGHT = 96
+export const CELL_VISUAL_WIDTH = 75
+export const CELL_VISUAL_HEIGHT = 75
 export const MAX_LEVEL = 9
+export const ALLOWED_GAME_RECONNECTION_TIME = 60 * 5 // 5 minutes
 
 export const RarityHpCost: { [key in Rarity]: number } = Object.freeze({
   [Rarity.COMMON]: 1,
@@ -95,7 +100,7 @@ export const SynergyTriggers: { [key in Synergy]: number[] } = {
   [Synergy.FIELD]: [3, 6, 9],
   [Synergy.MONSTER]: [2, 4, 6, 8],
   [Synergy.HUMAN]: [2, 4, 6],
-  [Synergy.AQUATIC]: [2, 4, 6],
+  [Synergy.AQUATIC]: [2, 4, 6, 8],
   [Synergy.BUG]: [2, 4, 6, 8],
   [Synergy.FLYING]: [2, 4, 6, 8],
   [Synergy.FLORA]: [3, 4, 5, 6],
@@ -292,7 +297,9 @@ export const UniquePool = new Array<PkmProposition>(
   Pkm.VELUZA,
   Pkm.DURALUDON,
   Pkm.CHARCADET,
-  Pkm.KUBFU
+  Pkm.KUBFU,
+  Pkm.SCREAM_TAIL,
+  PkmDuo.INDEEDEE
 )
 
 export const LegendaryPool = new Array<PkmProposition>(
@@ -376,8 +383,8 @@ export const FishRarityProbability: {
     [Rarity.EPIC]: 0
   },
   [Item.GOOD_ROD]: {
-    [Rarity.SPECIAL]: 0.3,
-    [Rarity.COMMON]: 0.3,
+    [Rarity.SPECIAL]: 0.35,
+    [Rarity.COMMON]: 0.25,
     [Rarity.UNCOMMON]: 0.3,
     [Rarity.RARE]: 0.1,
     [Rarity.EPIC]: 0

@@ -7,7 +7,7 @@ export function chance(
   cap = 1
 ): boolean {
   return (
-    Math.random() < max(cap)(probability * (1 + (pokemon?.luck ?? 0) / 100))
+    Math.random() < max(cap)(Math.pow(probability, (1 - (pokemon?.luck ?? 0) / 100)))
   )
 }
 
@@ -59,4 +59,10 @@ export function shuffleArray<T extends Array<unknown>>(array: T): T {
     array[j] = temp
   }
   return array
+}
+
+export function simpleHashSeededCoinFlip(seed: string) {
+  // Simple hash function to turn a string into a boolean coin flip
+  const hash = Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return hash % 2 === 0
 }

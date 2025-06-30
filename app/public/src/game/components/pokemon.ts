@@ -11,6 +11,8 @@ import {
   type IPokemonEntity
 } from "../../../../types"
 import {
+  CELL_VISUAL_HEIGHT,
+  CELL_VISUAL_WIDTH,
   DEFAULT_CRIT_CHANCE,
   DEFAULT_CRIT_POWER
 } from "../../../../types/Config"
@@ -101,6 +103,7 @@ export default class PokemonSprite extends DraggableObject {
   confusion: GameObjects.Sprite | undefined
   paralysis: GameObjects.Sprite | undefined
   pokerus: GameObjects.Sprite | undefined
+  possessed: GameObjects.Sprite | undefined
   locked: GameObjects.Sprite | undefined
   blinded: GameObjects.Sprite | undefined
   armorReduction: GameObjects.Sprite | undefined
@@ -111,8 +114,7 @@ export default class PokemonSprite extends DraggableObject {
   protect: GameObjects.Sprite | undefined
   resurection: GameObjects.Sprite | undefined
   runeProtect: GameObjects.Sprite | undefined
-  spikeArmor: GameObjects.Sprite | undefined
-  magicBounce: GameObjects.Sprite | undefined
+  reflectShield: GameObjects.Sprite | undefined
   electricField: GameObjects.Sprite | undefined
   psychicField: GameObjects.Sprite | undefined
   grassField: GameObjects.Sprite | undefined
@@ -142,7 +144,14 @@ export default class PokemonSprite extends DraggableObject {
     inBattle: boolean,
     flip: boolean
   ) {
-    super(scene, x, y, 75, 75, playerId !== scene.uid)
+    super(
+      scene,
+      x,
+      y,
+      CELL_VISUAL_WIDTH,
+      CELL_VISUAL_HEIGHT,
+      playerId !== scene.uid
+    )
     this.scene = scene
     this.flip = flip
     this.playerId = playerId
@@ -152,8 +161,8 @@ export default class PokemonSprite extends DraggableObject {
     this.evolution = inBattle ? Pkm.DEFAULT : (pokemon as IPokemon).evolution
     this.emotion = pokemon.emotion
     this.shiny = pokemon.shiny
-    this.height = 0
-    this.width = 0
+    this.width = CELL_VISUAL_WIDTH
+    this.height = CELL_VISUAL_HEIGHT
     this.index = pokemon.index
     this.name = pokemon.name
     this.rarity = pokemon.rarity
@@ -221,12 +230,10 @@ export default class PokemonSprite extends DraggableObject {
       // go back to idle anim if no more animation in queue
       scene.animationManager?.animatePokemon(this, pokemon.action, this.flip)
     })
-    this.height = this.sprite.height
-    this.width = this.sprite.width
     this.itemsContainer = new ItemsContainer(
       scene,
       pokemon.items ?? new SetSchema(),
-      this.width / 2 + 25,
+      this.sprite.width / 2 + 25,
       -35,
       this.id,
       playerId
@@ -259,6 +266,9 @@ export default class PokemonSprite extends DraggableObject {
       if (pokemon.items.has(Item.SHINY_STONE)) {
         this.addLight()
       }
+    }
+    if (pokemon.items.has(Item.BERSERK_GENE)) {
+      this.addBerserkEffect()
     }
     this.add(this.itemsContainer)
 
@@ -688,7 +698,7 @@ export default class PokemonSprite extends DraggableObject {
       this.lifebar = new Lifebar(
         scene,
         0,
-        this.height / 2 + 6,
+        25,
         pokemon.life,
         pokemon.life,
         pokemon.shield,
@@ -853,6 +863,26 @@ export default class PokemonSprite extends DraggableObject {
     if (this.pokerus) {
       this.remove(this.pokerus, true)
       this.pokerus = undefined
+    }
+  }
+
+  addPossessed() {
+    if (!this.possessed) {
+      this.possessed = this.scene.add
+        .sprite(-16, -24, "status", "POSSESSED/000.png")
+        .setScale(2)
+      this.possessed.anims.play("POSSESSED")
+      this.sprite.setTint(0xff50ff)
+      this.add(this.possessed)
+      //this.bringToTop(this.sprite)
+    }
+  }
+
+  removePossessed() {
+    if (this.possessed) {
+      this.sprite.clearTint()
+      this.remove(this.possessed, true)
+      this.possessed = undefined
     }
   }
 
@@ -1097,38 +1127,21 @@ export default class PokemonSprite extends DraggableObject {
     }
   }
 
-  addSpikeArmor() {
-    if (!this.spikeArmor) {
-      this.spikeArmor = this.scene.add
+  addReflectShieldAnim(colorVariation = 0xffffff) {
+    if (!this.reflectShield) {
+      this.reflectShield = this.scene.add
         .sprite(0, -5, "abilities", `${Ability.SPIKY_SHIELD}/000.png`)
         .setScale(2)
-      this.spikeArmor.anims.play(Ability.SPIKY_SHIELD)
-      this.add(this.spikeArmor)
+        .setTint(colorVariation)
+      this.reflectShield.anims.play(Ability.SPIKY_SHIELD)
+      this.add(this.reflectShield)
     }
   }
 
-  removeSpikeArmor() {
-    if (this.spikeArmor) {
-      this.remove(this.spikeArmor, true)
-      this.spikeArmor = undefined
-    }
-  }
-
-  addMagicBounce() {
-    if (!this.magicBounce) {
-      this.magicBounce = this.scene.add
-        .sprite(0, -5, "abilities", `${Ability.SPIKY_SHIELD}/000.png`)
-        .setScale(2)
-        .setTint(0xffa0ff)
-      this.magicBounce.anims.play(Ability.MAGIC_BOUNCE)
-      this.add(this.magicBounce)
-    }
-  }
-
-  removeMagicBounce() {
-    if (this.magicBounce) {
-      this.remove(this.magicBounce, true)
-      this.magicBounce = undefined
+  removeReflectShieldAnim() {
+    if (this.reflectShield) {
+      this.remove(this.reflectShield, true)
+      this.reflectShield = undefined
     }
   }
 
@@ -1226,6 +1239,10 @@ export default class PokemonSprite extends DraggableObject {
 
   removeRageEffect() {
     this.sprite.clearTint()
+  }
+
+  addBerserkEffect() {
+    this.sprite.setTint(0x00ff00)
   }
 
   addFlowerTrick() {

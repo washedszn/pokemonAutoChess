@@ -149,7 +149,8 @@ export default class BattleManager {
   changeStatus(
     simulationId: string,
     pokemon: IPokemonEntity,
-    field: NonFunctionPropNames<Status>
+    field: NonFunctionPropNames<Status>,
+    previousValue: any
   ) {
     if (pokemon.passive === Passive.INANIMATE) return // No animation for statuses for inanimate pokemons
     if (
@@ -246,6 +247,12 @@ export default class BattleManager {
         } else {
           pkm.removePokerus()
         }
+      } else if (field === "possessed") {
+        if (pokemon.status.possessed) {
+          pkm.addPossessed()
+        } else if (previousValue === true) {
+          pkm.removePossessed()
+        }
       } else if (field === "locked") {
         if (pokemon.status.locked) {
           pkm.addLocked()
@@ -306,15 +313,21 @@ export default class BattleManager {
         }
       } else if (field === "spikeArmor") {
         if (pokemon.status.spikeArmor) {
-          pkm.addSpikeArmor()
+          pkm.addReflectShieldAnim()
         } else {
-          pkm.removeSpikeArmor()
+          pkm.removeReflectShieldAnim()
         }
       } else if (field === "magicBounce") {
         if (pokemon.status.magicBounce) {
-          pkm.addMagicBounce()
+          pkm.addReflectShieldAnim(0xffa0ff)
         } else {
-          pkm.removeMagicBounce()
+          pkm.removeReflectShieldAnim()
+        }
+      } else if (field === "reflect") {
+        if (pokemon.status.reflect) {
+          pkm.addReflectShieldAnim(0xff3030)
+        } else {
+          pkm.removeReflectShieldAnim()
         }
       } else if (field === "electricField") {
         if (pokemon.status.electricField) {
@@ -343,7 +356,7 @@ export default class BattleManager {
       } else if (field === "enraged") {
         if (pokemon.status.enraged) {
           pkm.addRageEffect()
-        } else {
+        } else if (previousValue === true) {
           pkm.removeRageEffect()
         }
       }
@@ -456,7 +469,7 @@ export default class BattleManager {
         }
       } else if (field === "moneyCount") {
         if (value > 0) {
-          this.moneyAnimation(pkm.x, pkm.y, value - previousValue)
+          this.scene.displayMoneyGain(pkm.x, pkm.y, value - previousValue)
         }
       } else if (field === "amuletCoinCount") {
         if (value > 0) {
@@ -491,7 +504,7 @@ export default class BattleManager {
       } else if (field === "soulDewCount") {
         pkm.itemsContainer.updateCount(Item.SOUL_DEW, value)
       } else if (field === "defensiveRibbonCount") {
-        pkm.itemsContainer.updateCount(Item.DEFENSIVE_RIBBON, value)
+        pkm.itemsContainer.updateCount(Item.MUSCLE_BAND, value)
       } else if (field === "magmarizerCount") {
         pkm.itemsContainer.updateCount(Item.MAGMARIZER, value)
       }
@@ -529,11 +542,11 @@ export default class BattleManager {
         } else if (!pokemon.status.skydiving) {
           pkm.moveManager.setSpeed(
             3 *
-              getMoveSpeed(pokemon) *
-              Math.max(
-                Math.abs(pkm.x - coordinates[0]),
-                Math.abs(pkm.y - coordinates[1])
-              )
+            getMoveSpeed(pokemon) *
+            Math.max(
+              Math.abs(pkm.x - coordinates[0]),
+              Math.abs(pkm.y - coordinates[1])
+            )
           )
           pkm.moveManager.moveTo(coordinates[0], coordinates[1])
         }
@@ -724,44 +737,6 @@ export default class BattleManager {
         }
       }
     }
-  }
-
-  moneyAnimation(x: number, y: number, gain: number) {
-    const textStyle = {
-      fontSize: "25px",
-      fontFamily: "Verdana",
-      color: "#FFFF00",
-      align: "center",
-      strokeThickness: 2,
-      stroke: "#000"
-    }
-    const crit = this.scene.add.existing(
-      new GameObjects.Text(
-        this.scene,
-        x - 40,
-        y - 50,
-        `${gain > 0 ? "+ " : ""}${gain} GOLD`,
-        textStyle
-      )
-    )
-    crit.setDepth(DEPTH.TEXT_MAJOR)
-    this.scene.add.tween({
-      targets: [crit],
-      ease: "Linear",
-      duration: 1000,
-      delay: 0,
-      alpha: {
-        getStart: () => 1,
-        getEnd: () => 0
-      },
-      y: {
-        getStart: () => y - 50,
-        getEnd: () => y - 110
-      },
-      onComplete: () => {
-        crit.destroy()
-      }
-    })
   }
 
   displayBoost(stat: Stat, positionX: number, positionY: number) {
@@ -1111,8 +1086,27 @@ export default class BattleManager {
       this.scene.tweens.add({
         targets: sprite,
         alpha: 0.4,
-        duration: 1000,
-        delay: (8 - coordinates[1]) * 100
+        duration: 1000
+      })
+    }
+
+    if (event.effect === EffectEnum.COTTON_BALL) {
+      const sprite = this.scene.add.sprite(
+        coordinates[0],
+        coordinates[1],
+        "abilities",
+        `${Ability.COTTON_SPORE}/025.png`
+      )
+      sprite.setDepth(DEPTH.BOARD_EFFECT_GROUND_LEVEL)
+      sprite.setScale(2, 2)
+      sprite.setAlpha(0)
+      this.boardEventSprites[index] = sprite
+      this.group.add(sprite)
+
+      this.scene.tweens.add({
+        targets: sprite,
+        alpha: 0.5,
+        duration: 1000
       })
     }
 

@@ -48,6 +48,7 @@ import { t } from "i18next"
 import { values } from "../../../utils/schemas"
 import { DEPTH } from "./depths"
 import { getCachedPortrait } from "../pages/component/game/game-pokemon-portrait"
+import { Passive } from "../../../types/enum/Passive"
 
 class GameContainer {
   room: Room<GameState>
@@ -91,7 +92,8 @@ class GameContainer {
     $simulation.listen("weather", (value, previousValue) => {
       this.handleWeatherChange(simulation, value)
     })
-    ;[$simulation.blueTeam, $simulation.redTeam].forEach((team) => {
+
+    for (const team of [$simulation.blueTeam, $simulation.redTeam]) {
       team.onAdd((p, key) =>
         this.initializePokemon(<PokemonEntity>p, simulation)
       )
@@ -99,7 +101,7 @@ class GameContainer {
         // logger.debug('remove pokemon');
         this.gameScene?.battle?.removePokemon(simulation.id, pokemon)
       })
-    })
+    }
 
     $simulation.listen("started", (value, previousValue) => {
       if (
@@ -145,9 +147,11 @@ class GameContainer {
       "spikeArmor",
       "wound",
       "enraged",
+      "possessed",
       "locked",
       "blinded",
       "magicBounce",
+      "reflect",
       "tree"
     ]
 
@@ -155,39 +159,39 @@ class GameContainer {
 
     fields.forEach((field) => {
       $pokemon.status.listen(field, (value, previousValue) => {
-        this.gameScene?.battle?.changeStatus(simulation.id, pokemon, field)
+        this.gameScene?.battle?.changeStatus(simulation.id, pokemon, field, previousValue)
       })
     })
 
     $pokemon.onChange(() => {
       const fields: (NonFunctionPropNames<PokemonEntity> &
         keyof IPokemonEntity)[] = [
-        "positionX",
-        "positionY",
-        "orientation",
-        "action",
-        "critChance",
-        "critPower",
-        "ap",
-        "luck",
-        "speed",
-        "life",
-        "hp",
-        "shield",
-        "pp",
-        "atk",
-        "def",
-        "speDef",
-        "range",
-        "targetX",
-        "targetY",
-        "team",
-        "index",
-        "shiny",
-        "skill",
-        "stars",
-        "types"
-      ]
+          "positionX",
+          "positionY",
+          "orientation",
+          "action",
+          "critChance",
+          "critPower",
+          "ap",
+          "luck",
+          "speed",
+          "life",
+          "hp",
+          "shield",
+          "pp",
+          "atk",
+          "def",
+          "speDef",
+          "range",
+          "targetX",
+          "targetY",
+          "team",
+          "index",
+          "shiny",
+          "skill",
+          "stars",
+          "types"
+        ]
 
       fields.forEach((field) => {
         $pokemon.listen(field, (value, previousValue) => {

@@ -1,7 +1,7 @@
 import { MapSchema, Schema, SetSchema, type } from "@colyseus/schema"
 import Player from "../models/colyseus-models/player"
 import { Pokemon } from "../models/colyseus-models/pokemon"
-import { getWonderboxItems, ItemStats } from "./items"
+import { SynergyEffects } from "../models/effects"
 import PokemonFactory from "../models/pokemon-factory"
 import { getPokemonData } from "../models/precomputed/precomputed-pokemon-data"
 import { PRECOMPUTED_POKEMONS_PER_TYPE } from "../models/precomputed/precomputed-types"
@@ -14,8 +14,8 @@ import {
   Transfer
 } from "../types"
 import { BOARD_HEIGHT, BOARD_WIDTH } from "../types/Config"
+import { Ability } from "../types/enum/Ability"
 import { EffectEnum } from "../types/enum/Effect"
-import { ItemEffects } from "./effects/items"
 import {
   AttackType,
   BattleResult,
@@ -37,8 +37,10 @@ import { Synergy } from "../types/enum/Synergy"
 import { Weather, WeatherEffects } from "../types/enum/Weather"
 import { IPokemonData } from "../types/interfaces/PokemonData"
 import { count } from "../utils/array"
-import { logger } from "../utils/logger"
+import { getAvatarString } from "../utils/avatar"
 import { isOnBench } from "../utils/board"
+import { logger } from "../utils/logger"
+import { max } from "../utils/number"
 import {
   chance,
   pickRandomIn,
@@ -46,24 +48,24 @@ import {
   shuffleArray
 } from "../utils/random"
 import { values } from "../utils/schemas"
+import { AbilityStrategies, SurfStrategy } from "./abilities/abilities"
 import Board from "./board"
-import Dps from "./dps"
-import { PokemonEntity, getStrongestUnit, getUnitScore } from "./pokemon-entity"
-import { DelayedCommand } from "./simulation-command"
-import { getAvatarString } from "../utils/avatar"
-import { max } from "../utils/number"
-import {
-  OnItemGainedEffect,
-  GrowGroundEffect,
-  FireHitEffect,
-  MonsterKillEffect,
-  SoundCryEffect,
-  OnSpawnEffect,
-  electricTripleAttackEffect
-} from "./effects/effect"
-import { WaterSpringEffect } from "./effects/passives"
-import { SynergyEffects } from "../models/effects"
 import { DishEffects } from "./dishes"
+import Dps from "./dps"
+import {
+  electricTripleAttackEffect,
+  FireHitEffect,
+  GrowGroundEffect,
+  MonsterKillEffect,
+  OnItemGainedEffect,
+  OnSpawnEffect,
+  SoundCryEffect
+} from "./effects/effect"
+import { ItemEffects } from "./effects/items"
+import { WaterSpringEffect } from "./effects/passives"
+import { getWonderboxItems, ItemStats } from "./items"
+import { getStrongestUnit, getUnitScore, PokemonEntity } from "./pokemon-entity"
+import { DelayedCommand } from "./simulation-command"
 
 export default class Simulation extends Schema implements ISimulation {
   @type("string") weather: Weather = Weather.NEUTRAL
@@ -356,8 +358,7 @@ export default class Simulation extends Schema implements ISimulation {
     ]
     for (const [dx, dy] of placesToConsiderByOrderOfPriority) {
       const x = positionX + dx
-      const y =
-        team === Team.BLUE_TEAM ? positionY - 1 + dy : 5 - (positionY - 1) - dy
+      const y = positionY + dy * (team === Team.BLUE_TEAM ? 1 : -1)
 
       if (
         x >= 0 &&
@@ -373,8 +374,23 @@ export default class Simulation extends Schema implements ISimulation {
   }
 
   getClosestAvailablePlaceOnBoardToPokemon(
-    pokemon: IPokemon | IPokemonEntity,
+    pokemon: IPokemon,
     team: Team
+  ): { x: number; y: number } {
+    const positionX = pokemon.positionX
+    const positionY = team === Team.BLUE_TEAM
+      ? pokemon.positionY - 1
+      : 5 - (pokemon.positionY - 1)
+    return this.getClosestAvailablePlaceOnBoardTo(
+      positionX,
+      positionY,
+      team
+    )
+  }
+
+  getClosestAvailablePlaceOnBoardToPokemonEntity(
+    pokemon: IPokemonEntity,
+    team: Team = pokemon.team
   ): { x: number; y: number } {
     return this.getClosestAvailablePlaceOnBoardTo(
       pokemon.positionX,
@@ -765,9 +781,8 @@ export default class Simulation extends Schema implements ISimulation {
                   farthestCoordinate.y,
                   this.board
                 )
-                pokemon.targetX = target.positionX
-                pokemon.targetY = target.positionY
-                pokemon.status.triggerProtect(3000)
+                pokemon.setTarget(target)
+                pokemon.status.triggerProtect(2000)
                 pokemon.commands.push(
                   new DelayedCommand(() => {
                     pokemon.simulation.room.broadcast(Transfer.ABILITY, {
@@ -867,7 +882,7 @@ export default class Simulation extends Schema implements ISimulation {
       case EffectEnum.ASSURANCE:
         if (types.has(Synergy.DARK)) {
           pokemon.addCritChance(40, pokemon, 0, false)
-          pokemon.addCritPower(60, pokemon, 0, false)
+          pokemon.addCritPower(50, pokemon, 0, false)
           pokemon.effects.add(EffectEnum.ASSURANCE)
         }
         break
@@ -875,7 +890,7 @@ export default class Simulation extends Schema implements ISimulation {
       case EffectEnum.BEAT_UP:
         if (types.has(Synergy.DARK)) {
           pokemon.addCritChance(50, pokemon, 0, false)
-          pokemon.addCritPower(100, pokemon, 0, false)
+          pokemon.addCritPower(80, pokemon, 0, false)
           pokemon.effects.add(EffectEnum.BEAT_UP)
         }
         break
@@ -1063,6 +1078,7 @@ export default class Simulation extends Schema implements ISimulation {
       case EffectEnum.SWIFT_SWIM:
       case EffectEnum.HYDRATION:
       case EffectEnum.WATER_VEIL:
+      case EffectEnum.SURGE_SURFER:
         pokemon.effects.add(effect)
         this.tidalWaveTimer = 8000
         break
@@ -1490,7 +1506,11 @@ export default class Simulation extends Schema implements ISimulation {
       if (this.tidalWaveTimer <= 0) {
         this.tidalWaveCounter++
         this.triggerTidalWave()
-        if (this.tidalWaveCounter < 2) {
+        if (
+          this.redEffects.has(EffectEnum.SURGE_SURFER) ||
+          this.blueEffects.has(EffectEnum.SURGE_SURFER) ||
+          this.tidalWaveCounter < 2
+        ) {
           this.tidalWaveTimer = 8000
         }
       }
@@ -1718,65 +1738,122 @@ export default class Simulation extends Schema implements ISimulation {
     }
   }
 
+  addPikachuSurferToBoard(team: Team) {
+    const pikachuSurfer = PokemonFactory.createPokemonFromName(
+      Pkm.PIKACHU_SURFER,
+      team === Team.RED_TEAM ? this.redPlayer : this.bluePlayer
+    )
+    const coord = this.getFirstAvailablePlaceOnBoard(team)
+    if (coord) {
+      this.addPokemon(pikachuSurfer, coord.x, coord.y, team, true)
+    }
+  }
+
   triggerTidalWave() {
-    const redWaterLevel = this.redEffects.has(EffectEnum.WATER_VEIL)
-      ? 3
-      : this.redEffects.has(EffectEnum.HYDRATION)
-        ? 2
-        : this.redEffects.has(EffectEnum.SWIFT_SWIM)
-          ? 1
-          : 0
+    const handleTidalWaveForTeam = (team: Team) => {
+      const isRed = team === Team.RED_TEAM
+      const effects = isRed ? this.redEffects : this.blueEffects
+      const orientation = isRed ? Orientation.DOWN : Orientation.UP
 
-    if (
-      (redWaterLevel > 0 && this.tidalWaveCounter === 1) ||
-      (redWaterLevel === 3 && this.tidalWaveCounter === 2)
-    ) {
-      this.room.broadcast(Transfer.ABILITY, {
-        id: this.id,
-        skill: "TIDAL_WAVE",
-        positionX: 0,
-        positionY: 0,
-        targetX: 0,
-        targetY: redWaterLevel - 1,
-        orientation: Orientation.DOWN
-      })
-      this.room.broadcast(Transfer.CLEAR_BOARD, {
-        simulationId: this.id
-      })
+      const tidalWaveLevel =
+        effects.has(EffectEnum.WATER_VEIL) ||
+          effects.has(EffectEnum.SURGE_SURFER)
+          ? 3
+          : effects.has(EffectEnum.HYDRATION)
+            ? 2
+            : effects.has(EffectEnum.SWIFT_SWIM)
+              ? 1
+              : 0
 
-      for (let y = 0; y < this.board.rows; y++) {
-        for (let x = 0; x < this.board.columns; x++) {
-          const pokemonHit = this.board.getValue(x, y)
-          this.board.effects[y * this.board.columns + x] = undefined // clear all board effects
-          if (pokemonHit) {
-            if (pokemonHit.team === Team.RED_TEAM) {
-              pokemonHit.status.clearNegativeStatus()
-              if (pokemonHit.types.has(Synergy.AQUATIC)) {
-                pokemonHit.handleHeal(
-                  redWaterLevel * 0.1 * pokemonHit.hp,
+      const shouldTrigger =
+        (tidalWaveLevel > 0 && this.tidalWaveCounter === 1) ||
+        (tidalWaveLevel === 3 && this.tidalWaveCounter === 2) ||
+        effects.has(EffectEnum.SURGE_SURFER)
+
+      if (shouldTrigger) {
+        this.room.broadcast(Transfer.ABILITY, {
+          id: this.id,
+          skill: "TIDAL_WAVE",
+          positionX: 0,
+          positionY: 0,
+          targetX: 0,
+          targetY: tidalWaveLevel - 1,
+          orientation
+        })
+        this.room.broadcast(Transfer.CLEAR_BOARD, {
+          simulationId: this.id
+        })
+
+        if (
+          effects.has(EffectEnum.SURGE_SURFER) &&
+          this.tidalWaveCounter === 1
+        ) {
+          this.addPikachuSurferToBoard(team)
+        }
+
+        const rowRange = isRed
+          ? [...Array(this.board.rows).keys()]
+          : [...Array(this.board.rows).keys()].reverse()
+
+        for (const y of rowRange) {
+          for (let x = 0; x < this.board.columns; x++) {
+            const pokemonHit = this.board.getValue(x, y)
+            this.board.effects[y * this.board.columns + x] = undefined // clear all board effects
+            if (pokemonHit) {
+              if (pokemonHit.team === team) {
+                pokemonHit.status.clearNegativeStatus()
+                if (pokemonHit.types.has(Synergy.AQUATIC)) {
+                  pokemonHit.handleHeal(
+                    tidalWaveLevel * 0.1 * pokemonHit.hp,
+                    pokemonHit,
+                    0,
+                    false
+                  )
+                }
+              } else {
+                pokemonHit.handleDamage({
+                  damage: tidalWaveLevel * 0.05 * pokemonHit.hp,
+                  board: this.board,
+                  attackType: AttackType.TRUE,
+                  attacker: null,
+                  shouldTargetGainMana: false
+                })
+                let newY = y
+                if (isRed) {
+                  while (
+                    newY > 0 &&
+                    this.board.getValue(x, newY - 1) === undefined
+                  ) {
+                    newY--
+                  }
+                } else {
+                  while (
+                    newY < this.board.rows - 1 &&
+                    this.board.getValue(x, newY + 1) === undefined
+                  ) {
+                    newY++
+                  }
+                }
+                if (newY !== y) {
+                  pokemonHit.moveTo(x, newY, this.board) // push enemies away
+                  pokemonHit.cooldown = 500
+                }
+              }
+
+              if (pokemonHit.items.has(Item.SURFBOARD)) {
+                const surf = AbilityStrategies[Ability.SURF] as SurfStrategy
+                surf.process(
                   pokemonHit,
-                  0,
-                  false
+                  this.board,
+                  pokemonHit,
+                  false,
+                  false,
+                  tidalWaveLevel
                 )
               }
-            } else {
-              pokemonHit.handleDamage({
-                damage: redWaterLevel * 0.05 * pokemonHit.hp,
-                board: this.board,
-                attackType: AttackType.TRUE,
-                attacker: null,
-                shouldTargetGainMana: false
-              })
-              let newY = y
-              while (
-                newY > 0 &&
-                this.board.getValue(x, newY - 1) === undefined
-              ) {
-                newY--
-              }
-              if (newY !== y) {
-                pokemonHit.moveTo(x, newY, this.board) // push enemies away
-                pokemonHit.cooldown = 500
+
+              if (pokemonHit.passive === Passive.PIKACHU_SURFER) {
+                pokemonHit.addPP(pokemonHit.maxPP, pokemonHit, 0, false)
               }
             }
           }
@@ -1784,68 +1861,7 @@ export default class Simulation extends Schema implements ISimulation {
       }
     }
 
-    const blueWaterLevel = this.blueEffects.has(EffectEnum.WATER_VEIL)
-      ? 3
-      : this.blueEffects.has(EffectEnum.HYDRATION)
-        ? 2
-        : this.blueEffects.has(EffectEnum.SWIFT_SWIM)
-          ? 1
-          : 0
-    if (
-      (blueWaterLevel > 0 && this.tidalWaveCounter === 1) ||
-      (blueWaterLevel === 3 && this.tidalWaveCounter === 2)
-    ) {
-      this.room.broadcast(Transfer.ABILITY, {
-        id: this.id,
-        skill: "TIDAL_WAVE",
-        positionX: 0,
-        positionY: 0,
-        targetX: 0,
-        targetY: blueWaterLevel - 1,
-        orientation: Orientation.UP
-      })
-      this.room.broadcast(Transfer.CLEAR_BOARD, {
-        simulationId: this.id
-      })
-
-      for (let y = this.board.rows - 1; y > 0; y--) {
-        for (let x = 0; x < this.board.columns; x++) {
-          const pokemonHit = this.board.getValue(x, y)
-          this.board.effects[y * this.board.columns + x] = undefined // clear all board effects
-          if (pokemonHit) {
-            if (pokemonHit.team === Team.BLUE_TEAM) {
-              pokemonHit.status.clearNegativeStatus()
-              if (pokemonHit.types.has(Synergy.AQUATIC)) {
-                pokemonHit.handleHeal(
-                  blueWaterLevel * 0.1 * pokemonHit.hp,
-                  pokemonHit,
-                  0,
-                  false
-                )
-              }
-            } else {
-              pokemonHit.handleDamage({
-                damage: blueWaterLevel * 0.05 * pokemonHit.hp,
-                board: this.board,
-                attackType: AttackType.TRUE,
-                attacker: null,
-                shouldTargetGainMana: false
-              })
-              let newY = y
-              while (
-                newY < this.board.rows - 1 &&
-                this.board.getValue(x, newY + 1) === undefined
-              ) {
-                newY++
-              }
-              if (newY !== y) {
-                pokemonHit.moveTo(x, newY, this.board) // push enemies away
-                pokemonHit.cooldown = 500
-              }
-            }
-          }
-        }
-      }
-    }
+    handleTidalWaveForTeam(Team.RED_TEAM)
+    handleTidalWaveForTeam(Team.BLUE_TEAM)
   }
 }

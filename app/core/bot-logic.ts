@@ -3,7 +3,7 @@ import { getPokemonData } from "../models/precomputed/precomputed-pokemon-data"
 import { AdditionalPicksStages, PortalCarouselStages } from "../types/Config"
 import { Rarity } from "../types/enum/Game"
 import { CraftableItems, Item, ItemComponents } from "../types/enum/Item"
-import { Pkm, PkmDuos, PkmIndex } from "../types/enum/Pokemon"
+import { Pkm, PkmDuos, PkmFamily, PkmIndex } from "../types/enum/Pokemon"
 import { logger } from "../utils/logger"
 import { clamp, min } from "../utils/number"
 
@@ -99,7 +99,7 @@ export function getCategory(pkm: Pkm): string {
   let category = p.rarity.toUpperCase()
   if (
     [Rarity.UNIQUE, Rarity.LEGENDARY, Rarity.SPECIAL].includes(p.rarity) ===
-      false &&
+    false &&
     p.stars > 1
   ) {
     category += p.stages === 2 ? " 2S" : " 3S"
@@ -123,6 +123,7 @@ export function getPowerScore(board: IDetailledPokemon[]): number {
 }
 
 export function getUnitPowerScore(pkm: Pkm): number {
+  if ([Pkm.PILLAR_CONCRETE, Pkm.PILOSWINE, Pkm.PILLAR_WOOD].includes(pkm)) return 0
   return POWER_SCORE_BY_CATEGORY[getCategory(pkm)] ?? 1
 }
 
@@ -166,7 +167,6 @@ export function rewriteBotRoundsRequiredto1(bot: IBot) {
       oneSteps.push({ board: step.board, roundsRequired: 1 })
     }
   })
-  bot = structuredClone(bot)
   bot.steps = oneSteps.slice(0, MAX_BOTS_STAGE + 1)
   return bot
 }
@@ -222,6 +222,13 @@ export function validateBoard(board: IDetailledPokemon[], stage: number) {
     return true
   }
 
+  function removeUniqueThatEvolveToLegendary(p) {
+    if (getPokemonData(PkmFamily[p.name]).rarity === Rarity.UNIQUE && getPokemonData(p.name).rarity === Rarity.LEGENDARY) {
+      return false // remove unique that evolves to legendary
+    }
+    return true
+  }
+
   const uniques = team
     .filter((p) => p.rarity === Rarity.UNIQUE)
     .filter(removeDuoPartner)
@@ -229,6 +236,7 @@ export function validateBoard(board: IDetailledPokemon[], stage: number) {
   const legendaries = team
     .filter((p) => p.rarity === Rarity.LEGENDARY)
     .filter(removeDuoPartner)
+    .filter(removeUniqueThatEvolveToLegendary)
 
   const additionalUncommon = team.filter(
     (p) =>
@@ -243,12 +251,12 @@ export function validateBoard(board: IDetailledPokemon[], stage: number) {
     (p) => p.additional && p.rarity === Rarity.EPIC
   )
 
-  if (stage < PortalCarouselStages[0] && uniques.length > 0) {
+  if (stage < PortalCarouselStages[1] && uniques.length > 0) {
     throw new Error(
       `Unique Pokemons can't be played before stage ${PortalCarouselStages[1]}`
     )
   }
-  if (stage < PortalCarouselStages[1] && legendaries.length > 0) {
+  if (stage < PortalCarouselStages[2] && legendaries.length > 0) {
     throw new Error(
       `Legendary Pokemons can't be played before stage ${PortalCarouselStages[2]}`
     )

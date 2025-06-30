@@ -3,7 +3,6 @@ import { PokemonEntity } from "../pokemon-entity"
 import { Item } from "../../types/enum/Item"
 import { EffectEnum } from "../../types/enum/Effect"
 import { Synergy } from "../../types/enum/Synergy"
-import PokemonState from "../pokemon-state"
 import { Passive } from "../../types/enum/Passive"
 import { Ability } from "../../types/enum/Ability"
 import { SynergyEffects } from "../../models/effects"
@@ -17,7 +16,7 @@ type EffectOrigin = EffectEnum | Item | Passive | Ability
 
 export abstract class Effect {
   origin?: EffectOrigin
-  apply(...args: any[]) {}
+  apply(...args: any[]) { }
   constructor(effect?: (...args: any[]) => void, origin?: EffectOrigin) {
     if (effect) {
       this.apply = effect
@@ -31,13 +30,13 @@ export class OnSpawnEffect extends Effect {
   constructor(effect?: (entity: PokemonEntity) => void) {
     super(effect)
   }
-  override apply(entity: PokemonEntity) {}
+  override apply(entity: PokemonEntity) { }
 }
 
 // item effect applied on fight start of after stealing/obtaining an item
-export class OnItemGainedEffect extends Effect {}
+export class OnItemGainedEffect extends Effect { }
 
-export class OnItemRemovedEffect extends Effect {}
+export class OnItemRemovedEffect extends Effect { }
 
 // applied after knocking out an enemy
 export class OnKillEffect extends Effect {
@@ -46,7 +45,7 @@ export class OnKillEffect extends Effect {
     target: PokemonEntity,
     board: Board,
     attackType: AttackType
-  ) {}
+  ) { }
   constructor(
     effect?: (
       entity: PokemonEntity,
@@ -87,7 +86,7 @@ export class PeriodicEffect extends Effect {
 }
 
 export class OnHitEffect extends Effect {
-  apply(entity: PokemonEntity, target: PokemonEntity, board: Board) {}
+  apply(entity: PokemonEntity, target: PokemonEntity, board: Board) { }
   constructor(
     effect?: (
       entity: PokemonEntity,
@@ -112,7 +111,7 @@ interface OnAttackEffectArgs {
 }
 
 export class OnAttackEffect extends Effect {
-  override apply(args: OnAttackEffectArgs) {}
+  override apply(args: OnAttackEffectArgs) { }
   constructor(
     effect?: (args: OnAttackEffectArgs) => void,
     origin?: EffectOrigin
@@ -127,7 +126,7 @@ export class OnAbilityCastEffect extends Effect {
     board: Board,
     target: PokemonEntity,
     crit: boolean
-  ) {}
+  ) { }
   constructor(
     effect?: (
       pokemon: PokemonEntity,
@@ -160,6 +159,9 @@ export class MonsterKillEffect extends OnKillEffect {
     pokemon.addMaxHP(lifeBoost, pokemon, 0, false)
     this.hpBoosted += lifeBoost
     this.count += 1
+    if (pokemon.items.has(Item.BERSERK_GENE)) {
+      pokemon.status.triggerConfusion(30000, pokemon, pokemon)
+    }
   }
 }
 
@@ -180,23 +182,24 @@ export class GrowGroundEffect extends PeriodicEffect {
           this.count === 5 &&
           pokemon.player
         ) {
-          pokemon.player.addMoney(3, true, pokemon)
-          pokemon.count.moneyCount += 3
+          pokemon.player.addMoney(2, true, pokemon)
+          pokemon.count.moneyCount += 2
         }
 
         if (pokemon.passive === Passive.ZYGARDE && this.count === 5) {
           pokemon.handleHeal(0.2 * pokemon.hp, pokemon, 0, false)
-          pokemon.addSpeed(-25, pokemon, 0, false)
           if (pokemon.index === PkmIndex[Pkm.ZYGARDE_10]) {
-            pokemon.addDefense(1, pokemon, 0, false)
-            pokemon.addSpecialDefense(1, pokemon, 0, false)
+            pokemon.addDefense(2, pokemon, 0, false)
+            pokemon.addSpecialDefense(2, pokemon, 0, false)
             pokemon.addMaxHP(50, pokemon, 0, false)
+            pokemon.addSpeed(-12, pokemon, 0, false)
             pokemon.range = min(1)(pokemon.range + 1)
           } else {
             pokemon.addAttack(5, pokemon, 0, false)
-            pokemon.addDefense(2, pokemon, 0, false)
-            pokemon.addSpecialDefense(2, pokemon, 0, false)
+            pokemon.addDefense(5, pokemon, 0, false)
+            pokemon.addSpecialDefense(5, pokemon, 0, false)
             pokemon.addMaxHP(80, pokemon, 0, false)
+            pokemon.addSpeed(-5, pokemon, 0, false)
             pokemon.range = min(1)(pokemon.range - 1)
           }
 
@@ -205,7 +208,6 @@ export class GrowGroundEffect extends PeriodicEffect {
           pokemon.passive = Passive.NONE
           pokemon.skill = Ability.CORE_ENFORCER
           pokemon.pp = 0
-          pokemon.maxPP = 120
         }
       },
       effect,
@@ -219,7 +221,7 @@ export class ClearWingEffect extends PeriodicEffect {
   constructor() {
     super(
       (pokemon) => {
-        pokemon.addSpeed(2, pokemon, 0, false)
+        pokemon.addSpeed(1, pokemon, 0, false)
       },
       Passive.CLEAR_WING,
       1000
@@ -291,7 +293,7 @@ export class DarkHarvestEffect extends PeriodicEffect {
           .getAdjacentCells(pokemon.positionX, pokemon.positionY)
           .forEach((cell) => {
             if (cell.value && cell.value.team !== pokemon.team) {
-              cell.value.handleSpecialDamage(
+              const { takenDamage } = cell.value.handleSpecialDamage(
                 darkHarvestDamage,
                 board,
                 AttackType.SPECIAL,
@@ -300,7 +302,7 @@ export class DarkHarvestEffect extends PeriodicEffect {
                 true
               )
               pokemon.handleHeal(
-                Math.round(darkHarvestDamage * healFactor),
+                Math.round(takenDamage * healFactor),
                 pokemon,
                 0,
                 false

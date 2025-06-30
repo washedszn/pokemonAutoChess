@@ -5,7 +5,8 @@ import {
   Effect,
   OnAbilityCastEffect,
   OnAttackEffect,
-  OnKillEffect
+  OnKillEffect,
+  OnSpawnEffect
 } from "./effect"
 import { ItemEffects } from "./items"
 import { PokemonEntity } from "../pokemon-entity"
@@ -21,7 +22,8 @@ import { Item } from "../../types/enum/Item"
 import { Kubfu } from "../../models/colyseus-models/pokemon"
 
 export function drumBeat(pokemon: PokemonEntity, board: Board) {
-  pokemon.cooldown = Math.round(1000 / (0.4 + pokemon.speed * 0.007)) // use attack state cooldown
+  const speed = pokemon.status.paralysis ? pokemon.speed / 2 : pokemon.speed
+  pokemon.cooldown = Math.round(1000 / (0.4 + speed * 0.007)) // use attack state cooldown
   if (pokemon.pp >= pokemon.maxPP && !pokemon.status.silence) {
     // CAST ABILITY
     let crit = false
@@ -115,12 +117,11 @@ const SharedVisionEffect = new OnAttackEffect(({ pokemon, board }) => {
       ally &&
       ally.passive === Passive.SHARED_VISION &&
       pokemon.team === ally.team &&
-      !(
-        pokemon.targetX === ally.positionX && pokemon.targetY === ally.positionY
-      ) // do not self inflict damage if ally is confused and targeting you
+      pokemon.targetEntityId !== ally.id // do not self inflict damage if ally is confused and targeting you
     ) {
       ally.targetX = pokemon.targetX
       ally.targetY = pokemon.targetY
+      ally.targetEntityId = pokemon.targetEntityId
     }
   })
 })
@@ -265,5 +266,6 @@ export const PassiveEffects: Partial<Record<Passive, Effect[]>> = {
   [Passive.SHARED_VISION]: [SharedVisionEffect],
   [Passive.METEOR]: [MiniorKernelOnAttackEffect],
   [Passive.KUBFU]: [KubfuOnKillEffect],
-  [Passive.SLOW_START]: [SlowStartEffect]
+  [Passive.SLOW_START]: [SlowStartEffect],
+  [Passive.VIGOROTH]: [new OnSpawnEffect((pkm) => pkm.effects.add(EffectEnum.IMMUNITY_SLEEP))]
 }

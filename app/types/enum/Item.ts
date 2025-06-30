@@ -42,7 +42,7 @@ export enum Item {
   PROTECTIVE_PADS = "PROTECTIVE_PADS",
   CHOICE_SCARF = "CHOICE_SCARF",
   PUNCHING_GLOVE = "PUNCHING_GLOVE",
-  DEFENSIVE_RIBBON = "DEFENSIVE_RIBBON",
+  MUSCLE_BAND = "MUSCLE_BAND",
   WONDER_BOX = "WONDER_BOX",
   CLEANSE_TAG = "CLEANSE_TAG",
   WIDE_LENS = "WIDE_LENS",
@@ -95,6 +95,8 @@ export enum Item {
   ROTOM_PHONE = "ROTOM_PHONE",
   SILK_SCARF = "SILK_SCARF",
   TINY_MUSHROOM = "TINY_MUSHROOM",
+  BERSERK_GENE = "BERSERK_GENE",
+  SURFBOARD = "SURFBOARD",
   COOKING_POT = "COOKING_POT",
   METEORITE = "METEORITE",
   TRASH = "TRASH",
@@ -193,6 +195,7 @@ export enum Item {
   EGG_FOR_SELL = "EGG_FOR_SELL",
   GIMMIGHOUL_COIN = "GIMMIGHOUL_COIN",
   EXCHANGE_TICKET = "EXCHANGE_TICKET",
+  TREASURE_BOX = "TREASURE_BOX",
   AUSPICIOUS_ARMOR = "AUSPICIOUS_ARMOR",
   MALICIOUS_ARMOR = "MALICIOUS_ARMOR",
   RUSTED_SWORD = "RUSTED_SWORD",
@@ -233,6 +236,7 @@ export const SpecialItems: Item[] = [
   Item.EGG_FOR_SELL,
   Item.GIMMIGHOUL_COIN,
   Item.EXCHANGE_TICKET,
+  Item.TREASURE_BOX,
   Item.RUSTED_SWORD,
   Item.SCROLL_OF_WATERS,
   Item.SCROLL_OF_DARKNESS
@@ -288,7 +292,7 @@ export const ItemRecipe: { [key in Item]?: Item[] } = {
   [Item.GRACIDEA_FLOWER]: [Item.MAGNET, Item.MIRACLE_SEED],
   [Item.CHOICE_SCARF]: [Item.MAGNET, Item.NEVER_MELT_ICE],
   [Item.PUNCHING_GLOVE]: [Item.MAGNET, Item.CHARCOAL],
-  [Item.DEFENSIVE_RIBBON]: [Item.MAGNET, Item.HEART_SCALE],
+  [Item.MUSCLE_BAND]: [Item.MAGNET, Item.HEART_SCALE],
   [Item.WONDER_BOX]: [Item.BLACK_GLASSES, Item.BLACK_GLASSES],
   [Item.CLEANSE_TAG]: [Item.BLACK_GLASSES, Item.MIRACLE_SEED],
   [Item.WIDE_LENS]: [Item.BLACK_GLASSES, Item.NEVER_MELT_ICE],
@@ -341,13 +345,15 @@ export const ArtificialItems: Item[] = [
   Item.ROTOM_PHONE,
   Item.SILK_SCARF,
   Item.TINY_MUSHROOM,
+  Item.BERSERK_GENE,
+  Item.SURFBOARD,
   Item.COOKING_POT,
   Item.INCENSE,
   Item.ELECTIRIZER,
   Item.MAGMARIZER,
   Item.POKERUS_VIAL,
   Item.MAX_ELIXIR,
-  Item.EXP_SHARE
+  Item.EXP_SHARE,
 ]
 
 export const ShinyItems: Item[] = [
@@ -432,7 +438,9 @@ export const SynergyItems = [
   Item.SHINY_STONE,
   Item.SILK_SCARF,
   Item.TINY_MUSHROOM,
-  Item.COOKING_POT
+  Item.COOKING_POT,
+  Item.BERSERK_GENE,
+  Item.SURFBOARD
 ] as const
 
 export const SynergyGivenByItem: Record<
@@ -460,7 +468,9 @@ export const SynergyGivenByItem: Record<
   [Item.SHINY_STONE]: Synergy.LIGHT,
   [Item.SILK_SCARF]: Synergy.NORMAL,
   [Item.TINY_MUSHROOM]: Synergy.BUG,
-  [Item.COOKING_POT]: Synergy.GOURMET
+  [Item.COOKING_POT]: Synergy.GOURMET,
+  [Item.BERSERK_GENE]: Synergy.MONSTER,
+  [Item.SURFBOARD]: Synergy.AQUATIC
 }
 
 export const NonSpecialItemComponents: Item[] = [
@@ -477,6 +487,8 @@ export const NonSpecialItemComponents: Item[] = [
 export const CraftableNonSynergyItems: Item[] = CraftableItems.filter(
   (item) => SynergyGivenByItem.hasOwnProperty(item) === false
 )
+
+export const LateGameItems: Item[] = CraftableNonSynergyItems.filter(item => item !== Item.AMULET_COIN)
 
 export const NonHoldableItems: Item[] = [
   ...WeatherRocks,
@@ -590,15 +602,15 @@ export const Flavors = [
 
 export const SynergyFlavors: {
   [key in Synergy]:
-    | Item.VANILLA_FLAVOR
-    | Item.RUBY_FLAVOR
-    | Item.MATCHA_FLAVOR
-    | Item.MINT_FLAVOR
-    | Item.LEMON_FLAVOR
-    | Item.SALTED_FLAVOR
-    | Item.RUBY_SWIRL_FLAVOR
-    | Item.CARAMEL_SWIRL_FLAVOR
-    | Item.RAINBOW_SWIRL_FLAVOR
+  | Item.VANILLA_FLAVOR
+  | Item.RUBY_FLAVOR
+  | Item.MATCHA_FLAVOR
+  | Item.MINT_FLAVOR
+  | Item.LEMON_FLAVOR
+  | Item.SALTED_FLAVOR
+  | Item.RUBY_SWIRL_FLAVOR
+  | Item.CARAMEL_SWIRL_FLAVOR
+  | Item.RAINBOW_SWIRL_FLAVOR
 } = {
   [Synergy.NORMAL]: Item.VANILLA_FLAVOR,
   [Synergy.GRASS]: Item.MATCHA_FLAVOR,

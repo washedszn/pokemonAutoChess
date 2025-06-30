@@ -1,7 +1,7 @@
 import { SetSchema } from "@colyseus/schema"
+import { Stat } from "../types/enum/Game"
 import { CraftableItems, Item, SynergyStones } from "../types/enum/Item"
 import { pickRandomIn } from "../utils/random"
-import { Stat } from "../types/enum/Game"
 
 export function getWonderboxItems(existingItems: SetSchema<Item>): Item[] {
   const wonderboxItems: Item[] = []
@@ -43,7 +43,7 @@ export const ItemStats: { [item in Item]?: { [stat in Stat]?: number } } = {
   [Item.POKEMONOMICON]: { [Stat.AP]: 10, [Stat.SHIELD]: 15 },
   [Item.POWER_LENS]: { [Stat.AP]: 10, [Stat.SPE_DEF]: 10 },
   [Item.SHELL_BELL]: { [Stat.AP]: 10, [Stat.ATK]: 3 },
-  [Item.LUCKY_EGG]: { [Stat.AP]: 60, [Stat.DEF]: 12, [Stat.LUCK]: 50 },
+  [Item.LUCKY_EGG]: { [Stat.AP]: 50, [Stat.DEF]: 10, [Stat.LUCK]: 30 },
   [Item.AQUA_EGG]: { [Stat.PP]: 50 },
   [Item.BLUE_ORB]: { [Stat.PP]: 15, [Stat.SPEED]: 10 },
   [Item.SCOPE_LENS]: { [Stat.PP]: 15, [Stat.CRIT_CHANCE]: 25 },
@@ -60,7 +60,7 @@ export const ItemStats: { [item in Item]?: { [stat in Stat]?: number } } = {
   [Item.GRACIDEA_FLOWER]: { [Stat.SPEED]: 10, [Stat.SHIELD]: 15 },
   [Item.CHOICE_SCARF]: { [Stat.SPEED]: 10, [Stat.SPE_DEF]: 3 },
   [Item.PUNCHING_GLOVE]: { [Stat.SPEED]: 10, [Stat.ATK]: 3 },
-  [Item.DEFENSIVE_RIBBON]: { [Stat.SPEED]: 10, [Stat.DEF]: 3 },
+  [Item.MUSCLE_BAND]: { [Stat.SPEED]: 10, [Stat.DEF]: 3 },
   [Item.WONDER_BOX]: { [Stat.CRIT_CHANCE]: 10 },
   [Item.CLEANSE_TAG]: { [Stat.CRIT_CHANCE]: 10, [Stat.SHIELD]: 15 },
   [Item.WIDE_LENS]: { [Stat.CRIT_CHANCE]: 10, [Stat.SPE_DEF]: 3 },
@@ -77,7 +77,7 @@ export const ItemStats: { [item in Item]?: { [stat in Stat]?: number } } = {
   [Item.FLAME_ORB]: { [Stat.ATK]: 5, [Stat.DEF]: 3 },
   [Item.ROCKY_HELMET]: { [Stat.DEF]: 25 },
   [Item.ELECTIRIZER]: { [Stat.SPEED]: 30 },
-  [Item.MAGMARIZER]: { [Stat.ATK]: 5 },
+  [Item.MAGMARIZER]: { [Stat.ATK]: 3 },
   [Item.MACHO_BRACE]: { [Stat.ATK]: 15, [Stat.SPEED]: -15 },
   [Item.LIGHT_BALL]: { [Stat.AP]: 75 },
   [Item.TOXIC_ORB]: { [Stat.SHIELD]: 15, [Stat.SPE_DEF]: 4 },
@@ -89,6 +89,8 @@ export const ItemStats: { [item in Item]?: { [stat in Stat]?: number } } = {
     [Stat.DEF]: 10,
     [Stat.SPE_DEF]: 10
   },
+  [Item.BERSERK_GENE]: { [Stat.ATK]: 5 },
+  [Item.SURFBOARD]: { [Stat.SPEED]: 30 },
   [Item.INCENSE]: { [Stat.SPE_DEF]: 10, [Stat.AP]: 30 },
   [Item.COOKING_POT]: { [Stat.DEF]: 10 },
   [Item.EVIOLITE]: {
@@ -102,7 +104,8 @@ export const ItemStats: { [item in Item]?: { [stat in Stat]?: number } } = {
     [Stat.LUCK]: 50
   },
   [Item.COMET_SHARD]: { [Stat.ATK]: 15 },
-  [Item.ABSORB_BULB]: { [Stat.DEF]: 15, [Stat.SPE_DEF]: 15 },
+  [Item.ABSORB_BULB]: { [Stat.DEF]: 20, [Stat.SPE_DEF]: 20 },
+  [Item.GOLD_BOW]: { [Stat.SHIELD]: 50 },
   [Item.TEAL_MASK]: { [Stat.SHIELD]: 50 },
   [Item.WELLSPRING_MASK]: { [Stat.SHIELD]: 50 },
   [Item.CORNERSTONE_MASK]: { [Stat.SHIELD]: 50 },

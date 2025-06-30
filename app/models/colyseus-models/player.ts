@@ -1,12 +1,13 @@
 import { ArraySchema, MapSchema, Schema, type } from "@colyseus/schema"
+import { getUnitPowerScore } from "../../core/bot-logic"
+import { createRandomEgg } from "../../core/eggs"
 import {
-  carryOverPermanentStats,
-  ConditionBasedEvolutionRule
+  ConditionBasedEvolutionRule,
+  carryOverPermanentStats
 } from "../../core/evolution-rules"
 import { PokemonEntity } from "../../core/pokemon-entity"
-import { getUnitPowerScore } from "../../core/bot-logic"
 import type GameState from "../../rooms/states/game-state"
-import type { IPlayer, Role, Title } from "../../types"
+import { IPlayer, Role, Title } from "../../types"
 import { SynergyTriggers, UniquePool } from "../../types/Config"
 import { DungeonDetails, DungeonPMDO } from "../../types/enum/Dungeon"
 import { BattleResult, Rarity, Team } from "../../types/enum/Game"
@@ -34,16 +35,19 @@ import { Weather } from "../../types/enum/Weather"
 import { removeInArray } from "../../utils/array"
 import { getPokemonCustomFromAvatar } from "../../utils/avatar"
 import { getFirstAvailablePositionInBench, isOnBench } from "../../utils/board"
-import { min } from "../../utils/number"
-import { pickNRandomIn, pickRandomIn } from "../../utils/random"
+import { max, min } from "../../utils/number"
+import {
+  pickNRandomIn,
+  pickRandomIn,
+  simpleHashSeededCoinFlip
+} from "../../utils/random"
 import { resetArraySchema, values } from "../../utils/schemas"
 import { Effects } from "../effects"
-import { createRandomEgg } from "../../core/eggs"
 import type { IPokemonCollectionItem } from "../mongo-models/user-metadata"
 import PokemonFactory from "../pokemon-factory"
 import {
-  PRECOMPUTED_REGIONAL_MONS,
-  getPokemonData
+  getPokemonData,
+  PRECOMPUTED_REGIONAL_MONS
 } from "../precomputed/precomputed-pokemon-data"
 import { PRECOMPUTED_POKEMONS_PER_RARITY } from "../precomputed/precomputed-rarity"
 import { getRegularsTier1 } from "../shop"
@@ -197,13 +201,15 @@ export default class Player extends Schema implements IPlayer {
       this.board.set(avatar.id, avatar)
       avatar.onAcquired(this)
     } else if (state.specialGameRule === SpecialGameRule.FIRST_PARTNER) {
-      const randomCommons = pickNRandomIn(
-        getRegularsTier1(PRECOMPUTED_POKEMONS_PER_RARITY.COMMON).filter(
+      const coinFlip = simpleHashSeededCoinFlip(state.preparationId)
+      const rarityPartner = coinFlip ? Rarity.COMMON : Rarity.UNCOMMON
+      const partnersPropositions = pickNRandomIn(
+        getRegularsTier1(PRECOMPUTED_POKEMONS_PER_RARITY[rarityPartner]).filter(
           (p) => getPokemonData(p).stages === 3
         ),
         3
       )
-      this.pokemonsProposition.push(...randomCommons)
+      this.pokemonsProposition.push(...partnersPropositions)
     } else {
       this.firstPartner = state.shop.getRandomPokemonFromPool(
         Rarity.COMMON,
@@ -260,14 +266,9 @@ export default class Player extends Schema implements IPlayer {
   }
 
   getPokemonAt(x: number, y: number): Pokemon | undefined {
-    let p: Pokemon | undefined = undefined
-
-    this.board.forEach((pokemon) => {
-      if (pokemon.positionX == x && pokemon.positionY == y) {
-        p = pokemon
-      }
-    })
-    return p
+    return values(this.board).find(
+      (pokemon) => pokemon.positionX == x && pokemon.positionY == y
+    )
   }
 
   transformPokemon(pokemon: Pokemon, newEntry: Pkm): Pokemon {
@@ -485,7 +486,7 @@ export default class Player extends Schema implements IPlayer {
     this.wildChance =
       values(this.board)
         .filter((p) => p.types.has(Synergy.WILD))
-        .reduce((total, p) => total + p.stars * (1 + p.luck / 100), 0) / 100
+        .reduce((total, p) => total + p.stars * max(0.1)(Math.pow(0.01, 1 - p.luck / 200)), 0)
   }
 
   updateChefsHats() {
@@ -536,7 +537,7 @@ export default class Player extends Schema implements IPlayer {
         }
       })
 
-      if (state.specialGameRule === SpecialGameRule.REGIONAL_SPECIALITIES) {
+      if (state.specialGameRule === SpecialGameRule.REGIONAL_SPECIALTIES) {
         this.bonusSynergies.clear()
         const { synergies, regionalSpeciality } = DungeonDetails[this.map]
         synergies.forEach((synergy) => {
@@ -587,9 +588,16 @@ export default class Player extends Schema implements IPlayer {
   }
 
   registerPlayedPokemons() {
+    let legendaryCount = 0
     this.board.forEach((pokemon) => {
       this.pokemonsPlayed.add(pokemon.name)
+      if (pokemon.rarity === Rarity.LEGENDARY) {
+        legendaryCount++
+      }
     })
+    if (legendaryCount >= 3) {
+      this.titles.add(Title.LEGEND)
+    }
   }
 }
 

@@ -1,24 +1,24 @@
-import path from "path"
 import { monitor } from "@colyseus/monitor"
 import config from "@colyseus/tools"
-import { uWebSocketsTransport } from "@colyseus/uwebsockets-transport"
-import uWebSockets from "uWebSockets.js"
 import {
+  matchMaker,
   Presence,
   RedisDriver,
   RedisPresence,
-  ServerOptions,
-  matchMaker
+  ServerOptions
 } from "colyseus"
-import helmet from "helmet"
 import cors from "cors"
 import express, { ErrorRequestHandler } from "express"
 import basicAuth from "express-basic-auth"
 import admin from "firebase-admin"
+import { UserRecord } from "firebase-admin/lib/auth/user-record"
+import helmet from "helmet"
 import { connect } from "mongoose"
+import path from "path"
 import pkg from "../package.json"
 import { initTilemap } from "./core/design"
 import { GameRecord } from "./models/colyseus-models/game-record"
+import chatV2 from "./models/mongo-models/chat-v2"
 import DetailledStatistic from "./models/mongo-models/detailled-statistic-v2"
 import Meta from "./models/mongo-models/meta"
 import TitleStatistic from "./models/mongo-models/title-statistic"
@@ -32,11 +32,12 @@ import {
   addBotToDatabase,
   approveBot,
   deleteBotFromDatabase,
-  getBotData,
-  getBotsList
+  fetchBot,
+  fetchBotsList
 } from "./services/bots"
 import { getLeaderboard } from "./services/leaderboard"
 import { getMetadata, getMetaItems, getMetaPokemons } from "./services/meta"
+import { Role } from "./types"
 import {
   MAX_CONCURRENT_PLAYERS_ON_SERVER,
   MAX_POOL_CONNECTIONS_SIZE,
@@ -46,9 +47,6 @@ import { DungeonPMDO } from "./types/enum/Dungeon"
 import { Item } from "./types/enum/Item"
 import { Pkm, PkmIndex } from "./types/enum/Pokemon"
 import { logger } from "./utils/logger"
-import chatV2 from "./models/mongo-models/chat-v2"
-import { UserRecord } from "firebase-admin/lib/auth/user-record"
-import { Role } from "./types"
 
 const clientSrc = __dirname.includes("server")
   ? path.join(__dirname, "..", "..", "client")
@@ -103,10 +101,14 @@ if (process.env.MODE === "dev") {
 export default config({
   options: gameOptions,
 
-  // uWebSockets caused many issues unfortunately, reverting to WebSocketTransport for now
-  /*initializeTransport: function () {
+
+  /* uWebSockets turned out to be unstable in production, so we are using the default transport
+  2025-06-29T16:50:08: Error: Invalid access of closed uWS.WebSocket/SSLWebSocket.
+  
+  initializeTransport: function () {
     return new uWebSocketsTransport({
-      compression: uWebSockets.SHARED_COMPRESSOR
+      compression: uWebSockets.SHARED_COMPRESSOR,
+      idleTimeout: 0, // disable idle timeout
     })
   },*/
 
@@ -336,7 +338,7 @@ export default config({
     })
 
     app.get("/bots", async (req, res) => {
-      const botsData = await getBotsList(
+      const botsData = await fetchBotsList(
         req.query.approved === "true"
           ? true
           : req.query.approved === "false"
@@ -347,7 +349,7 @@ export default config({
     })
 
     app.get("/bots/:id", async (req, res) => {
-      res.send(await getBotData(req.params.id))
+      res.send(await fetchBot(req.params.id))
     })
 
     const authUser = async (req, res): Promise<UserRecord | null> => {

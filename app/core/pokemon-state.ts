@@ -63,16 +63,8 @@ export default abstract class PokemonState {
         pokemon.onCriticalAttack({ target, board, damage })
       }
 
-      if (pokemon.items.has(Item.PUNCHING_GLOVE)) {
-        damage = Math.round(damage + target.hp * 0.08)
-      }
-
       if (pokemon.attackType === AttackType.SPECIAL) {
         damage = Math.ceil(damage * (1 + pokemon.ap / 100))
-      }
-
-      if (pokemon.effects.has(EffectEnum.STONE_EDGE)) {
-        damage += Math.round(pokemon.def * (1 + pokemon.ap / 100))
       }
 
       let additionalSpecialDamagePart = 0
@@ -167,6 +159,10 @@ export default abstract class PokemonState {
         physicalDamage = damage
       }
 
+      if (pokemon.effects.has(EffectEnum.STONE_EDGE)) {
+        physicalDamage += Math.round(pokemon.def * (1 + pokemon.ap / 100))
+      }
+
       if (physicalDamage > 0) {
         // Apply attack physical damage
         const { takenDamage } = target.handleDamage({
@@ -189,6 +185,19 @@ export default abstract class PokemonState {
           shouldTargetGainMana: true
         })
         totalTakenDamage += takenDamage
+
+        if (target.items.has(Item.POWER_LENS) && !pokemon.items.has(Item.PROTECTIVE_PADS)) {
+          const speDef = target.status.armorReduction ? Math.round(target.speDef / 2) : target.speDef
+          const damageAfterReduction = specialDamage / (1 + ARMOR_FACTOR * speDef)
+          const damageBlocked = min(0)(specialDamage - damageAfterReduction)
+          pokemon.handleDamage({
+            damage: Math.round(damageBlocked),
+            board,
+            attackType: AttackType.SPECIAL,
+            attacker: target,
+            shouldTargetGainMana: true
+          })
+        }
       }
 
       const totalDamage = physicalDamage + specialDamage + trueDamage
@@ -338,6 +347,7 @@ export default abstract class PokemonState {
     }
 
     if (pokemon.life <= 0 || pokemon.status.resurecting) {
+      pokemon.status.possessedCooldown = 0
       return { death: false, takenDamage: 0 }
     }
 
@@ -345,9 +355,7 @@ export default abstract class PokemonState {
       damage *= 2
     }
 
-    if (pokemon.life === 0) {
-      death = true
-    } else if (pokemon.status.protect || pokemon.status.skydiving) {
+    if (pokemon.status.protect || pokemon.status.skydiving) {
       death = false
       takenDamage = 0
     } else {
@@ -410,6 +418,23 @@ export default abstract class PokemonState {
         speDef = swap
       }
 
+      if (pokemon.status.reflect && attackType === AttackType.PHYSICAL) {
+        if (attacker && attacker.items.has(Item.PROTECTIVE_PADS) === false) {
+          const crit =
+            pokemon.effects.has(EffectEnum.ABILITY_CRIT) &&
+            chance(pokemon.critChance, pokemon)
+          const reflectDamage = Math.round(0.5 * damage * (1 + pokemon.ap / 100) * (crit ? pokemon.critPower : 1))
+          attacker.handleDamage({
+            damage: reflectDamage,
+            board,
+            attackType: AttackType.SPECIAL, // it's important that it deals special damage to avoid an infinite loop when two reflects are attacking each other
+            attacker: pokemon,
+            shouldTargetGainMana: true
+          })
+        }
+        return { death: false, takenDamage: 0 }
+      }
+
       let reducedDamage = damage
       if (attackType == AttackType.PHYSICAL) {
         reducedDamage = damage / (1 + ARMOR_FACTOR * def)
@@ -463,12 +488,9 @@ export default abstract class PokemonState {
       if (isNaN(reducedDamage)) {
         reducedDamage = 0
         logger.error(
-          `error calculating damage, damage: ${damage}, target: ${
-            pokemon.name
-          }, attacker: ${
-            attacker ? attacker.name : "Environment"
-          }, attack type: ${attackType}, defense : ${
-            pokemon.def
+          `error calculating damage, damage: ${damage}, target: ${pokemon.name
+          }, attacker: ${attacker ? attacker.name : "Environment"
+          }, attack type: ${attackType}, defense : ${pokemon.def
           }, spedefense: ${pokemon.speDef}, life: ${pokemon.life}`
         )
       }
@@ -508,6 +530,35 @@ export default abstract class PokemonState {
         residualDamage = 0
         pokemon.status.triggerProtect(2000)
         pokemon.removeItem(Item.SHINY_CHARM)
+      }
+
+      if (pokemon.hasSynergyEffect(Synergy.FOSSIL) && pokemon.life - residualDamage <= 0) {
+        const shield = Math.round(pokemon.hp * (pokemon.effects.has(EffectEnum.FORGOTTEN_POWER)
+          ? 1
+          : pokemon.effects.has(EffectEnum.ELDER_POWER)
+            ? 0.7
+            : 0.4))
+        const attackBonus = pokemon.effects.has(EffectEnum.FORGOTTEN_POWER)
+          ? 1
+          : pokemon.effects.has(EffectEnum.ELDER_POWER)
+            ? 0.7
+            : 0.4
+        pokemon.addShield(shield, pokemon, 0, false)
+
+        const damageOnShield = max(shield)(residualDamage)
+
+        pokemon.shieldDamageTaken += damageOnShield
+        takenDamage += damageOnShield
+        pokemon.shield -= damageOnShield
+
+        residualDamage = min(0)(residualDamage - shield)
+
+        pokemon.addAttack(pokemon.baseAtk * attackBonus, pokemon, 0, false)
+        pokemon.cooldown = Math.round(500 * (50 / pokemon.speed))
+        broadcastAbility(pokemon, { skill: "FOSSIL_RESURRECT" })
+        SynergyEffects[Synergy.FOSSIL].forEach((e) => {
+          pokemon.effects.delete(e)
+        })
       }
 
       pokemon.life = Math.max(0, pokemon.life - residualDamage)
@@ -553,33 +604,11 @@ export default abstract class PokemonState {
         }
       }
 
-      if (!pokemon.life || pokemon.life <= 0) {
-        if (pokemon.hasSynergyEffect(Synergy.FOSSIL)) {
-          const healBonus = pokemon.effects.has(EffectEnum.FORGOTTEN_POWER)
-            ? 1
-            : pokemon.effects.has(EffectEnum.ELDER_POWER)
-              ? 0.7
-              : 0.4
-          const attackBonus = pokemon.effects.has(EffectEnum.FORGOTTEN_POWER)
-            ? 1
-            : pokemon.effects.has(EffectEnum.ELDER_POWER)
-              ? 0.6
-              : 0.3
-          pokemon.life = pokemon.hp * healBonus
-          pokemon.addAttack(pokemon.baseAtk * attackBonus, pokemon, 0, false)
-          pokemon.cooldown = Math.round(500 * (50 / pokemon.speed))
-          broadcastAbility(pokemon, { skill: "FOSSIL_RESURRECT" })
-          SynergyEffects[Synergy.FOSSIL].forEach((e) =>
-            pokemon.effects.delete(e)
-          )
-        } else if (pokemon.status.resurection) {
+      if (pokemon.life <= 0) {
+        if (pokemon.status.resurection) {
           pokemon.status.triggerResurection(pokemon)
           board.forEach((x, y, entity: PokemonEntity | undefined) => {
-            if (
-              entity &&
-              entity.targetX === pokemon.positionX &&
-              entity.targetY === pokemon.positionY
-            ) {
+            if (entity && entity.targetEntityId === pokemon.id) {
               // switch aggro immediately to reduce retarget lag after resurection
               entity.cooldown = 0
               entity.toMovingState()
@@ -633,17 +662,19 @@ export default abstract class PokemonState {
           effectsRemovedList.push(EffectEnum.MISTY_TERRAIN)
         }
 
-        if (pokemon.team == Team.BLUE_TEAM) {
+        const originalTeam = pokemon.status.possessed ? (pokemon.team === Team.BLUE_TEAM ? Team.RED_TEAM : Team.BLUE_TEAM) : pokemon.team
+        if (originalTeam == Team.BLUE_TEAM) {
           effectsRemovedList.forEach((x) =>
             pokemon.simulation.blueEffects.delete(x)
           )
-          pokemon.simulation.blueTeam.delete(pokemon.id)
         } else {
           effectsRemovedList.forEach((x) =>
             pokemon.simulation.redEffects.delete(x)
           )
-          pokemon.simulation.redTeam.delete(pokemon.id)
         }
+
+        pokemon.simulation.redTeam.delete(pokemon.id)
+        pokemon.simulation.blueTeam.delete(pokemon.id)
       }
     }
 
@@ -891,9 +922,9 @@ export default abstract class PokemonState {
     }
   }
 
-  onEnter(pokemon: PokemonEntity) {}
+  onEnter(pokemon: PokemonEntity) { }
 
-  onExit(pokemon: PokemonEntity) {}
+  onExit(pokemon: PokemonEntity) { }
 
   getTargetsAtRange(pokemon: PokemonEntity, board: Board): PokemonEntity[] {
     const targets: PokemonEntity[] = []
@@ -916,16 +947,16 @@ export default abstract class PokemonState {
     return targets
   }
 
-  /* NOTE: getNearestTargetAtRangeCoordinates require another algorithm that getNearestTargetCoordinate
+  /* NOTE: getNearestTargetAtRange require another algorithm that getNearestTargetCoordinate
   because it used Chebyshev distance instead of Manhattan distance
   more info here: https://discord.com/channels/737230355039387749/1183398539456413706 */
-  getNearestTargetAtRangeCoordinates(
+  getNearestTargetAtRange(
     pokemon: PokemonEntity,
     board: Board
-  ): { x: number; y: number } | undefined {
+  ): PokemonEntity | undefined {
     const targets = this.getTargetsAtRange(pokemon, board)
-    let distance = 999
-    let candidatesCoordinates: { x: number; y: number }[] = []
+    let distance = pokemon.range + 1
+    let candidates: PokemonEntity[] = []
     for (const target of targets) {
       const candidateDistance = distanceC(
         pokemon.positionX,
@@ -935,13 +966,13 @@ export default abstract class PokemonState {
       )
       if (candidateDistance < distance) {
         distance = candidateDistance
-        candidatesCoordinates = [{ x: target.positionX, y: target.positionY }]
+        candidates = [target]
       } else if (candidateDistance == distance) {
-        candidatesCoordinates.push({ x: target.positionX, y: target.positionY })
+        candidates.push(target)
       }
     }
-    if (candidatesCoordinates.length > 0) {
-      return pickRandomIn(candidatesCoordinates)
+    if (candidates.length > 0) {
+      return pickRandomIn(candidates)
     } else {
       return undefined
     }
@@ -984,13 +1015,14 @@ export default abstract class PokemonState {
 
   getFarthestTarget(
     pokemon: PokemonEntity,
-    board: Board
+    board: Board,
+    targettableBy: PokemonEntity = pokemon
   ): PokemonEntity | undefined {
     let farthestTarget: PokemonEntity | undefined = undefined
     let maxDistance = 0
 
     board.forEach((x: number, y: number, enemy: PokemonEntity | undefined) => {
-      if (enemy && enemy.isTargettableBy(pokemon)) {
+      if (enemy && enemy.isTargettableBy(targettableBy)) {
         const distance = distanceM(pokemon.positionX, pokemon.positionY, x, y)
         if (distance > maxDistance) {
           farthestTarget = enemy
@@ -1085,21 +1117,18 @@ export default abstract class PokemonState {
     return pickRandomIn(candidateCells)
   }
 
-  getTargetCoordinateWhenConfused(
+  getTargetWhenConfused(
     pokemon: PokemonEntity,
     board: Board
-  ): { x: number; y: number } | undefined {
-    let distance = 999
-    let candidatesCoordinates: { x: number; y: number }[] = new Array<{
-      x: number
-      y: number
-    }>()
+  ): PokemonEntity | undefined {
+    let distance = pokemon.range + 1
+    let candidates: PokemonEntity[] = []
 
-    board.forEach((x: number, y: number, value: PokemonEntity | undefined) => {
+    board.forEach((x: number, y: number, pkm: PokemonEntity | undefined) => {
       if (
-        value &&
-        value.id !== pokemon.id &&
-        value.isTargettableBy(pokemon, true, true)
+        pkm &&
+        pkm.id !== pokemon.id &&
+        pkm.isTargettableBy(pokemon, true, true)
       ) {
         const candidateDistance = distanceM(
           pokemon.positionX,
@@ -1109,17 +1138,17 @@ export default abstract class PokemonState {
         )
         if (candidateDistance < distance) {
           distance = candidateDistance
-          candidatesCoordinates = [{ x, y }]
+          candidates = [pkm]
         } else if (candidateDistance == distance) {
-          candidatesCoordinates.push({ x, y })
+          candidates.push(pkm)
         }
       }
     })
 
-    candidatesCoordinates.push({ x: pokemon.positionX, y: pokemon.positionY }) // sometimes attack itself when confused
+    candidates.push(pokemon) // sometimes attack itself when confused
 
-    if (candidatesCoordinates.length > 0) {
-      return pickRandomIn(candidatesCoordinates)
+    if (candidates.length > 0) {
+      return pickRandomIn(candidates)
     } else {
       return undefined
     }

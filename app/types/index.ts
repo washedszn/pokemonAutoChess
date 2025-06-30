@@ -576,6 +576,12 @@ export interface IPokemonEntity {
   skydiveTo(x: number, y: number, board: Board): void
   toIdleState(): void
   toMovingState(): void
+  isTargettableBy(
+    attacker: IPokemonEntity,
+    targetEnemies?: boolean,
+    targetAllies?: boolean
+  ): boolean
+  setTarget(target: IPokemonEntity | null): void
   physicalDamage: number
   specialDamage: number
   trueDamage: number
@@ -608,6 +614,7 @@ export interface IPokemonEntity {
   speed: number
   targetX: number
   targetY: number
+  targetEntityId: string
   attackSprite: AttackSprite
   rarity: Rarity
   name: Pkm
@@ -646,6 +653,7 @@ export interface IStatus {
   paralysis: boolean
   pokerus: boolean
   locked: boolean
+  possessed: boolean
   blinded: boolean
   armorReduction: boolean
   runeProtect: boolean
@@ -740,7 +748,7 @@ export enum Title {
   ELECTRICIAN = "ELECTRICIAN",
   GEOLOGIST = "GEOLOGIST",
   MYTH_TRAINER = "MYTH_TRAINER",
-  DIVER = "DIVER",
+  SURFER = "SURFER",
   POKEMON_RANGER = "POKEMON_RANGER",
   CAMPER = "CAMPER",
   RIVAL = "RIVAL",
@@ -780,6 +788,10 @@ export enum Title {
   SIREN = "SIREN",
   FEARSOME = "FEARSOME",
   GOLDEN = "GOLDEN",
+  LUCKY = "LUCKY",
+  GIANT = "GIANT",
+  DECURION = "DECURION",
+  LEGEND = "LEGEND",
   CHOSEN_ONE = "CHOSEN_ONE",
   ANNIHILATOR = "ANNIHILATOR",
   VANQUISHER = "VANQUISHER",

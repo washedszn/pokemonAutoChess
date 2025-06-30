@@ -37,6 +37,7 @@ export default function TeamBuilder(props: {
   })
 
   const ingame = useLocation().pathname === "/game"
+  const inBotBuilder = useLocation().pathname.startsWith("/bot-builder")
   const currentPlayer = useAppSelector(selectCurrentPlayer)
   const [board, setBoard] = useState<IDetailledPokemon[]>(props.board ?? [])
 
@@ -131,11 +132,11 @@ export default function TeamBuilder(props: {
   }
 
   function handleDrop(x: number, y: number, e: React.DragEvent) {
-    if (e.dataTransfer.getData("cell") != "") {
-      const [originX, originY] = e.dataTransfer
-        .getData("cell")
-        .split(",")
-        .map(Number)
+    e.stopPropagation()
+    e.preventDefault()
+    const data = e.dataTransfer.getData("text/plain")
+    if (data.startsWith("cell")) {
+      const [type, originX, originY] = data.split(",").map(Number)
       const pkm = board.find((p) => p.x === originX && p.y === originY)
       const otherPokemonOnCell = board.find((p) => p.x === x && p.y === y)
       if (pkm) {
@@ -147,23 +148,24 @@ export default function TeamBuilder(props: {
         pkm.y = y
         updateBoard([...board])
       }
-    } else if (e.dataTransfer.getData("pokemon") != "") {
+    } else if (data.startsWith("pokemon")) {
+      const [type, name] = data.split(",") as [string, Pkm]
       const pkm: PkmWithCustom = {
-        name: e.dataTransfer.getData("pokemon") as Pkm,
+        name,
         emotion: Emotion.NORMAL,
         shiny: false
       }
       addPokemon(x, y, pkm)
       setSelection(pkm)
-    } else if (e.dataTransfer.getData("item") != "") {
-      const item = e.dataTransfer.getData("item") as Item
+    } else if (data.startsWith("item")) {
+      const [type, item] = data.split(",") as [string, Item]
       addItem(x, y, item)
       setSelection(item)
     }
   }
 
   function getFirstEmptyCell(): { x: number; y: number } | null {
-    for (let y = 1; y < 3; y++) {
+    for (let y = 1; y <= 3; y++) {
       for (let x = 0; x < 8; x++) {
         if (board.find(p => p.x === x && p.y === y) === undefined) {
           return { x, y }
@@ -264,8 +266,8 @@ export default function TeamBuilder(props: {
       <Synergies synergies={synergies} tooltipPortal={false} />
       <div className="actions">
         {ingame && <button className="bubbly blue" onClick={snapshot}><img src="assets/ui/photo.svg" /> {t("snapshot")}</button>}
-        <button className="bubbly dark" onClick={saveFile}><img src="assets/ui/save.svg" /> {t("save")}</button>
-        <button className="bubbly dark" onClick={loadFile}><img src="assets/ui/load.svg" /> {t("load")}</button>
+        {!inBotBuilder && <button className="bubbly dark" onClick={saveFile}><img src="assets/ui/save.svg" /> {t("save")}</button>}
+        {!inBotBuilder && <button className="bubbly dark" onClick={loadFile}><img src="assets/ui/load.svg" /> {t("load")}</button>}
         <button className="bubbly red" onClick={reset}><img src="assets/ui/trash.svg" /> {t("reset")}</button>
       </div>
       <TeamEditor

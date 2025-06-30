@@ -21,7 +21,8 @@ export default function ItemPicker(props: {
   const [itemHovered, setItemHovered] = useState<Item>()
 
   function handleOnDragStart(e: React.DragEvent, item: Item) {
-    e.dataTransfer.setData("item", item)
+    e.stopPropagation()
+    e.dataTransfer.setData("text/plain", `item,${item}`)
   }
 
   const tabs = [
@@ -34,6 +35,11 @@ export default function ItemPicker(props: {
       label: t("shiny_items"),
       key: "shiny_items",
       items: ShinyItems
+    },
+    {
+      label: t("special_items"),
+      key: "special_items",
+      items: [Item.RUSTED_SWORD, Item.TEAL_MASK, Item.WELLSPRING_MASK, Item.CORNERSTONE_MASK, Item.HEARTHFLAME_MASK]
     }
   ]
 
@@ -65,6 +71,7 @@ export default function ItemPicker(props: {
       {itemHovered && <Tooltip
         id="item-detail"
         className="custom-theme-tooltip item-detail-tooltip"
+        float
       >
         <ItemDetailTooltip item={itemHovered} />
       </Tooltip>}

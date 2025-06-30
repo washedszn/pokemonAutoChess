@@ -1,24 +1,25 @@
+import { t } from "i18next"
 import { GameObjects } from "phaser"
+import PokemonFactory from "../../../../models/pokemon-factory"
 import { Transfer } from "../../../../types"
 import { Ability } from "../../../../types/enum/Ability"
+import { Orientation, PokemonActionState } from "../../../../types/enum/Game"
 import { Pkm, Unowns } from "../../../../types/enum/Pokemon"
+import { getFreeSpaceOnBench } from "../../../../utils/board"
+import { clamp } from "../../../../utils/number"
+import { chance } from "../../../../utils/random"
+import { DEPTH } from "../depths"
 import GameScene from "../scenes/game-scene"
 import PokemonSprite from "./pokemon"
-import { DEPTH } from "../depths"
-import { getFreeSpaceOnBench } from "../../../../utils/board"
-import { t } from "i18next"
-import { chance } from "../../../../utils/random"
-import PokemonFactory from "../../../../models/pokemon-factory"
-import { Orientation, PokemonActionState } from "../../../../types/enum/Game"
 
 const SHARDS_PER_UNOWN_WANDERER = 50
-const DEFAULT_WANDERER_SPEED = 0.3
+const DEFAULT_WANDERER_SPEED = 0.25
 
 /*
 List of wanderers:
 - Unowns: give shard when caught
 - Sableye: from town encounter, steal an item
-- Others: from scribble, added to bench when caught
+- Others: from Gotta catch em all scribble, added to bench when caught
 */
 
 export default class WanderersManager {
@@ -42,6 +43,7 @@ export default class WanderersManager {
     this.addWanderingPokemon({
       id,
       pkm,
+      duration: clamp(window.innerWidth / DEFAULT_WANDERER_SPEED, 4000, 6000),
       onClick: (unown, id, pointer, tween) => {
         this.scene.room?.send(Transfer.POKEMON_WANDERING, { id })
         this.displayShardGain([pointer.x, pointer.y], unown.index)
@@ -86,8 +88,10 @@ export default class WanderersManager {
       startY: 700,
       endX: 484,
       endY: 686,
-      duration: 3000,
+      duration: 6000,
       onClick: (sprite, id, pointer) => {
+        if (stopped) return
+        this.scene.displayMoneyGain(sprite.x, sprite.y, 1)
         this.scene.room?.send(Transfer.POKEMON_WANDERING, { id })
         stopped = true
         this.scene.animationManager?.animatePokemon(
@@ -196,6 +200,7 @@ export default class WanderersManager {
     pokemon.sprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       onClick(pokemon, id, pointer, tween)
     })
+
     return { tween, sprite: pokemon }
   }
 

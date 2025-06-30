@@ -131,6 +131,7 @@ export enum EffectEnum {
   HUSTLE = "HUSTLE",
   BERSERK = "BERSERK",
   STICKY_WEB = "STICKY_WEB",
+  COTTON_BALL = "COTTON_BALL",
   HAIL = "HAIL",
   EMBER = "EMBER",
   FLUID = "FLUID",
@@ -157,7 +158,8 @@ export enum EffectEnum {
   DOUBLE_DAMAGE = "DOUBLE_DAMAGE",
   DARK_HARVEST = "DARK_HARVEST",
   STONE_EDGE = "STONE_EDGE",
-  CHARGE = "CHARGE"
+  CHARGE = "CHARGE",
+  SURGE_SURFER = "SURGE_SURFER"
 }
 
 export const BoardEffects = [
@@ -168,6 +170,7 @@ export const BoardEffects = [
   EffectEnum.SPIKES,
   EffectEnum.TOXIC_SPIKES,
   EffectEnum.STICKY_WEB,
+  EffectEnum.COTTON_BALL,
   EffectEnum.HAIL,
   EffectEnum.EMBER
 ] as const

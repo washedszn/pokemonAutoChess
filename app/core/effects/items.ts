@@ -1,25 +1,26 @@
 import PokemonFactory from "../../models/pokemon-factory"
-import { Transfer } from "../../types"
-import { DEFAULT_SPEED } from "../../types/Config"
-import { AttackType } from "../../types/enum/Game"
+import { Title, Transfer } from "../../types"
+import { ARMOR_FACTOR, DEFAULT_SPEED } from "../../types/Config"
+import { Ability } from "../../types/enum/Ability"
 import { EffectEnum } from "../../types/enum/Effect"
+import { AttackType } from "../../types/enum/Game"
 import { Item } from "../../types/enum/Item"
 import { Pkm } from "../../types/enum/Pokemon"
 import { distanceC } from "../../utils/distance"
 import { min } from "../../utils/number"
+import { AbilityStrategies } from "../abilities/abilities"
 import { PokemonEntity } from "../pokemon-entity"
+import { DelayedCommand } from "../simulation-command"
 import {
   Effect,
   OnAbilityCastEffect,
   OnAttackEffect,
+  OnHitEffect,
   OnItemGainedEffect,
   OnItemRemovedEffect,
   OnKillEffect,
   PeriodicEffect
 } from "./effect"
-import { AbilityStrategies } from "../abilities/abilities"
-import { DelayedCommand } from "../simulation-command"
-import { Ability } from "../../types/enum/Ability"
 
 export const blueOrbOnAttackEffect = new OnAttackEffect(
   ({ pokemon, target, board }) => {
@@ -115,14 +116,35 @@ export const choiceScarfOnAttackEffect = new OnAttackEffect(
             totalTakenDamage += takenDamage
           }
           if (specialDamage > 0) {
+            const scarfSpecialDamage = Math.ceil(0.5 * specialDamage)
             const { takenDamage } = target.handleDamage({
-              damage: Math.ceil(0.5 * specialDamage),
+              damage: scarfSpecialDamage,
               board,
               attackType: AttackType.SPECIAL,
               attacker: pokemon,
               shouldTargetGainMana: true
             })
             totalTakenDamage += takenDamage
+            if (
+              target.items.has(Item.POWER_LENS) &&
+              !pokemon.items.has(Item.PROTECTIVE_PADS)
+            ) {
+              const speDef = target.status.armorReduction
+                ? Math.round(target.speDef / 2)
+                : target.speDef
+              const damageAfterReduction =
+                scarfSpecialDamage / (1 + ARMOR_FACTOR * speDef)
+              const damageBlocked = min(0)(
+                scarfSpecialDamage - damageAfterReduction
+              )
+              pokemon.handleDamage({
+                damage: Math.round(damageBlocked),
+                board,
+                attackType: AttackType.SPECIAL,
+                attacker: target,
+                shouldTargetGainMana: true
+              })
+            }
           }
           if (trueDamage > 0) {
             const { takenDamage } = target.handleDamage({
@@ -185,6 +207,18 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
           break
         }
       }
+    })
+  ],
+
+  [Item.PUNCHING_GLOVE]: [
+    new OnHitEffect((pokemon, target, board) => {
+      target.handleDamage({
+        damage: Math.round(0.08 * target.hp),
+        board,
+        attackType: AttackType.PHYSICAL,
+        attacker: pokemon,
+        shouldTargetGainMana: true
+      })
     })
   ],
 
@@ -281,11 +315,9 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
 
   [Item.GOLD_BOTTLE_CAP]: [
     new OnItemGainedEffect((pokemon) => {
-      pokemon.addCritChance(pokemon.player?.money ?? 0, pokemon, 0, false)
       pokemon.addCritPower(pokemon.player?.money ?? 0, pokemon, 0, false)
     }),
     new OnItemRemovedEffect((pokemon) => {
-      pokemon.addCritChance(-(pokemon.player?.money ?? 0), pokemon, 0, false)
       pokemon.addCritPower(-(pokemon.player?.money ?? 0), pokemon, 0, false)
     }),
     new OnKillEffect((pokemon, target, board, attackType) => {
@@ -301,6 +333,9 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
         const moneyGained = isLastEnemy ? pokemon.count.bottleCapCount + 1 : 1
         pokemon.player.addMoney(moneyGained, true, pokemon)
         pokemon.count.moneyCount += moneyGained
+        if (isLastEnemy && pokemon.count.bottleCapCount >= 10) {
+          pokemon.player.titles.add(Title.LUCKY)
+        }
       }
     })
   ],
@@ -310,7 +345,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addShield(
         Math.floor(
           ((pokemon.player?.rerollCount ?? 0) + pokemon.simulation.stageLevel) /
-            2
+          2
         ) * 2,
         pokemon,
         0,
@@ -319,7 +354,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addSpeed(
         Math.floor(
           ((pokemon.player?.rerollCount ?? 0) + pokemon.simulation.stageLevel) /
-            2
+          2
         ),
         pokemon,
         0,
@@ -330,7 +365,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addAbilityPower(
         -Math.floor(
           ((pokemon.player?.rerollCount ?? 0) + pokemon.simulation.stageLevel) /
-            2
+          2
         ),
         pokemon,
         0,
@@ -359,7 +394,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
     })
   ],
 
-  [Item.DEFENSIVE_RIBBON]: [
+  [Item.MUSCLE_BAND]: [
     new OnItemRemovedEffect((pokemon) => {
       const stacks = Math.floor(pokemon.count.defensiveRibbonCount / 2)
       pokemon.addAttack(-stacks, pokemon, 0, false)
@@ -420,6 +455,9 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addAttack(1, pokemon, 0, false)
       pokemon.count.magmarizerCount++
     }),
+    new OnHitEffect((pokemon, target, board) => {
+      target.status.triggerBurn(2000, target, pokemon)
+    }),
     new OnItemRemovedEffect((pokemon) => {
       pokemon.addAttack(-pokemon.count.magmarizerCount, pokemon, 0, false)
       pokemon.count.magmarizerCount = 0
@@ -431,6 +469,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       if (target && pokemon.count.attackCount % 3 === 0) {
         target.addPP(-15, pokemon, 0, false)
         target.count.manaBurnCount++
+        target.status.triggerParalysis(2000, target, pokemon)
       }
     })
   ],
