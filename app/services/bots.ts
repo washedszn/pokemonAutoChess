@@ -1,45 +1,53 @@
-import { BotV2, IBot, IStep } from "../models/mongo-models/bot-v2"
-import { nanoid } from "nanoid"
-import { mongo } from "mongoose"
 import { logger } from "colyseus"
-import { rewriteBotRoundsRequiredto1, validateBot } from "../core/bot-logic"
-import { discordService } from "./discord"
+import { mongo } from "mongoose"
+import { nanoid } from "nanoid"
+import { BotV2, IBot, IStep } from "../models/mongo-models/bot-v2"
 import { IUserMetadata } from "../models/mongo-models/user-metadata"
+import { discordService } from "./discord"
 
-export type IBotListItem = Omit<IBot, "steps"> & { valid: boolean }
+export type IBotListItem = Omit<IBot, "steps">
 
 export async function fetchBotsList(
   approved?: boolean
 ): Promise<IBotListItem[]> {
-  const bots = new Array<IBot>()
-  const chunkSize = 100
-  let skip = 0
+  const pageSize = 100
 
-  while (true) {
-    const botsData = await BotV2.find(
+  const fetchPage = (page: number): Promise<IBot[]> => {
+    return BotV2.find(
       {},
       {},
-      { sort: { elo: -1 }, limit: chunkSize, skip }
-    )
-    if (!botsData || botsData.length === 0) break
-    bots.push(...botsData)
-    skip += chunkSize
+      { sort: { elo: -1 }, limit: pageSize, skip: page * pageSize }
+    ).then((botsData) => {
+      if (!botsData || botsData.length === 0) {
+        return []
+      }
+      if (botsData.length < pageSize) {
+        // Last chunk
+        return botsData
+      }
+      // Wait for 10 seconds before fetching next page to not block the event loop
+      const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+      return wait(100).then(() =>
+        fetchPage(page + 1).then((nextPageBotsData) => [
+          ...botsData,
+          ...nextPageBotsData
+        ])
+      )
+    })
   }
 
-  return bots
-    .filter((bot) => approved === undefined || bot.approved === approved)
-    .map((bot) => {
-      const errors = validateBot(rewriteBotRoundsRequiredto1(bot))
-      return {
+  return fetchPage(0).then((bots) =>
+    bots
+      .filter((bot) => approved === undefined || bot.approved === approved)
+      .map((bot) => ({
         name: bot.name,
         avatar: bot.avatar,
         id: bot.id,
         approved: bot.approved,
         author: bot.author,
-        elo: bot.elo,
-        valid: errors.length === 0
-      }
-    })
+        elo: bot.elo
+      }))
+  )
 }
 
 export async function fetchBot(id: string): Promise<IBot | null> {
