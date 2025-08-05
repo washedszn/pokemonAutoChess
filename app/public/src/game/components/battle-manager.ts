@@ -20,18 +20,17 @@ import {
 import { Item } from "../../../../types/enum/Item"
 import { Passive } from "../../../../types/enum/Passive"
 import { PkmByIndex } from "../../../../types/enum/Pokemon"
+import type { NonFunctionPropNames } from "../../../../types/HelperTypes"
 import { max } from "../../../../utils/number"
+import { pickRandomIn } from "../../../../utils/random"
 import { transformEntityCoordinates } from "../../pages/utils/utils"
 import AnimationManager from "../animation-manager"
-import GameScene from "../scenes/game-scene"
-import { displayAbility } from "./abilities-animations"
-import PokemonSprite from "./pokemon"
-import PokemonDetail from "./pokemon-detail"
-import { pickRandomIn } from "../../../../utils/random"
-import { displayBoost } from "./boosts-animations"
-import type { NonFunctionPropNames } from "../../../../types/HelperTypes"
 import { DEPTH } from "../depths"
-import { PokemonClasses } from "../../../../models/colyseus-models/pokemon"
+import GameScene from "../scenes/game-scene"
+import { displayAbility, displayHit } from "./abilities-animations"
+import PokemonSprite from "./pokemon"
+import { DEFAULT_POKEMON_ANIMATION_CONFIG, PokemonAnimations } from "./pokemon-animations"
+import PokemonDetail from "./pokemon-detail"
 
 export default class BattleManager {
   group: GameObjects.Group
@@ -357,7 +356,7 @@ export default class BattleManager {
         if (pokemon.status.enraged) {
           pkm.addRageEffect()
         } else if (previousValue === true) {
-          pkm.removeRageEffect()
+          pkm.removeRageEffect(pokemon.items.has(Item.BERSERK_GENE))
         }
       }
     }
@@ -389,75 +388,26 @@ export default class BattleManager {
         if (value != 0) {
           pkm.specialAttackAnimation(pokemon)
         }
+        pkm.itemsContainer.updateCount(Item.AQUA_EGG, value)
       } else if (field === "fieldCount") {
         if (value != 0) {
-          displayAbility(
-            this.scene,
-            [],
-            "FIELD_DEATH",
-            pkm.orientation,
-            pkm.positionX,
-            pkm.positionY,
-            pkm.targetX ?? -1,
-            pkm.targetY ?? -1,
-            this.flip
-          )
+          this.displayAbilityOnPokemon("FIELD_DEATH", pkm)
         }
       } else if (field == "fightingBlockCount") {
         if (value > 0 && value % 10 === 0) {
-          displayAbility(
-            this.scene,
-            [],
-            "FIGHTING_KNOCKBACK",
-            pkm.orientation,
-            pkm.positionX,
-            pkm.positionY,
-            pkm.targetX ?? -1,
-            pkm.targetY ?? -1,
-            this.flip
-          )
+          this.displayAbilityOnPokemon("FIGHTING_KNOCKBACK", pkm)
         }
       } else if (field === "fairyCritCount") {
         if (value != 0) {
-          displayAbility(
-            this.scene,
-            [],
-            "FAIRY_CRIT",
-            pkm.orientation,
-            pkm.positionX,
-            pkm.positionY,
-            pkm.targetX ?? -1,
-            pkm.targetY ?? -1,
-            this.flip
-          )
+          this.displayAbilityOnPokemon("FAIRY_CRIT", pkm)
         }
       } else if (field === "powerLensCount") {
-        if (value != 0) {
-          displayAbility(
-            this.scene,
-            [],
-            "POWER_LENS",
-            pkm.orientation,
-            pkm.positionX,
-            pkm.positionY,
-            pkm.targetX ?? -1,
-            pkm.targetY ?? -1,
-            this.flip
-          )
+        if (value !== 0) {
+          this.displayAbilityOnPokemon("POWER_LENS", pkm)
         }
       } else if (field === "starDustCount") {
-        if (value != 0) {
-          displayAbility(
-            this.scene,
-            [],
-            "STAR_DUST",
-            pkm.orientation,
-            pkm.positionX,
-            pkm.positionY,
-            pkm.targetX ?? -1,
-            pkm.targetY ?? -1,
-            this.flip
-          )
+        if (value !== 0) {
+          this.displayAbilityOnPokemon("STAR_DUST", pkm)
         }
       } else if (field === "spellBlockedCount") {
         if (value != 0) {
@@ -541,7 +491,7 @@ export default class BattleManager {
           pkm.specialAttackAnimation(pokemon)
         } else if (!pokemon.status.skydiving) {
           pkm.moveManager.setSpeed(
-            3 *
+            2 *
             getMoveSpeed(pokemon) *
             Math.max(
               Math.abs(pkm.x - coordinates[0]),
@@ -574,7 +524,7 @@ export default class BattleManager {
         }
       } else if (field === "ap") {
         if (value && value > (previousValue || 0)) {
-          this.displayBoost(Stat.AP, pkm.positionX, pkm.positionY)
+          pkm.displayBoost(Stat.AP)
         }
         pkm.ap = pokemon.ap
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
@@ -603,7 +553,7 @@ export default class BattleManager {
         }
       } else if (field === "speed") {
         if (value && value > (previousValue || 0)) {
-          this.displayBoost(Stat.SPEED, pkm.positionX, pkm.positionY)
+          pkm.displayBoost(Stat.SPEED)
         }
         pkm.speed = pokemon.speed
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
@@ -623,7 +573,7 @@ export default class BattleManager {
       } else if (field === "shield") {
         if (pokemon.shield >= 0) {
           if (value && value > (previousValue || 0)) {
-            this.displayBoost(Stat.SHIELD, pkm.positionX, pkm.positionY)
+            pkm.displayBoost(Stat.SHIELD)
           }
           pkm.shield = pokemon.shield
           pkm.lifebar?.setShield(pkm.shield)
@@ -640,7 +590,7 @@ export default class BattleManager {
         }
       } else if (field === "atk") {
         if (value && value > (previousValue || 0)) {
-          this.displayBoost(Stat.ATK, pkm.positionX, pkm.positionY)
+          pkm.displayBoost(Stat.ATK)
         }
         pkm.atk = pokemon.atk
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
@@ -652,7 +602,7 @@ export default class BattleManager {
         }
       } else if (field === "def") {
         if (value && value > (previousValue || 0)) {
-          this.displayBoost(Stat.DEF, pkm.positionX, pkm.positionY)
+          pkm.displayBoost(Stat.DEF)
         }
         pkm.def = pokemon.def
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
@@ -664,7 +614,7 @@ export default class BattleManager {
         }
       } else if (field === "speDef") {
         if (value && value > (previousValue || 0)) {
-          this.displayBoost(Stat.SPE_DEF, pkm.positionX, pkm.positionY)
+          pkm.displayBoost(Stat.SPE_DEF)
         }
         pkm.speDef = pokemon.speDef
         if (pkm.detail && pkm.detail instanceof PokemonDetail) {
@@ -704,7 +654,7 @@ export default class BattleManager {
           pkm.lazyloadAnimations(this.scene, true) // unload previous index animations
           pkm.index = value as IPokemonEntity["index"]
           pkm.attackSprite =
-            new PokemonClasses[PkmByIndex[value as string]]()?.attackSprite ??
+            PokemonAnimations[PkmByIndex[value as string]]?.attackSprite ??
             pkm.attackSprite
           pkm.lazyloadAnimations(this.scene) // load the new ones
           pkm.displayAnimation("EVOLUTION")
@@ -737,11 +687,6 @@ export default class BattleManager {
         }
       }
     }
-  }
-
-  displayBoost(stat: Stat, positionX: number, positionY: number) {
-    const coords = transformEntityCoordinates(positionX, positionY, this.flip)
-    displayBoost(this.scene, coords[0], coords[1], stat)
   }
 
   displayDodge(x: number, y: number) {
@@ -904,30 +849,47 @@ export default class BattleManager {
     })
   }
 
-  displayAbility(
+  displayAbility(args: {
     id: string,
     skill: Ability | string,
+    ap: number,
     orientation: Orientation,
     positionX: number,
     positionY: number,
     targetX?: number,
     targetY?: number,
-    delay?: number
-  ) {
-    if (this.simulation?.id === id && skill) {
-      displayAbility(
-        this.scene,
-        this.group.getChildren() as PokemonSprite[],
-        skill,
-        orientation,
-        positionX,
-        positionY,
-        targetX ?? -1,
-        targetY ?? -1,
-        this.flip,
-        delay ?? -1
-      )
+    delay?: number,
+  }) {
+    if (this.simulation?.id === args.id && args.skill) {
+      displayAbility({
+        scene: this.scene,
+        pokemonsOnBoard: this.group.getChildren() as PokemonSprite[],
+        ability: args.skill,
+        ap: args.ap,
+        orientation: args.orientation,
+        positionX: args.positionX,
+        positionY: args.positionY,
+        targetX: args.targetX ?? -1,
+        targetY: args.targetY ?? -1,
+        flip: this.flip,
+        delay: args.delay ?? -1
+      })
     }
+  }
+
+  displayAbilityOnPokemon(ability: Ability | string, pkm: PokemonSprite) {
+    displayAbility({
+      scene: this.scene,
+      pokemonsOnBoard: [],
+      ability,
+      ap: pkm.ap,
+      orientation: pkm.orientation,
+      positionX: pkm.positionX,
+      positionY: pkm.positionY,
+      targetX: pkm.targetX ?? -1,
+      targetY: pkm.targetY ?? -1,
+      flip: this.flip
+    })
   }
 
   displayBoardEvent(event: IBoardEvent) {
@@ -971,7 +933,7 @@ export default class BattleManager {
 
       this.scene.tweens.add({
         targets: sprite,
-        alpha: 1,
+        alpha: 0.8,
         duration: 500
       })
     }
@@ -1160,60 +1122,43 @@ export default class BattleManager {
     })
   }
 
-  displayHit(x: number, y: number) {
-    const hitSprite = this.scene.add.sprite(
-      x + (Math.random() - 0.5) * 30,
-      y + (Math.random() - 0.5) * 30,
-      "attacks",
-      "NORMAL/hit/000.png"
-    )
-    hitSprite.setDepth(DEPTH.HIT_FX_ABOVE_POKEMON)
-    hitSprite.setScale(2, 2)
-    hitSprite.anims.play("NORMAL/hit")
-    hitSprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-      hitSprite.destroy()
-    })
-  }
-
-  displayDamage(
-    positionX: number,
-    positionY: number,
-    damage: number,
+  displayDamage({ x, y, amount, type, index, id }: {
+    x: number,
+    y: number,
+    amount: number,
     type: AttackType,
     index: string,
     id: string
-  ) {
+  }) {
     if (this.simulation?.id === id) {
-      const coordinates = transformEntityCoordinates(
-        positionX,
-        positionY,
-        this.flip
-      )
+      const coordinates = transformEntityCoordinates(x, y, this.flip)
       const color =
         type === AttackType.PHYSICAL
           ? "#e76e55"
           : type === AttackType.SPECIAL
             ? "#209cee"
             : "#f7d51d"
-      this.displayTween(color, coordinates, index, damage)
-      this.displayHit(coordinates[0], coordinates[1])
+      this.displayTween(color, coordinates, index, amount)
+      displayHit(
+        this.scene,
+        PokemonAnimations[PkmByIndex[index]]?.hitSprite ?? DEFAULT_POKEMON_ANIMATION_CONFIG.hitSprite,
+        coordinates[0],
+        coordinates[1],
+        this.flip
+      )
     }
   }
 
-  displayHeal(
-    positionX: number,
-    positionY: number,
-    amount: number,
-    type: HealType,
-    index: string,
+  displayHeal({ x, y, amount, type, index, id }: {
+    type: HealType
     id: string
-  ) {
+    x: number
+    y: number
+    index: string
+    amount: number
+  }) {
     if (this.simulation?.id === id) {
-      const coordinates = transformEntityCoordinates(
-        positionX,
-        positionY,
-        this.flip
-      )
+      const coordinates = transformEntityCoordinates(x, y, this.flip)
       const color = type === HealType.HEAL ? "#92cc41" : "#8d8d8d"
       this.displayTween(color, coordinates, index, amount)
     }

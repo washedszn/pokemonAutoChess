@@ -1,55 +1,50 @@
-import { RoomAvailable, Room, Client, getStateCallbacks } from "colyseus.js"
+import { Client, getStateCallbacks, Room, RoomAvailable } from "colyseus.js"
 import firebase from "firebase/compat/app"
 import { t } from "i18next"
 import { NavigateFunction } from "react-router-dom"
-import type { NonFunctionPropNames } from "../../../types/HelperTypes"
 import {
-  TournamentSchema,
+  TournamentBracketSchema,
   TournamentPlayerSchema,
-  TournamentBracketSchema
+  TournamentSchema
 } from "../../../models/colyseus-models/tournament"
-import { IUserMetadata } from "../../../models/mongo-models/user-metadata"
 import PreparationState from "../../../rooms/states/preparation-state"
-import {
-  ICustomLobbyState,
-  Transfer,
-  ISuggestionUser
-} from "../../../types"
+import { ICustomLobbyState, ISuggestionUser, Transfer } from "../../../types"
+import type { Booster } from "../../../types/Booster"
 import { CloseCodes, CloseCodesMessages } from "../../../types/enum/CloseCodes"
+import { ConnectionStatus } from "../../../types/enum/ConnectionStatus"
+import type { NonFunctionPropNames } from "../../../types/HelperTypes"
+import { IUserMetadataClient, IUserMetadataJSON } from "../../../types/interfaces/UserMetadata"
 import { logger } from "../../../utils/logger"
-import { localStore, LocalStoreKeys } from "../pages/utils/store"
-import { FIREBASE_CONFIG } from "../pages/utils/utils"
+import { authenticateUser } from "../network"
+import { LocalStoreKeys, localStore } from "../pages/utils/store"
 import store, { AppDispatch } from "../stores"
 import {
-  pushMessage,
-  setCcu,
-  addTournament,
-  removeTournament,
-  changeTournament,
-  updateTournament,
-  changeTournamentPlayer,
-  addTournamentBracket,
-  changeTournamentBracket,
-  removeTournamentBracket,
   addRoom,
+  addTournament,
+  addTournamentBracket,
+  changeTournament,
+  changeTournamentBracket,
+  changeTournamentPlayer,
+  pushMessage,
   removeRoom,
-  setSearchedUser,
+  removeTournament,
+  removeTournamentBracket,
+  resetLobby,
   setBoosterContent,
+  setCcu,
+  setSearchedUser,
   setSuggestions,
-  resetLobby
+  updateTournament
 } from "../stores/LobbyStore"
 import {
-  logIn,
-  removeMessage,
-  setProfile,
   joinLobby,
+  removeMessage,
+  setConnectionStatus,
   setErrorAlertMessage,
   setPendingGameId,
-  setConnectionStatus
+  setProfile
 } from "../stores/NetworkStore"
 import { resetPreparation } from "../stores/PreparationStore"
-import { ConnectionStatus } from "../../../types/enum/ConnectionStatus"
-import type { Booster } from "../../../types/Booster"
 
 export async function joinLobbyRoom(
   dispatch: AppDispatch,
@@ -64,14 +59,7 @@ export async function joinLobbyRoom(
         return resolve(lobby)
       }
 
-      if (!firebase.apps.length) {
-        firebase.initializeApp(FIREBASE_CONFIG)
-      }
-
-      firebase.auth().onAuthStateChanged(async (user) => {
-        if (!user) return reject(CloseCodes.USER_NOT_AUTHENTICATED)
-        dispatch(logIn(user))
-
+      authenticateUser().then(async (user) => {
         try {
           let room: Room<ICustomLobbyState> | undefined = undefined
 
@@ -259,7 +247,7 @@ export async function joinLobbyRoom(
             dispatch(removeRoom(roomId))
           )
 
-          room.onMessage(Transfer.USER_PROFILE, (user: IUserMetadata) => {
+          room.onMessage(Transfer.USER_PROFILE, (user: IUserMetadataJSON) => {
             dispatch(setProfile(user))
           })
 
@@ -267,7 +255,7 @@ export async function joinLobbyRoom(
             dispatch(setPendingGameId(pendingGameId))
           })
 
-          room.onMessage(Transfer.USER, (user: IUserMetadata) =>
+          room.onMessage(Transfer.USER, (user: IUserMetadataClient) =>
             dispatch(setSearchedUser(user))
           )
 

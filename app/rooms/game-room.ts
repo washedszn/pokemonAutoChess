@@ -2,27 +2,32 @@ import { Dispatcher } from "@colyseus/command"
 import { MapSchema } from "@colyseus/schema"
 import { Client, Room } from "colyseus"
 import admin from "firebase-admin"
+import { nanoid } from "nanoid"
 import { computeElo } from "../core/elo"
 import { CountEvolutionRule, ItemEvolutionRule } from "../core/evolution-rules"
-import { MiniGame } from "../core/matter/mini-game"
+import { MiniGame } from "../core/mini-game"
+import {
+  clearPendingGame,
+  clearPendingGamesOnRoomDispose,
+  getPendingGame,
+  givePlayerTimeout,
+  setPendingGame
+} from "../core/pending-game-manager"
 import { IGameUser } from "../models/colyseus-models/game-user"
 import Player from "../models/colyseus-models/player"
 import { Pokemon } from "../models/colyseus-models/pokemon"
 import { BotV2 } from "../models/mongo-models/bot-v2"
 import DetailledStatistic from "../models/mongo-models/detailled-statistic-v2"
-import History from "../models/mongo-models/history"
-import UserMetadata, {
-  IPokemonCollectionItem
-} from "../models/mongo-models/user-metadata"
+import UserMetadata from "../models/mongo-models/user-metadata"
 import PokemonFactory from "../models/pokemon-factory"
 import {
-  PRECOMPUTED_REGIONAL_MONS,
-  getPokemonData
+  getPokemonData,
+  PRECOMPUTED_REGIONAL_MONS
 } from "../models/precomputed/precomputed-pokemon-data"
 import { PRECOMPUTED_POKEMONS_PER_RARITY } from "../models/precomputed/precomputed-rarity"
 import { getAdditionalsTier1 } from "../models/shop"
+import { fetchEventLeaderboard } from "../services/leaderboard"
 import {
-  Emotion,
   IDragDropCombineMessage,
   IDragDropItemMessage,
   IDragDropMessage,
@@ -40,13 +45,16 @@ import {
   AdditionalPicksStages,
   ALLOWED_GAME_RECONNECTION_TIME,
   EloRank,
+  EventPointsPerRank,
   ExpPlace,
   LegendaryPool,
+  MAX_EVENT_POINTS,
   MAX_SIMULATION_DELTA_TIME,
   MinStageForGameToCount,
   PortalCarouselStages,
   UniquePool
 } from "../types/Config"
+import { CloseCodes } from "../types/enum/CloseCodes"
 import { GameMode, PokemonActionState } from "../types/enum/Game"
 import { Item } from "../types/enum/Item"
 import { Passive } from "../types/enum/Passive"
@@ -59,36 +67,37 @@ import {
 } from "../types/enum/Pokemon"
 import { SpecialGameRule } from "../types/enum/SpecialGameRule"
 import { Synergy } from "../types/enum/Synergy"
+import { Wanderer } from "../types/enum/Wanderer"
+import { IPokemonCollectionItemMongo } from "../types/interfaces/UserMetadata"
 import { removeInArray } from "../utils/array"
 import { getAvatarString } from "../utils/avatar"
 import {
   getFirstAvailablePositionInBench,
   getFreeSpaceOnBench
 } from "../utils/board"
+import { isValidDate } from "../utils/date"
 import { logger } from "../utils/logger"
+import { clamp } from "../utils/number"
 import { shuffleArray } from "../utils/random"
 import { values } from "../utils/schemas"
 import {
+  OnBuyPokemonCommand,
   OnDragDropCombineCommand,
-  OnDragDropPokemonCommand,
   OnDragDropItemCommand,
+  OnDragDropPokemonCommand,
   OnJoinCommand,
   OnLevelUpCommand,
   OnLockCommand,
   OnPickBerryCommand,
   OnPokemonCatchCommand,
-  OnShopRerollCommand,
   OnRemoveFromShopCommand,
   OnSellPokemonCommand,
-  OnBuyPokemonCommand,
+  OnShopRerollCommand,
   OnSpectateCommand,
   OnSwitchBenchAndBoardCommand,
   OnUpdateCommand
 } from "./commands/game-commands"
 import GameState from "./states/game-state"
-import { CloseCodes } from "../types/enum/CloseCodes"
-import { clearPendingGame, getPendingGame, givePlayerTimeout, setPendingGame } from "../core/pending-game-manager"
-import { isValidDate } from "../utils/date"
 
 export default class GameRoom extends Room<GameState> {
   dispatcher: Dispatcher<this>
@@ -194,7 +203,7 @@ export default class GameRoom extends Room<GameState> {
             user.avatar,
             true,
             this.state.players.size + 1,
-            new Map<string, IPokemonCollectionItem>(),
+            new Map<string, IPokemonCollectionItemMongo>(),
             "",
             Role.BOT,
             this.state
@@ -447,19 +456,22 @@ export default class GameRoom extends Room<GameState> {
       }
     })
 
-    this.onMessage(Transfer.POKEMON_WANDERING, async (client, msg) => {
-      if (client.auth) {
-        try {
-          this.dispatcher.dispatch(new OnPokemonCatchCommand(), {
-            client,
-            playerId: client.auth.uid,
-            id: msg.id
-          })
-        } catch (e) {
-          logger.error("catch wandering error", e)
+    this.onMessage(
+      Transfer.WANDERER_CAUGHT,
+      async (client, msg: { id: string }) => {
+        if (client.auth) {
+          try {
+            this.dispatcher.dispatch(new OnPokemonCatchCommand(), {
+              client,
+              playerId: client.auth.uid,
+              id: msg.id
+            })
+          } catch (e) {
+            logger.error("catch wandering error", e)
+          }
         }
       }
-    })
+    )
 
     this.onMessage(Transfer.PICK_BERRY, async (client, index) => {
       if (!this.state.gameFinished && client.auth) {
@@ -546,7 +558,6 @@ export default class GameRoom extends Room<GameState> {
     if (userProfile?.banned) {
       throw "Account banned"
     }
-    client.send(Transfer.USER_PROFILE, userProfile)
     this.dispatcher.dispatch(new OnJoinCommand(), { client })
     const pendingGame = await getPendingGame(this.presence, client.auth.uid)
     if (pendingGame?.gameId === this.roomId) {
@@ -569,15 +580,19 @@ export default class GameRoom extends Room<GameState> {
       // allow disconnected client to reconnect into this room until 5 minutes
       setPendingGame(this.presence, client.auth.uid, this.roomId)
       await this.allowReconnection(client, ALLOWED_GAME_RECONNECTION_TIME)
+      // if the user reconnects, we clear the pending game and recall the OnJoinCommand
       clearPendingGame(this.presence, client.auth.uid)
-      const userProfile = await UserMetadata.findOne({ uid: client.auth.uid })
-      client.send(Transfer.USER_PROFILE, userProfile) // send profile info again after a /game page refresh
       this.dispatcher.dispatch(new OnJoinCommand(), { client })
     } catch (e) {
       if (client && client.auth && client.auth.displayName) {
         const pendingGame = await getPendingGame(this.presence, client.auth.uid)
-        if (!pendingGame && !consented) return // user has reconnected through other ways (new browser/machine/session)
-        else if (pendingGame && isValidDate(pendingGame.reconnectionDeadline) && pendingGame.reconnectionDeadline.getTime() > Date.now()) {
+        if (!pendingGame && !consented)
+          return // user has reconnected through other ways (new browser/machine/session)
+        else if (
+          pendingGame &&
+          isValidDate(pendingGame.reconnectionDeadline) &&
+          pendingGame.reconnectionDeadline.getTime() > Date.now()
+        ) {
           // user has reconnected through other ways (new browser/machine/session) but has left or lost connection again
           // so we have a new allowed reconnection time. Ignoring this leave and relying on the onLeave call that followed
           return
@@ -642,7 +657,11 @@ export default class GameRoom extends Room<GameState> {
   async onDispose() {
     logger.info("Dispose Game ", this.roomId)
     this.presence.unsubscribe("room-deleted", this.onRoomDeleted)
-    const playersAlive = values(this.state.players).filter((p) => p.alive)
+    const players = values(this.state.players)
+    players.forEach((player) => {
+      clearPendingGamesOnRoomDispose(this.presence, player.id, this.roomId)
+    })
+    const playersAlive = players.filter((p) => p.alive)
     const humansAlive = playersAlive.filter((p) => !p.isBot)
 
     // we skip elo compute/game history if game is not finished
@@ -676,14 +695,6 @@ export default class GameRoom extends Room<GameState> {
       const players: ISimplePlayer[] = [...humans, ...bots].map((p) =>
         this.transformToSimplePlayer(p)
       )
-
-      History.create({
-        id: this.state.preparationId,
-        name: this.state.name,
-        startTime: this.state.startTime,
-        endTime: this.state.endTime,
-        players: humans.map((p) => this.transformToSimplePlayer(p))
-      })
 
       if (this.state.stageLevel >= MinStageForGameToCount) {
         const elligibleToXP = this.state.players.size >= 2
@@ -768,6 +779,8 @@ export default class GameRoom extends Room<GameState> {
         usr.exp = !isNaN(usr.exp) ? usr.exp : 0
       }
 
+      usr.games += 1
+
       if (rank === 1) {
         usr.wins += 1
         if (this.state.gameMode === GameMode.RANKED) {
@@ -809,7 +822,7 @@ export default class GameRoom extends Room<GameState> {
       }
 
       if (usr.elo != null && elligibleToELO) {
-        const elo = computeElo(
+        let elo = computeElo(
           this.transformToSimplePlayer(player),
           rank,
           usr.elo,
@@ -817,18 +830,24 @@ export default class GameRoom extends Room<GameState> {
           this.state.gameMode,
           false
         )
-        if (elo) {
-          if (elo >= 1100) {
-            player.titles.add(Title.GYM_TRAINER)
-          }
-          if (elo >= 1200) {
-            player.titles.add(Title.GYM_CHALLENGER)
-          }
-          if (elo >= 1400) {
-            player.titles.add(Title.GYM_LEADER)
-          }
-          usr.elo = elo
+
+        if (!elo || isNaN(elo)) {
+          logger.error(
+            `Elo compute failed for player ${player.name} (${player.id}) ; value: ${elo}`
+          )
+          elo = usr.elo
         }
+        if (elo >= 1100) {
+          player.titles.add(Title.GYM_TRAINER)
+        }
+        if (elo >= 1200) {
+          player.titles.add(Title.GYM_CHALLENGER)
+        }
+        if (elo >= 1400) {
+          player.titles.add(Title.GYM_LEADER)
+        }
+        usr.elo = elo
+        usr.maxElo = Math.max(usr.maxElo, elo)
 
         const dbrecord = this.transformToSimplePlayer(player)
         const synergiesMap = new Map<Synergy, number>()
@@ -847,6 +866,41 @@ export default class GameRoom extends Room<GameState> {
           synergies: synergiesMap,
           gameMode: this.state.gameMode
         })
+
+        if (usr.eventFinishTime == null) {
+          const eventPointsGained = EventPointsPerRank[clamp(rank - 1, 0, 7)]
+          usr.eventPoints = clamp(
+            usr.eventPoints + eventPointsGained,
+            0,
+            MAX_EVENT_POINTS
+          )
+          usr.maxEventPoints = Math.max(usr.maxEventPoints, usr.eventPoints)
+          if (usr.maxEventPoints >= MAX_EVENT_POINTS) {
+            usr.eventFinishTime = new Date()
+
+            const finisher = await UserMetadata.findOne({
+              eventFinishTime: { $ne: null }
+            })
+            if (!finisher) {
+              player.titles.add(Title.VICTORIOUS)
+              this.presence.publish(
+                "announcement",
+                `${player.name} won the Victory Road race !`
+              )
+            } else {
+              this.presence.publish(
+                "announcement",
+                `${player.name} finished the Victory Road !`
+              )
+            }
+            player.titles.add(Title.FINISHER)
+            fetchEventLeaderboard() // a new finisher is enough to justify fetching the leaderboard again immediately
+          }
+
+          if (usr.maxEventPoints >= 100) {
+            player.titles.add(Title.RUNNER)
+          }
+        }
       }
 
       if (player.life >= 100 && rank === 1) {
@@ -870,11 +924,10 @@ export default class GameRoom extends Room<GameState> {
           pokemonCollectionItem.played = pokemonCollectionItem.played + 1
           usr.markModified(`pokemonCollection.${index}.played`)
         } else {
-          const newConfig: IPokemonCollectionItem = {
+          const newConfig: IPokemonCollectionItemMongo = {
             dust: 0,
             id: index,
-            emotions: [],
-            shinyEmotions: [],
+            unlocked: Buffer.alloc(5, 0),
             selectedEmotion: null,
             selectedShiny: false,
             played: 1
@@ -883,10 +936,13 @@ export default class GameRoom extends Room<GameState> {
         }
       })
 
-      if (player.titles.has(Title.COLLECTOR) === false && Object.values(PkmIndex).every((pkmIndex) => {
-        const pokemonCollectionItem = usr.pokemonCollection.get(pkmIndex)
-        return pokemonCollectionItem && pokemonCollectionItem.played > 0
-      })) {
+      if (
+        player.titles.has(Title.COLLECTOR) === false &&
+        Object.values(PkmIndex).every((pkmIndex) => {
+          const pokemonCollectionItem = usr.pokemonCollection.get(pkmIndex)
+          return pokemonCollectionItem && pokemonCollectionItem.played > 0
+        })
+      ) {
         player.titles.add(Title.COLLECTOR)
       }
 
@@ -1171,5 +1227,14 @@ export default class GameRoom extends Room<GameState> {
     if (this.roomId === roomId) {
       this.disconnect(CloseCodes.ROOM_DELETED)
     }
+  }
+
+  spawnWanderingPokemon(wandererNoId: Omit<Wanderer, "id">, player: Player) {
+    const client = this.clients.find((cli) => cli.auth.uid === player.id)
+    if (!client) return
+    const id = nanoid()
+    const wanderer: Wanderer = { ...wandererNoId, id }
+    this.state.wanderers.set(id, wanderer)
+    client.send(Transfer.WANDERER, wanderer)
   }
 }

@@ -88,3 +88,15 @@ export async function clearPendingGame(
     //logger.debug(`Clearing pending game for player ${playerId}`);
     return presence.hdel(playerId, PENDING_GAME)
 }
+
+export async function clearPendingGamesOnRoomDispose(
+    presence: Presence,
+    playerId: string,
+    roomId: string
+): Promise<void> {
+    const pendingGame = await presence.hget(playerId, PENDING_GAME)
+    if (pendingGame && pendingGame.split(",")[0] === roomId) {
+        // clear pending game if it was set for this room
+        clearPendingGame(presence, playerId)
+    }
+}

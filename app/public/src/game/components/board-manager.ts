@@ -1,12 +1,14 @@
 import { t } from "i18next"
 import { GameObjects } from "phaser"
-import type { NonFunctionPropNames } from "../../../../types/HelperTypes"
 import Player from "../../../../models/colyseus-models/player"
 import { PokemonAvatarModel } from "../../../../models/colyseus-models/pokemon-avatar"
+import PokemonFactory from "../../../../models/pokemon-factory"
 import { getPokemonData } from "../../../../models/precomputed/precomputed-pokemon-data"
+import { PVEStage, PVEStages } from "../../../../models/pve-stages"
 import GameState from "../../../../rooms/states/game-state"
 import { IPokemon, Transfer } from "../../../../types"
 import { PortalCarouselStages, SynergyTriggers } from "../../../../types/Config"
+import { DungeonDetails, DungeonMusic } from "../../../../types/enum/Dungeon"
 import {
   GameMode,
   GamePhaseState,
@@ -15,32 +17,30 @@ import {
   Stat,
   Team
 } from "../../../../types/enum/Game"
-import { AnimationConfig, Pkm } from "../../../../types/enum/Pokemon"
+import { Item } from "../../../../types/enum/Item"
+import { Pkm } from "../../../../types/enum/Pokemon"
 import { SpecialGameRule } from "../../../../types/enum/SpecialGameRule"
 import { Synergy } from "../../../../types/enum/Synergy"
+import type { NonFunctionPropNames } from "../../../../types/HelperTypes"
 import { isOnBench } from "../../../../utils/board"
+import { logger } from "../../../../utils/logger"
+import { randomBetween } from "../../../../utils/random"
 import { values } from "../../../../utils/schemas"
+import { playMusic } from "../../pages/utils/audio"
 import {
   transformBoardCoordinates,
   transformEntityCoordinates
 } from "../../pages/utils/utils"
 import store from "../../stores"
+import { refreshShopUI } from "../../stores/GameStore"
 import AnimationManager from "../animation-manager"
+import { PokemonAnimations } from "../components/pokemon-animations"
+import { DEPTH } from "../depths"
 import GameScene from "../scenes/game-scene"
 import PokemonSprite from "./pokemon"
 import PokemonAvatar from "./pokemon-avatar"
 import PokemonSpecial from "./pokemon-special"
-import { displayBoost } from "./boosts-animations"
-import { Item } from "../../../../types/enum/Item"
-import { playMusic } from "../../pages/utils/audio"
-import { DEPTH } from "../depths"
-import { DungeonDetails, DungeonMusic } from "../../../../types/enum/Dungeon"
-import { refreshShopUI } from "../../stores/GameStore"
 import { Portal } from "./portal"
-import { logger } from "../../../../utils/logger"
-import { PVEStage, PVEStages } from "../../../../models/pve-stages"
-import PokemonFactory from "../../../../models/pokemon-factory"
-import { randomBetween } from "../../../../utils/random"
 
 export enum BoardMode {
   PICK = "pick",
@@ -522,11 +522,19 @@ export default class BoardManager {
   }
 
   updateAvatarLife(playerId: string, value: number) {
-    if (this.playerAvatar && this.playerAvatar.scene && this.player.id === playerId) {
+    if (
+      this.playerAvatar &&
+      this.playerAvatar.scene &&
+      this.player.id === playerId
+    ) {
       this.playerAvatar.updateLife(value)
     }
 
-    if (this.opponentAvatar && this.opponentAvatar.scene && this.opponentAvatar.playerId === playerId) {
+    if (
+      this.opponentAvatar &&
+      this.opponentAvatar.scene &&
+      this.opponentAvatar.playerId === playerId
+    ) {
       this.opponentAvatar.updateLife(value)
     }
   }
@@ -638,6 +646,9 @@ export default class BoardManager {
       if (item === Item.BERSERK_GENE) {
         pkm?.addBerserkEffect()
       }
+      if (item === Item.AIR_BALLOON) {
+        pkm?.addFloatingAnimation()
+      }
     }
   }
 
@@ -663,7 +674,7 @@ export default class BoardManager {
           store.dispatch(refreshShopUI())
           break
 
-        case "positionY":
+        case "positionY": {
           pokemonUI.positionY = value as IPokemon["positionY"]
           pokemonUI.positionX = pokemon.positionX
           coordinates = transformBoardCoordinates(
@@ -672,12 +683,20 @@ export default class BoardManager {
           )
           pokemonUI.x = coordinates[0]
           pokemonUI.y = coordinates[1]
-          if (this.mode === BoardMode.BATTLE && !isOnBench(pokemonUI)) {
+          const simulation = this.scene?.room?.state.simulations.get(
+            this.player.simulationId
+          )
+          if (
+            this.mode === BoardMode.BATTLE &&
+            !isOnBench(pokemonUI) &&
+            simulation?.started
+          ) {
             pokemonUI.destroy()
             this.pokemons.delete(pokemonUI.id)
           }
           store.dispatch(refreshShopUI())
           break
+        }
 
         case "action":
           this.animationManager.animatePokemon(
@@ -692,31 +711,35 @@ export default class BoardManager {
           const sizeBuff = (pokemon.hp - baseHP) / baseHP
           pokemonUI.sprite.setScale(2 + sizeBuff)
           pokemonUI.hp = value as IPokemon["hp"]
+          if ((value as IPokemon["hp"]) > (previousValue as IPokemon["hp"]))
+            pokemonUI.displayBoost(Stat.HP)
           break
         }
 
         case "atk":
           pokemonUI.atk = value as IPokemon["atk"]
           if ((value as IPokemon["atk"]) > (previousValue as IPokemon["atk"]))
-            this.displayBoost(Stat.ATK, pokemonUI)
+            pokemonUI.displayBoost(Stat.ATK)
           break
 
         case "def":
           pokemonUI.def = value as IPokemon["def"]
           if ((value as IPokemon["def"]) > (previousValue as IPokemon["def"]))
-            this.displayBoost(Stat.DEF, pokemonUI)
+            pokemonUI.displayBoost(Stat.DEF)
           break
 
         case "speed":
           pokemonUI.speed = value as IPokemon["speed"]
-          if ((value as IPokemon["speed"]) > (previousValue as IPokemon["speed"]))
-            this.displayBoost(Stat.SPEED, pokemonUI)
+          if (
+            (value as IPokemon["speed"]) > (previousValue as IPokemon["speed"])
+          )
+            pokemonUI.displayBoost(Stat.SPEED)
           break
 
         case "ap":
           pokemonUI.ap = value as IPokemon["ap"]
           if ((value as IPokemon["ap"]) > (previousValue as IPokemon["atk"]))
-            this.displayBoost(Stat.AP, pokemonUI)
+            pokemonUI.displayBoost(Stat.AP)
           break
 
         case "shiny":
@@ -779,7 +802,7 @@ export default class BoardManager {
     ]
     const player = avatars.find((a) => a?.playerId === playerId)
     if (player) {
-      this.animationManager.play(player, AnimationConfig[player.name].emote)
+      this.animationManager.play(player, PokemonAnimations[player.name].emote)
 
       if (emote) {
         player.drawSpeechBubble(emote, player === this.opponentAvatar)
@@ -853,15 +876,6 @@ export default class BoardManager {
         })
       }
     })
-  }
-
-  displayBoost(stat: Stat, pokemon: PokemonSprite) {
-    pokemon.emoteAnimation()
-    const coords = transformBoardCoordinates(
-      pokemon.positionX,
-      pokemon.positionY
-    )
-    displayBoost(this.scene, coords[0], coords[1], stat)
   }
 
   addPortal() {

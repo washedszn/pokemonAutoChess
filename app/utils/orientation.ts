@@ -1,4 +1,4 @@
-import Board, { Cell } from "../core/board"
+import { Board, Cell } from "../core/board"
 import { PokemonEntity } from "../core/pokemon-entity"
 import { Orientation } from "../types/enum/Game"
 
@@ -11,6 +11,17 @@ export const OrientationVector: Record<Orientation, [number, number]> = {
   [Orientation.DOWNLEFT]: [-1, -1],
   [Orientation.LEFT]: [-1, 0],
   [Orientation.UPLEFT]: [-1, 1]
+}
+
+export const OrientationAngle: Record<Orientation, number> = {
+  [Orientation.UP]: Math.PI / 2,
+  [Orientation.UPRIGHT]: Math.PI / 4,
+  [Orientation.RIGHT]: 0,
+  [Orientation.DOWNRIGHT]: -Math.PI / 4,
+  [Orientation.DOWN]: -Math.PI / 2,
+  [Orientation.DOWNLEFT]: (-3 * Math.PI) / 4,
+  [Orientation.LEFT]: Math.PI,
+  [Orientation.UPLEFT]: (3 * Math.PI) / 4
 }
 
 export const OrientationArray: Orientation[] = [
@@ -45,7 +56,7 @@ export function effectInLine(
   const targetsHit = new Set()
 
   const applyEffect = (x: number, y: number) => {
-    const value = board.getValue(x, y)
+    const value = board.getEntityOnCell(x, y)
     if (value != null) {
       targetsHit.add(value)
     }
