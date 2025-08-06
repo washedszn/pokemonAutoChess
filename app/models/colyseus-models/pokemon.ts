@@ -9618,20 +9618,16 @@ export class Silvally extends Pokemon {
   onChangePosition(x: number, y: number, player: Player, state: GameState) {
     super.onChangePosition(x, y, player, state)
     if (y === 0) {
-      values(this.items).filter((item) =>
-        (SynergyItems as ReadonlyArray<Item>).forEach((synergyItem) => {
-          this.removeItem(synergyItem, player)
-          player.items.push(synergyItem)
-        })
-      )
+      values(this.items).filter((item) => (SynergyItems as ReadonlyArray<Item>).includes(item)).forEach((synergyItem) => {
+        this.removeItem(synergyItem, player)
+        player.items.push(synergyItem)
+      })
     }
   }
   onItemRemoved(item: Item, player: Player) {
     if (
       (SynergyItems as ReadonlyArray<Item>).includes(item) &&
-      values(this.items).filter((item) =>
-        (SynergyItems as ReadonlyArray<Item>).includes(item)
-      ).length === 0
+      values(this.items).filter((item) => (SynergyItems as ReadonlyArray<Item>).includes(item)).length === 0
     ) {
       player.transformPokemon(this, Pkm.TYPE_NULL)
     }
@@ -18395,7 +18391,7 @@ export const PokemonClasses: Record<
   [Pkm.HISUI_ARCANINE]: HisuiArcanine,
   [Pkm.ONIX]: Onix,
   [Pkm.STEELIX]: Steelix,
-  [Pkm.MEGA_STEELIX]: MegaSteelix,
+  //[Pkm.MEGA_STEELIX]: MegaSteelix,
   [Pkm.SCYTHER]: Scyther,
   [Pkm.SCIZOR]: Scizor,
   [Pkm.KLEAVOR]: Kleavor,
@@ -18444,7 +18440,7 @@ export const PokemonClasses: Record<
   [Pkm.MEDICHAM]: Medicham,
   [Pkm.NUMEL]: Numel,
   [Pkm.CAMERUPT]: Camerupt,
-  [Pkm.MEGA_CAMERUPT]: MegaCamerupt,
+  //[Pkm.MEGA_CAMERUPT]: MegaCamerupt,
   [Pkm.DARKRAI]: Darkrai,
   [Pkm.LITWICK]: Litwick,
   [Pkm.LAMPENT]: Lampent,
@@ -18460,7 +18456,7 @@ export const PokemonClasses: Record<
   [Pkm.FROSLASS]: Froslass,
   [Pkm.SNOVER]: Snover,
   [Pkm.ABOMASNOW]: Abomasnow,
-  [Pkm.MEGA_ABOMASNOW]: MegaAbomasnow,
+  //[Pkm.MEGA_ABOMASNOW]: MegaAbomasnow,
   [Pkm.VANILLITE]: Vanillite,
   [Pkm.VANILLISH]: Vanillish,
   [Pkm.VANILLUXE]: Vanilluxe,
@@ -18546,7 +18542,7 @@ export const PokemonClasses: Record<
   [Pkm.ROSERADE]: Roserade,
   [Pkm.BUNEARY]: Buneary,
   [Pkm.LOPUNNY]: Lopunny,
-  [Pkm.MEGA_LOPUNNY]: MegaLopunny,
+  //[Pkm.MEGA_LOPUNNY]: MegaLopunny,
   [Pkm.AXEW]: Axew,
   [Pkm.FRAXURE]: Fraxure,
   [Pkm.HAXORUS]: Haxorus,
@@ -18558,10 +18554,10 @@ export const PokemonClasses: Record<
   [Pkm.PORYGON_Z]: PorygonZ,
   [Pkm.ELECTRIKE]: Electrike,
   [Pkm.MANECTRIC]: Manectric,
-  [Pkm.MEGA_MANECTRIC]: MegaManectric,
+  //[Pkm.MEGA_MANECTRIC]: MegaManectric,
   [Pkm.SHUPPET]: Shuppet,
   [Pkm.BANETTE]: Banette,
-  [Pkm.MEGA_BANETTE]: MegaBanette,
+  //[Pkm.MEGA_BANETTE]: MegaBanette,
   [Pkm.HONEDGE]: Honedge,
   [Pkm.DOUBLADE]: Doublade,
   [Pkm.AEGISLASH]: Aegislash,
@@ -18590,7 +18586,7 @@ export const PokemonClasses: Record<
   [Pkm.MELOETTA]: Meloetta,
   [Pkm.PIROUETTE_MELOETTA]: PirouetteMeloetta,
   [Pkm.ALTARIA]: Altaria,
-  [Pkm.MEGA_ALTARIA]: MegaAltaria,
+  //[Pkm.MEGA_ALTARIA]: MegaAltaria,
   [Pkm.CASTFORM]: Castform,
   [Pkm.CASTFORM_SUN]: CastformSun,
   [Pkm.CASTFORM_RAIN]: CastformRain,
@@ -18637,7 +18633,7 @@ export const PokemonClasses: Record<
   [Pkm.BLACEPHALON]: Blacephalon,
   [Pkm.HOUNDOUR]: Houndour,
   [Pkm.HOUNDOOM]: Houndoom,
-  [Pkm.MEGA_HOUNDOOM]: MegaHoundoom,
+  //[Pkm.MEGA_HOUNDOOM]: MegaHoundoom,
   [Pkm.CLAMPERL]: Clamperl,
   [Pkm.HUNTAIL]: Huntail,
   [Pkm.GOREBYSS]: Gorebyss,
