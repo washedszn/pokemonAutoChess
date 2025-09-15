@@ -35,9 +35,13 @@ export default function AfterGame() {
       authenticateUser()
         .then(async () => {
           try {
-            const cachedReconnectionToken = localStore.get(LocalStoreKeys.RECONNECTION_AFTER_GAME)
+            const cachedReconnectionToken = localStore.get(
+              LocalStoreKeys.RECONNECTION_AFTER_GAME
+            )?.reconnectionToken
             if (cachedReconnectionToken) {
-              const r: Room<AfterGameState> = await client.reconnect(cachedReconnectionToken)
+              const r: Room<AfterGameState> = await client.reconnect(
+                cachedReconnectionToken
+              )
               await initialize(r)
               dispatch(joinAfter(r))
             } else {
@@ -45,9 +49,13 @@ export default function AfterGame() {
             }
           } catch (error) {
             setTimeout(async () => {
-              const cachedReconnectionToken = localStore.get(LocalStoreKeys.RECONNECTION_AFTER_GAME)
+              const cachedReconnectionToken = localStore.get(
+                LocalStoreKeys.RECONNECTION_AFTER_GAME
+              )?.reconnectionToken
               if (cachedReconnectionToken) {
-                const r: Room<AfterGameState> = await client.reconnect(cachedReconnectionToken)
+                const r: Room<AfterGameState> = await client.reconnect(
+                  cachedReconnectionToken
+                )
                 await initialize(r)
                 dispatch(joinAfter(r))
               } else {
@@ -65,7 +73,11 @@ export default function AfterGame() {
 
     const initialize = async (room: Room<AfterGameState>) => {
       localStore.delete(LocalStoreKeys.RECONNECTION_GAME)
-      localStore.set(LocalStoreKeys.RECONNECTION_AFTER_GAME, room.reconnectionToken, 30)
+      localStore.set(
+        LocalStoreKeys.RECONNECTION_AFTER_GAME,
+        { reconnectionToken: room.reconnectionToken, roomId: room.roomId },
+        30
+      )
       const $ = getStateCallbacks(room)
       const $state = $(room.state)
       $state.players.onAdd((player) => {

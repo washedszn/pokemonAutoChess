@@ -16,7 +16,7 @@ import {
 import { IGameUser } from "../models/colyseus-models/game-user"
 import Player from "../models/colyseus-models/player"
 import { Pokemon } from "../models/colyseus-models/pokemon"
-import { BotV2 } from "../models/mongo-models/bot-v2"
+import { BotV2, IDetailledPokemon } from "../models/mongo-models/bot-v2"
 import DetailledStatistic from "../models/mongo-models/detailled-statistic-v2"
 import UserMetadata from "../models/mongo-models/user-metadata"
 import PokemonFactory from "../models/pokemon-factory"
@@ -89,6 +89,7 @@ import {
   OnJoinCommand,
   OnLevelUpCommand,
   OnLockCommand,
+  OnOverwriteBoardCommand,
   OnPickBerryCommand,
   OnPokemonCatchCommand,
   OnRemoveFromShopCommand,
@@ -99,6 +100,7 @@ import {
   OnUpdateCommand
 } from "./commands/game-commands"
 import GameState from "./states/game-state"
+import { formatMinMaxRanks } from "../utils/elo"
 
 export default class GameRoom extends Room<GameState> {
   dispatcher: Dispatcher<this>
@@ -116,7 +118,19 @@ export default class GameRoom extends Room<GameState> {
   }
 
   // When room is initialized
-  async onCreate(options: {
+  async onCreate({
+    users,
+    preparationId,
+    name,
+    ownerName,
+    noElo,
+    gameMode,
+    specialGameRule,
+    minRank,
+    maxRank,
+    tournamentId,
+    bracketId
+  }: {
     users: Record<string, IGameUser>
     preparationId: string
     name: string
@@ -134,30 +148,36 @@ export default class GameRoom extends Room<GameState> {
     this.onRoomDeleted = this.onRoomDeleted.bind(this)
     this.presence.subscribe("room-deleted", this.onRoomDeleted)
 
+    if (gameMode === GameMode.RANKED) {
+      // add the elo range in the game room name
+      // see https://discord.com/channels/737230355039387749/1019939174691905556/threads/1404518859184013422
+      name = `${formatMinMaxRanks(minRank, maxRank)} ${name}`
+    }
+
     this.setMetadata(<IGameMetadata>{
-      name: options.name,
-      ownerName: options.ownerName,
-      gameMode: options.gameMode,
-      playerIds: Object.keys(options.users).filter(
-        (id) => options.users[id].isBot === false
+      name,
+      ownerName,
+      gameMode,
+      playerIds: Object.keys(users).filter(
+        (id) => users[id].isBot === false
       ),
-      playersInfo: Object.keys(options.users).map(
-        (u) => `${options.users[u].name} [${options.users[u].elo}]`
+      playersInfo: Object.keys(users).map(
+        (u) => `${users[u].name} [${users[u].elo}]`
       ),
       stageLevel: 0,
       type: "game",
-      tournamentId: options.tournamentId,
-      bracketId: options.bracketId
+      tournamentId,
+      bracketId
     })
     // logger.debug(options);
     this.state = new GameState(
-      options.preparationId,
-      options.name,
-      options.noElo,
-      options.gameMode,
-      options.minRank,
-      options.maxRank,
-      options.specialGameRule
+      preparationId,
+      name,
+      noElo,
+      gameMode,
+      minRank,
+      maxRank,
+      specialGameRule
     )
     this.miniGame.create(
       this.state.avatars,
@@ -193,14 +213,15 @@ export default class GameRoom extends Room<GameState> {
     }
 
     await Promise.all(
-      Object.keys(options.users).map(async (id) => {
-        const user = options.users[id]
+      Object.keys(users).map(async (id) => {
+        const user = users[id]
         //logger.debug(`init player`, user)
         if (user.isBot) {
           const player = new Player(
             user.uid,
             user.name,
             user.elo,
+            user.games + 1, // already counting this new game
             user.avatar,
             true,
             this.state.players.size + 1,
@@ -219,6 +240,7 @@ export default class GameRoom extends Room<GameState> {
               user.uid,
               user.displayName,
               user.elo,
+              user.games + 1, // already counting this new game
               user.avatar,
               false,
               this.state.players.size + 1,
@@ -315,7 +337,7 @@ export default class GameRoom extends Room<GameState> {
             updateBoard: true,
             updateItems: true
           }
-          client.send(Transfer.DRAG_DROP_FAILED, errorInformation)
+          client.send(Transfer.DRAG_DROP_CANCEL, errorInformation)
           logger.error("drag drop error", error)
         }
       }
@@ -335,7 +357,7 @@ export default class GameRoom extends Room<GameState> {
               updateBoard: true,
               updateItems: true
             }
-            client.send(Transfer.DRAG_DROP_FAILED, errorInformation)
+            client.send(Transfer.DRAG_DROP_CANCEL, errorInformation)
             logger.error("drag drop error", error)
           }
         }
@@ -356,7 +378,7 @@ export default class GameRoom extends Room<GameState> {
               updateBoard: true,
               updateItems: true
             }
-            client.send(Transfer.DRAG_DROP_FAILED, errorInformation)
+            client.send(Transfer.DRAG_DROP_CANCEL, errorInformation)
             logger.error("drag drop error", error)
           }
         }
@@ -511,6 +533,22 @@ export default class GameRoom extends Room<GameState> {
         ) {
           this.broadcast(Transfer.LOADING_COMPLETE)
           this.startGame()
+        }
+      }
+    })
+
+    this.onMessage(Transfer.OVERWRITE_BOARD, (client, board: IDetailledPokemon[]) => {
+      if (client.auth) {
+        const player = this.state.players.get(client.auth.uid)
+        if (player?.role !== Role.ADMIN) return;
+
+        try {
+          this.dispatcher.dispatch(new OnOverwriteBoardCommand(), {
+            playerId: client.auth.uid,
+            board
+          })
+        } catch (error) {
+          logger.error("overwrite board error", error)
         }
       }
     })
@@ -979,6 +1017,7 @@ export default class GameRoom extends Room<GameState> {
         inventory: Item[]
       }>(),
       elo: player.elo,
+      games: player.games,
       synergies: [],
       title: player.title,
       role: player.role

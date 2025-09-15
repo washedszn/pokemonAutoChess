@@ -15,13 +15,12 @@ export const FIREBASE_CONFIG = {
   appId: process.env.FIREBASE_APP_ID
 }
 
-
 export const ON_ATTACK_MANA = 5
 export const ARMOR_FACTOR = 0.05
 export const BOARD_WIDTH = 8
 export const BOARD_HEIGHT = 6
 export const BOARD_SIDE_HEIGHT = 4 // 0 = bench
-export const BOARD_X_START = 672  // 28 * 24
+export const BOARD_X_START = 672 // 28 * 24
 export const BOARD_Y_START = 808
 export const CELL_WIDTH = 96
 export const CELL_HEIGHT = 96
@@ -187,12 +186,6 @@ export const DITTO_RATE = 0.005
 export const KECLEON_RATE = 1 / 150
 export const ARCEUS_RATE = 1 / 150
 
-export const AttackTypeColor: { [key in AttackType] } = {
-  [AttackType.PHYSICAL]: "#FF6E55",
-  [AttackType.SPECIAL]: "#7FC9FF",
-  [AttackType.TRUE]: "#FFD800"
-}
-
 export const RarityProbabilityPerLevel: { [key: number]: number[] } = {
   1: [1, 0, 0, 0, 0],
   2: [1, 0, 0, 0, 0],
@@ -234,7 +227,6 @@ export const UniquePool = new Array<PkmProposition>(
   Pkm.ABSOL,
   Pkm.SPIRITOMB,
   Pkm.ROTOM,
-  Pkm.PHIONE,
   Pkm.TAPU_KOKO,
   Pkm.TAPU_LELE,
   Pkm.SEVIPER,
@@ -302,10 +294,6 @@ export const UniquePool = new Array<PkmProposition>(
   Pkm.DURANT,
   Pkm.SKARMORY,
   Pkm.SIGILYPH,
-  Pkm.OGERPON_TEAL,
-  Pkm.OGERPON_WELLSPRING,
-  Pkm.OGERPON_HEARTHFLAME,
-  Pkm.OGERPON_CORNERSTONE,
   Pkm.IRON_HANDS,
   Pkm.TURTONATOR,
   Pkm.CRYOGONAL,
@@ -319,7 +307,12 @@ export const UniquePool = new Array<PkmProposition>(
   Pkm.SCREAM_TAIL,
   PkmDuo.INDEEDEE,
   Pkm.FURFROU,
-  Pkm.EMOLGA
+  Pkm.EMOLGA,
+  Pkm.TOGEDEMARU,
+  Pkm.FALINKS_BRASS,
+  Pkm.DEDENNE,
+  Pkm.DUNSPARCE,
+  Pkm.PACHIRISU
 )
 
 export const LegendaryPool = new Array<PkmProposition>(
@@ -375,6 +368,7 @@ export const LegendaryPool = new Array<PkmProposition>(
   Pkm.XURKITREE,
   Pkm.NIHILEGO,
   Pkm.PHEROMOSA,
+  Pkm.BUZZWOLE,
   Pkm.TORNADUS,
   Pkm.THUNDURUS,
   Pkm.LANDORUS,
@@ -393,7 +387,12 @@ export const LegendaryPool = new Array<PkmProposition>(
   Pkm.OKIDOGI,
   Pkm.MUNKIDORI,
   Pkm.FEZANDIPITI,
-  Pkm.CELESTEELA
+  Pkm.CELESTEELA,
+  Pkm.OGERPON_TEAL,
+  Pkm.OGERPON_WELLSPRING,
+  Pkm.OGERPON_HEARTHFLAME,
+  Pkm.OGERPON_CORNERSTONE,
+  Pkm.MANAPHY
 )
 
 export const NB_UNIQUE_PROPOSITIONS = 6
@@ -439,7 +438,7 @@ export const INACTIVITY_TIMEOUT = 60 * 1000 * 30 // 30 minutes
 export const DEFAULT_SPEED = 50
 export const DEFAULT_CRIT_CHANCE = 10
 export const DEFAULT_CRIT_POWER = 2
-export const PROJECTILE_SPEED = 4
+export const BASE_PROJECTILE_SPEED = 3
 
 export const StageDuration: Record<number | "DEFAULT", number> = {
   0: 23, // adjusted for treasure town theme
@@ -476,7 +475,7 @@ export const EloRankThreshold: { [key in EloRank]: number } = {
   [EloRank.SUPER_BALL]: 1350,
   [EloRank.ULTRA_BALL]: 1400,
   [EloRank.MASTER_BALL]: 1500,
-  [EloRank.BEAST_BALL]: 1700
+  [EloRank.BEAST_BALL]: 1600
 }
 
 export const WeatherThreshold: { [weather in Weather]: number } = {

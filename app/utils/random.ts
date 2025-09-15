@@ -1,11 +1,11 @@
-import { IPokemon, IPokemonEntity } from "../types"
 import { max } from "./number"
 
 export function chance(
   probability: number,
-  pokemon?: IPokemonEntity | IPokemon,
+  pokemon?: { luck: number },
   cap = 1
 ): boolean {
+  if (probability === 0) return false // prevent return true if 100% luck and 0 probability
   return (
     Math.random() < max(cap)(Math.pow(probability, (1 - (pokemon?.luck ?? 0) / 100)))
   )
@@ -32,12 +32,12 @@ export function randomBetween(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1) + min)
 }
 
-export function pickRandomIn<T>(list: T[] | Record<string, T>): T {
+export function pickRandomIn<T>(list: T[] | readonly T[] | Record<string, T>): T {
   if (!Array.isArray(list)) return pickRandomIn(Object.values(list))
   return list[Math.floor(Math.random() * list.length)]
 }
 
-export function pickNRandomIn<T>(array: T[], number: number): T[] {
+export function pickNRandomIn<T>(array: T[] | readonly T[], number: number): T[] {
   const selection: T[] = [],
     options = [...array]
   shuffleArray(options)

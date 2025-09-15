@@ -2,13 +2,20 @@ import { SetSchema } from "@colyseus/schema"
 import Phaser, { GameObjects, Geom } from "phaser"
 import type MoveTo from "phaser3-rex-plugins/plugins/moveto"
 import type MoveToPlugin from "phaser3-rex-plugins/plugins/moveto-plugin"
+import {
+  FLOWER_POTS_POSITIONS_BLUE,
+  FLOWER_POTS_POSITIONS_RED,
+  FlowerMonByPot,
+  FlowerPotMons,
+  FlowerPots
+} from "../../../../core/flower-pots"
 import { getPokemonData } from "../../../../models/precomputed/precomputed-pokemon-data"
 import {
   type Emotion,
   type IPokemon,
   type IPokemonEntity
 } from "../../../../types"
-import { AttackSprite, AttackSpriteScale } from "../../../../types/Animation"
+import { AbilityAnimationArgs, AttackSprite, AttackSpriteScale } from "../../../../types/Animation"
 import {
   CELL_VISUAL_HEIGHT,
   CELL_VISUAL_WIDTH,
@@ -17,7 +24,6 @@ import {
 } from "../../../../types/Config"
 import { Ability } from "../../../../types/enum/Ability"
 import {
-  type AttackType,
   Orientation,
   PokemonActionState,
   PokemonTint,
@@ -32,6 +38,10 @@ import { Pkm, PkmByIndex } from "../../../../types/enum/Pokemon"
 import type { Synergy } from "../../../../types/enum/Synergy"
 import { logger } from "../../../../utils/logger"
 import { clamp, min } from "../../../../utils/number"
+import {
+  OrientationArray,
+  OrientationVector
+} from "../../../../utils/orientation"
 import { randomBetween } from "../../../../utils/random"
 import { values } from "../../../../utils/schemas"
 import { transformEntityCoordinates } from "../../pages/utils/utils"
@@ -39,7 +49,7 @@ import { preference } from "../../preferences"
 import { DEPTH } from "../depths"
 import type { DebugScene } from "../scenes/debug-scene"
 import type GameScene from "../scenes/game-scene"
-import { displayAbility } from "./abilities-animations"
+import { addAbilitySprite, displayAbility } from "./abilities-animations"
 import DraggableObject from "./draggable-object"
 import type { GameDialog } from "./game-dialog"
 import ItemsContainer from "./items-container"
@@ -66,7 +76,6 @@ export default class PokemonSprite extends DraggableObject {
   atk: number
   def: number
   speDef: number
-  attackType: AttackType
   speed: number
   targetX: number | null
   targetY: number | null
@@ -80,7 +89,6 @@ export default class PokemonSprite extends DraggableObject {
   ap: number
   life: number | undefined
   shield: number | undefined
-  projectile: GameObjects.Sprite | undefined
   itemsContainer: ItemsContainer
   orientation: Orientation
   action: PokemonActionState
@@ -135,6 +143,7 @@ export default class PokemonSprite extends DraggableObject {
   mealSprite: GameObjects.Sprite | undefined
   inBattle: boolean = false
   floatingTween?: Phaser.Tweens.Tween
+  troopers?: PokemonSprite[]
 
   constructor(
     scene: GameScene | DebugScene,
@@ -174,7 +183,6 @@ export default class PokemonSprite extends DraggableObject {
     this.atk = pokemon.atk
     this.def = pokemon.def
     this.speDef = pokemon.speDef
-    this.attackType = pokemon.attackType
     this.types = new Set(values(pokemon.types))
     this.maxPP = pokemon.maxPP
     this.speed = pokemon.speed
@@ -184,7 +192,9 @@ export default class PokemonSprite extends DraggableObject {
     this.passive = pokemon.passive
     this.positionX = pokemon.positionX
     this.positionY = pokemon.positionY
-    this.attackSprite = PokemonAnimations[pokemon.name]?.attackSprite ?? DEFAULT_POKEMON_ANIMATION_CONFIG.attackSprite
+    this.attackSprite =
+      PokemonAnimations[pokemon.name]?.attackSprite ??
+      DEFAULT_POKEMON_ANIMATION_CONFIG.attackSprite
     this.ap = pokemon.ap
     this.luck = pokemon.luck
     this.inBattle = inBattle
@@ -204,7 +214,7 @@ export default class PokemonSprite extends DraggableObject {
     const isEntity = (
       pokemon: IPokemon | IPokemonEntity
     ): pokemon is IPokemonEntity => {
-      return inBattle
+      return inBattle && "status" in pokemon
     }
 
     if (isEntity(pokemon)) {
@@ -288,7 +298,8 @@ export default class PokemonSprite extends DraggableObject {
     this.draggable =
       playerId === scene.uid &&
       !inBattle &&
-      (scene as GameScene).spectate === false
+      (scene as GameScene).spectate === false &&
+      FlowerPotMons.includes(pokemon.name) === false
     if (isEntity(pokemon)) {
       this.pp = pokemon.pp
       this.team = pokemon.team
@@ -567,6 +578,37 @@ export default class PokemonSprite extends DraggableObject {
         this.destroy()
       }
     })
+
+    if (this.troopers) {
+      this.troopers.forEach((trooper, i) => {
+        // all troopers run away when leader dies
+        trooper.addFlinch()
+        trooper.orientation = OrientationArray[(i + 6) % 8]
+        const [dx, dy] = OrientationVector[(i + 5) % 8]
+        const endX = trooper.x + 1000 * dx
+        const endY = trooper.y + 1000 * dy
+
+        this.scene.tweens.add({
+          targets: trooper,
+          x: endX,
+          y: endY,
+          ease: "Linear",
+          duration: 5000,
+          delay: 500,
+          onStart: () => {
+            trooper.animationLocked = false
+            this.scene.animationManager?.animatePokemon(
+              trooper,
+              PokemonActionState.WALK,
+              false
+            )
+          },
+          onComplete: () => {
+            trooper.destroy()
+          }
+        })
+      })
+    }
   }
 
   resurectAnimation() {
@@ -585,18 +627,23 @@ export default class PokemonSprite extends DraggableObject {
     this.add(resurectAnim)
   }
 
-  displayAnimation(anim: string) {
+  displayAnimation(anim: string, args: Partial<AbilityAnimationArgs> = {}) {
     return displayAbility({
       scene: this.scene as GameScene,
       pokemonsOnBoard: [],
       ability: anim,
       orientation: this.orientation,
       positionX: this.positionX,
-      positionY: !this.inBattle ? this.positionY - 1 : this.team === Team.RED_TEAM ? 4 - this.positionY : this.positionY,
+      positionY: !this.inBattle
+        ? this.positionY - 1
+        : this.team === Team.RED_TEAM
+          ? 4 - this.positionY
+          : this.positionY,
       targetX: this.targetX ?? -1,
       targetY: this.targetY ?? -1,
       flip: this.flip,
-      ap: this.ap
+      ap: this.ap,
+      ...args
     })
   }
 
@@ -612,6 +659,44 @@ export default class PokemonSprite extends DraggableObject {
         this.flip
       )
     })
+  }
+
+  blossomAnimation() {
+    const scene = <GameScene>this.scene
+    const flowerPot = FlowerPots.find((pot) =>
+      FlowerMonByPot[pot].includes(PkmByIndex[this.index])
+    )
+    if (flowerPot) {
+      scene.board?.flowerPokemonsInPots
+        .find((p) => p.index === this.index)
+        ?.destroy()
+      const positions = this.team === Team.RED_TEAM ? FLOWER_POTS_POSITIONS_RED : FLOWER_POTS_POSITIONS_BLUE
+      const [startX, startY] = positions[FlowerPots.indexOf(flowerPot)]
+      addAbilitySprite(scene, Ability.PETAL_BLIZZARD, 0, [startX, startY - 24])
+      this.moveManager.setEnable(false)
+      this.setPosition(startX, startY)
+      const [x, y] = transformEntityCoordinates(
+        this.positionX,
+        this.positionY,
+        this.flip
+      )
+
+      scene.animationManager?.animatePokemon(
+        this,
+        PokemonActionState.HOP,
+        this.flip,
+        false
+      )
+      scene.tweens.add({
+        targets: this,
+        x,
+        y,
+        duration: 1000,
+        onComplete: () => {
+          this.moveManager.setEnable(true)
+        }
+      })
+    }
   }
 
   emoteAnimation() {
@@ -648,16 +733,16 @@ export default class PokemonSprite extends DraggableObject {
   cookAnimation(dishes: Item[]) {
     this.emoteAnimation()
     dishes.forEach((item, i) => {
+      const shinyEffect = this.scene.add.sprite(this.x, this.y, "shine")
+      shinyEffect.setScale(2).setDepth(DEPTH.ITEM_FOUND)
+      shinyEffect.play("shine")
       const itemSprite = this.scene.add.sprite(
         this.x,
         this.y,
         "item",
         item + ".png"
       )
-      itemSprite.setScale(0.5)
-      const shinyEffect = this.scene.add.sprite(this.x, this.y, "shine")
-      shinyEffect.setScale(2)
-      shinyEffect.play("shine")
+      itemSprite.setScale(0.5).setDepth(DEPTH.ITEM_FOUND)
       this.scene.tweens.add({
         targets: [itemSprite, shinyEffect],
         ease: Phaser.Math.Easing.Quadratic.Out,
@@ -672,6 +757,57 @@ export default class PokemonSprite extends DraggableObject {
         }
       })
     })
+  }
+
+  digAnimation(buriedItem: Item | null) {
+    this.orientation = Orientation.UP
+    const g = <GameScene>this.scene
+    g.animationManager?.animatePokemon(
+      this,
+      PokemonActionState.WALK,
+      false,
+      true
+    )
+    this.displayAnimation("DIG")
+    setTimeout(() => {
+      this.orientation = Orientation.DOWNLEFT
+      this.animationLocked = false
+      g.animationManager?.animatePokemon(this, PokemonActionState.IDLE, false)
+      if (buriedItem) {
+        this.emoteAnimation()
+        const shinyEffect = this.scene.add.sprite(this.x, this.y, "shine")
+        shinyEffect.setScale(2).setDepth(DEPTH.ITEM_FOUND)
+        shinyEffect.play("shine")
+        const itemSprite = this.scene.add.sprite(
+          this.x,
+          this.y,
+          "item",
+          buriedItem + ".png"
+        )
+        itemSprite.setScale(0.5).setDepth(DEPTH.ITEM_FOUND)
+
+        this.scene.tweens.add({
+          targets: [itemSprite, shinyEffect],
+          ease: Phaser.Math.Easing.Quadratic.Out,
+          duration: 1000,
+          y: this.y - 70,
+          x: this.x,
+          onComplete: () => {
+            setTimeout(() => {
+              itemSprite.destroy()
+              shinyEffect.destroy()
+              if (buriedItem === Item.COIN) {
+                g.displayMoneyGain(this.x, this.y - 70, 1)
+              } else if (buriedItem === Item.NUGGET) {
+                g.displayMoneyGain(this.x, this.y - 70, 3)
+              } else if (buriedItem === Item.BIG_NUGGET) {
+                g.displayMoneyGain(this.x, this.y - 70, 10)
+              }
+            }, 1000)
+          }
+        })
+      }
+    }, 1000)
   }
 
   updateMeal(meal: Item | "") {

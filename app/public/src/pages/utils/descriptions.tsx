@@ -5,7 +5,7 @@ import { Item } from "../../../../types/enum/Item"
 import { PositiveStatuses, Status } from "../../../../types/enum/Status"
 import { Synergy } from "../../../../types/enum/Synergy"
 import { Weather } from "../../../../types/enum/Weather"
-import { roundToNDigits } from "../../../../utils/number"
+import { max, roundToNDigits } from "../../../../utils/number"
 import SynergyIcon from "../component/icons/synergy-icon"
 import { cc } from "./jsx"
 
@@ -16,7 +16,10 @@ const Weathers = Object.keys(Weather)
 const Synergies = Object.keys(Synergy)
 const Items = Object.keys(Item)
 const TechnicalTerms = [
-  "STRONGEST"
+  "STRONGEST",
+  "ADJACENT",
+  "ADJACENT_IN_THE_SAME_ROW",
+  "CONE"
 ]
 
 
@@ -119,9 +122,13 @@ export function addIconsToDescription(description: string, stats?: { ap: number,
         )
       } else if (TechnicalTerms.includes(token)) {
         d = (
-          <i title={t(`technical_terms_definitions.${token}`)} className="technical-term">
-            {t(`technical_terms.${token}`)}
-          </i>
+          <span
+            className="description-icon technical-term"
+            title={t(`technical_terms_definitions.${token}`)}
+          >
+            <img src={`assets/ui/${token.toLowerCase()}.svg`} />
+            <i className="technical-term-label">{t(`technical_terms.${token}`)}</i>
+          </span>
         )
       } else if (/\[[^\]]+\]/.test(token)) {
         const array = token.slice(1, -1).split(",")
@@ -160,10 +167,14 @@ export function addIconsToDescription(description: string, stats?: { ap: number,
             )}
             {array.slice(0, stats?.stages).map((v, j) => {
               const separator = j < Math.min(stats?.stages ?? 4, array.length) - 1 ? "/" : ""
-              let scaleValue = 0
-              if (scaleType === "AP") scaleValue = stats?.ap ?? 0
-              if (scaleType === "LUCK") scaleValue = stats?.luck ?? 0
-              const value = roundToNDigits(Number(v) * (1 + scaleValue * scaleFactor / 100), nbDigits)
+              let value = roundToNDigits(Number(v), nbDigits)
+              if (scaleType === "AP") {
+                value = roundToNDigits(Number(v) * (1 + (stats?.ap ?? 0) * scaleFactor / 100), nbDigits)
+              }
+              if (scaleType === "LUCK") {
+                value = roundToNDigits(max(100)(Math.pow(Number(v), (1 - (stats?.luck ?? 0) / 100))), nbDigits)
+              }
+
               const tier = stats?.stars
               const active =
                 tier === undefined ||

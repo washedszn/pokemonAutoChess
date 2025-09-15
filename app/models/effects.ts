@@ -3,14 +3,16 @@ import { Pokemon } from "../models/colyseus-models/pokemon"
 import { SynergyTriggers } from "../types/Config"
 import { Ability } from "../types/enum/Ability"
 import { EffectEnum } from "../types/enum/Effect"
-import { Synergy } from "../types/enum/Synergy"
+import { Pkm } from "../types/enum/Pokemon"
+import { Synergy, SynergyArray } from "../types/enum/Synergy"
 import { isOnBench } from "../utils/board"
+import { values } from "../utils/schemas"
 import Synergies from "./colyseus-models/synergies"
 
 export class Effects extends SetSchema<EffectEnum> {
   update(synergies: Synergies, board: MapSchema<Pokemon>) {
     this.clear()
-    ;(Object.values(Synergy) as Synergy[]).forEach((synergy) => {
+    SynergyArray.forEach((synergy) => {
       for (let i = SynergyTriggers[synergy].length; i >= 0; i--) {
         const v = SynergyTriggers[synergy][i]
         const s = synergies.get(synergy)
@@ -35,6 +37,14 @@ export class Effects extends SetSchema<EffectEnum> {
         if (p.skill === Ability.PSYCHIC_SURGE) {
           this.add(EffectEnum.PSYCHIC_TERRAIN)
         }
+      }
+
+      if (p.name === Pkm.FALINKS_BRASS) {
+        const nbTroopers = values(board).filter(
+          (p) => p.name === Pkm.FALINKS_TROOPER
+        ).length
+        if (nbTroopers < 6) this.add(EffectEnum.FALINKS_BRASS)
+        else this.delete(EffectEnum.FALINKS_BRASS)
       }
     })
   }
@@ -137,10 +147,10 @@ export const SynergyEffects: { [key in Synergy]: readonly EffectEnum[] } = {
     EffectEnum.SKYDIVE
   ],
   [Synergy.FLORA]: [
-    EffectEnum.ODD_FLOWER,
-    EffectEnum.GLOOM_FLOWER,
-    EffectEnum.VILE_FLOWER,
-    EffectEnum.SUN_FLOWER
+    EffectEnum.COTTONWEED,
+    EffectEnum.FLYCATCHER,
+    EffectEnum.FRAGRANT,
+    EffectEnum.FLOWER_POWER
   ],
   [Synergy.ROCK]: [
     EffectEnum.BATTLE_ARMOR,

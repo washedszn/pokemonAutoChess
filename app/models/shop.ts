@@ -41,8 +41,8 @@ import {
 } from "../utils/random"
 import { values } from "../utils/schemas"
 import Player from "./colyseus-models/player"
-import { Meltan, PokemonClasses } from "./colyseus-models/pokemon"
-import PokemonFactory from "./pokemon-factory"
+import { PokemonClasses } from "./colyseus-models/pokemon"
+import { getPokemonBaseline, PkmColorVariantsByPkm } from "./pokemon-factory"
 import { getPokemonData } from "./precomputed/precomputed-pokemon-data"
 import { PRECOMPUTED_POKEMONS_PER_RARITY } from "./precomputed/precomputed-rarity"
 import { PVEStages } from "./pve-stages"
@@ -99,6 +99,8 @@ export function getSellPrice(
     price = pokemon.shiny ? 10 : 2
   } else if (name == Pkm.DITTO) {
     price = 5
+  } else if (name == Pkm.FALINKS_TROOPER) {
+    price = 5
   } else if (name == Pkm.MELTAN) {
     price = 0
   } else if (name === Pkm.MAGIKARP) {
@@ -108,9 +110,9 @@ export function getSellPrice(
   } else if (name === Pkm.WISHIWASHI) {
     price = 3
   } else if (name === Pkm.REMORAID) {
-    price = 3
+    price = 2
   } else if (name === Pkm.OCTILLERY) {
-    price = hasRareCandy ? 3 : 10
+    price = hasRareCandy ? 2 : 7
   } else if (name === Pkm.GYARADOS) {
     price = hasRareCandy ? 0 : 10
   } else if (name === Pkm.MILOTIC) {
@@ -125,7 +127,7 @@ export function getSellPrice(
     price = duo ? 6 : 10
   } else if (pokemon.rarity === Rarity.LEGENDARY) {
     price = duo ? 10 : 20
-  } else if (PokemonFactory.getPokemonBaseEvolution(name) === Pkm.EEVEE) {
+  } else if (getPokemonBaseline(name) === Pkm.EEVEE) {
     price = RarityCost[pokemon.rarity]
   } else if (duo) {
     price = Math.ceil((RarityCost[pokemon.rarity] * stars) / 2)
@@ -145,6 +147,8 @@ export function getBuyPrice(
   let price = 1
 
   if (name === Pkm.DITTO) {
+    price = 5
+  } else if (name === Pkm.FALINKS_TROOPER) {
     price = 5
   } else if (name === Pkm.MELTAN) {
     price = 0
@@ -262,7 +266,7 @@ export default class Shop {
 
   releasePokemon(pkm: Pkm, player: Player, state: GameState) {
     const { stars, rarity, regional } = getPokemonData(pkm)
-    const baseEvolution = PokemonFactory.getPokemonBaseEvolution(pkm)
+    const baseline = getPokemonBaseline(pkm)
     let entityNumber = stars >= 3 ? 9 : stars === 2 ? 3 : 1
     const duo = Object.entries(PkmDuos).find(([_key, duo]) => duo.includes(pkm))
     if (duo) {
@@ -273,7 +277,7 @@ export default class Shop {
 
     if (
       regional &&
-      new PokemonClasses[pkm]().isInRegion(player.map, state) === false
+      new PokemonClasses[pkm](pkm).isInRegion(player.map, state) === false
     ) {
       return // regional pokemons sold in a region other than their original region are not added back to the pool
     }
@@ -284,7 +288,7 @@ export default class Shop {
 
     if (pool) {
       for (let n = 0; n < entityNumber; n++) {
-        pool.push(baseEvolution)
+        pool.push(baseline)
       }
     }
   }
@@ -400,6 +404,9 @@ export default class Shop {
           )
           if (regionalVariants.length > 0) pkm = pickRandomIn(regionalVariants)
         }
+        if (pkm in PkmColorVariantsByPkm) {
+          pkm = PkmColorVariantsByPkm[pkm]!(player)
+        }
         return pkm
       })
       .filter((pkm) => {
@@ -461,6 +468,10 @@ export default class Shop {
     ) {
       const unowns = getUnownsPoolPerStage(state.stageLevel)
       return pickRandomIn(unowns)
+    }
+
+    if (player.effects.has(EffectEnum.FALINKS_BRASS) && chance(4 / 100)) {
+      return Pkm.FALINKS_TROOPER
     }
 
     const isPVE = state.stageLevel in PVEStages
@@ -610,13 +621,14 @@ export default class Shop {
 
   magnetPull(meltan: IPokemonEntity, player: Player): Pkm {
     const rarityProbability = {
-      [Rarity.SPECIAL]: 0.35,
       [Rarity.COMMON]: 0.15,
-      [Rarity.UNCOMMON]: 0.3,
+      [Rarity.UNCOMMON]: 0.28,
       [Rarity.RARE]: 0.15,
-      [Rarity.EPIC]: 0.05
+      [Rarity.SPECIAL]: 0.35,
+      [Rarity.EPIC]: 0.05,
+      [Rarity.ULTRA]: 0.02
     }
-    const rarity_seed = Math.random()
+    const rarity_seed = Math.random() * (1 + meltan.ap / 200) * (1 + meltan.luck / 100)
     let threshold = 0
     const finals = new Set(
       values(player.board)
@@ -627,8 +639,8 @@ export default class Shop {
     let rarity = Rarity.SPECIAL
     for (const r in rarityProbability) {
       threshold += rarityProbability[r]
+      rarity = r as Rarity
       if (rarity_seed < threshold) {
-        rarity = r as Rarity
         break
       }
     }

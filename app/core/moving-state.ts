@@ -1,14 +1,11 @@
 import Player from "../models/colyseus-models/player"
 import { PokemonActionState } from "../types/enum/Game"
-import { Item } from "../types/enum/Item"
 import { Passive } from "../types/enum/Passive"
 import { Synergy } from "../types/enum/Synergy"
 import { distanceC } from "../utils/distance"
 import { findPath } from "../utils/pathfind"
-import { values } from "../utils/schemas"
 import type { Board } from "./board"
 import { OnMoveEffect } from "./effects/effect"
-import { ItemEffects } from "./effects/items"
 import { drumBeat, partingShot, stenchJump } from "./effects/passives"
 import { getMoveSpeed, PokemonEntity } from "./pokemon-entity"
 import PokemonState from "./pokemon-state"
@@ -95,8 +92,10 @@ export default class MovingState extends PokemonState {
         }
 
         // logger.debug(`pokemon ${pokemon.name} jumped from (${pokemon.positionX},${pokemon.positionY}) to (${x},${y}), (desired direction (${coordinates.x}, ${coordinates.y})), orientation: ${pokemon.orientation}`);
-        board.swapCells(pokemon.positionX, pokemon.positionY, x, y)
-        this.onMove(pokemon, board, x, y)
+        const oldX = pokemon.positionX
+        const oldY = pokemon.positionY
+        board.swapCells(oldX, oldY, x, y)
+        this.onMove(pokemon, board, oldX, oldY, x, y)
       }
     } else {
       // Using pathfinding to get optimal path
@@ -129,30 +128,27 @@ export default class MovingState extends PokemonState {
       })
       if (x !== undefined && y !== undefined) {
         // logger.debug(`pokemon ${pokemon.name} moved from (${pokemon.positionX},${pokemon.positionY}) to (${x},${y}), (desired direction (${coordinates.x}, ${coordinates.y})), orientation: ${pokemon.orientation}`);
-        board.swapCells(pokemon.positionX, pokemon.positionY, x, y)
-        this.onMove(pokemon, board, x, y)
+        const oldX = pokemon.positionX
+        const oldY = pokemon.positionY
+        board.swapCells(oldX, oldY, x, y)
+        this.onMove(pokemon, board, oldX, oldY, x, y)
       }
     }
   }
 
-  onMove(pokemon: PokemonEntity, board: Board, x: number, y: number) {
-    //update orientation
+  onMove(pokemon: PokemonEntity, board: Board, oldX: number, oldY: number, newX: number, newY: number) {
+    // update orientation
     pokemon.orientation = board.orientation(
-      x,
-      y,
-      pokemon.targetX,
-      pokemon.targetY,
+      oldX,
+      oldY,
+      newX,
+      newY,
       pokemon,
       undefined
     )
 
-    const onMoveEffects = [
-      ...pokemon.effectsSet.values(),
-      ...values<Item>(pokemon.items).flatMap((item) => ItemEffects[item] ?? [])
-    ].filter((effect) => effect instanceof OnMoveEffect)
-
-    onMoveEffects.forEach((effect) => {
-      effect.apply(pokemon, board, x, y)
+    pokemon.getEffects(OnMoveEffect).forEach((effect) => {
+      effect.apply(pokemon, board, oldX, oldY, newX, newY)
     })
   }
 

@@ -1,12 +1,13 @@
 import { MapSchema } from "@colyseus/schema"
+import { FlowerPot } from "../core/flower-pots"
+import { TownEncounter, TownEncounters } from "../core/town-encounters"
 import { Emotion, IPlayer, PkmCustom } from "../types"
 import { Pkm, PkmFamily, PkmIndex } from "../types/enum/Pokemon"
 import { logger } from "../utils/logger"
-import { Pokemon, PokemonClasses } from "./colyseus-models/pokemon"
-import { PVEStage } from "./pve-stages"
-import { TownEncounter, TownEncounters } from "../core/town-encounters"
-import { getPkmWithCustom } from "./colyseus-models/pokemon-customs"
 import Player from "./colyseus-models/player"
+import { Pokemon, PokemonClasses } from "./colyseus-models/pokemon"
+import { getPkmWithCustom } from "./colyseus-models/pokemon-customs"
+import { PVEStage } from "./pve-stages"
 
 export default class PokemonFactory {
   static makePveBoard(
@@ -34,33 +35,6 @@ export default class PokemonFactory {
     return pokemons
   }
 
-  static getPokemonBaseEvolution(name: Pkm) {
-    switch (name) {
-      case Pkm.VAPOREON:
-      case Pkm.JOLTEON:
-      case Pkm.FLAREON:
-      case Pkm.ESPEON:
-      case Pkm.UMBREON:
-      case Pkm.LEAFEON:
-      case Pkm.SYLVEON:
-      case Pkm.GLACEON:
-        return Pkm.EEVEE
-      case Pkm.SHEDINJA:
-        return Pkm.NINCADA
-      case Pkm.WORMADAM_PLANT:
-        return Pkm.BURMY_PLANT
-      case Pkm.WORMADAM_SANDY:
-        return Pkm.BURMY_SANDY
-      case Pkm.WORMADAM_TRASH:
-        return Pkm.BURMY_TRASH
-      default:
-        if (PkmFamily[name] == Pkm.UNOWN_A) {
-          return name
-        }
-        return PkmFamily[name]
-    }
-  }
-
   static createPokemonFromName(
     name: Pkm,
     custom?: PkmCustom | Player
@@ -80,10 +54,112 @@ export default class PokemonFactory {
     }
     if (name in PokemonClasses) {
       const PokemonClass = PokemonClasses[name]
-      return new PokemonClass(shiny, emotion)
+      return new PokemonClass(name, shiny, emotion)
     } else {
       logger.warn(`No pokemon with name "${name}" found, return MissingNo`)
-      return new Pokemon(shiny, emotion)
+      return new Pokemon(Pkm.DEFAULT, shiny, emotion)
     }
   }
+}
+
+export const PkmColorVariantsByPkm: { [pkm in Pkm]?: (player: Player) => Pkm } = {
+  [Pkm.FLABEBE]: (player) => {
+    switch (player.flowerPotsSpawnOrder[0]) {
+      case FlowerPot.YELLOW:
+        return Pkm.FLABEBE_YELLOW
+      case FlowerPot.ORANGE:
+        return Pkm.FLABEBE_ORANGE
+      case FlowerPot.BLUE:
+        return Pkm.FLABEBE_BLUE
+      case FlowerPot.WHITE:
+        return Pkm.FLABEBE_WHITE
+    }
+    return Pkm.FLABEBE
+  },
+  [Pkm.FLOETTE]: (player) => {
+    switch (player.flowerPotsSpawnOrder[0]) {
+      case FlowerPot.YELLOW:
+        return Pkm.FLOETTE_YELLOW
+      case FlowerPot.ORANGE:
+        return Pkm.FLOETTE_ORANGE
+      case FlowerPot.BLUE:
+        return Pkm.FLOETTE_BLUE
+      case FlowerPot.WHITE:
+        return Pkm.FLOETTE_WHITE
+    }
+    return Pkm.FLOETTE
+  },
+  [Pkm.FLORGES]: (player) => {
+    switch (player.flowerPotsSpawnOrder[0]) {
+      case FlowerPot.YELLOW:
+        return Pkm.FLORGES_YELLOW
+      case FlowerPot.ORANGE:
+        return Pkm.FLORGES_ORANGE
+      case FlowerPot.BLUE:
+        return Pkm.FLORGES_BLUE
+      case FlowerPot.WHITE:
+        return Pkm.FLORGES_WHITE
+    }
+    return Pkm.FLORGES
+  }
+}
+
+export const PkmColorVariants: readonly Pkm[] = [
+  Pkm.FLABEBE_YELLOW,
+  Pkm.FLABEBE_ORANGE,
+  Pkm.FLABEBE_BLUE,
+  Pkm.FLABEBE_WHITE,
+  Pkm.FLOETTE_YELLOW,
+  Pkm.FLOETTE_ORANGE,
+  Pkm.FLOETTE_BLUE,
+  Pkm.FLOETTE_WHITE,
+  Pkm.FLORGES_YELLOW,
+  Pkm.FLORGES_ORANGE,
+  Pkm.FLORGES_BLUE,
+  Pkm.FLORGES_WHITE
+]
+
+export function getPokemonBaseline(name: Pkm) {
+  switch (name) {
+    case Pkm.VAPOREON:
+    case Pkm.JOLTEON:
+    case Pkm.FLAREON:
+    case Pkm.ESPEON:
+    case Pkm.UMBREON:
+    case Pkm.LEAFEON:
+    case Pkm.SYLVEON:
+    case Pkm.GLACEON:
+      return Pkm.EEVEE
+    case Pkm.SHEDINJA:
+      return Pkm.NINCADA
+    case Pkm.WORMADAM_PLANT:
+      return Pkm.BURMY_PLANT
+    case Pkm.WORMADAM_SANDY:
+      return Pkm.BURMY_SANDY
+    case Pkm.WORMADAM_TRASH:
+      return Pkm.BURMY_TRASH
+    case Pkm.FLABEBE_BLUE:
+    case Pkm.FLABEBE_ORANGE:
+    case Pkm.FLABEBE_YELLOW:
+    case Pkm.FLABEBE_WHITE:
+    case Pkm.FLOETTE_BLUE:
+    case Pkm.FLOETTE_ORANGE:
+    case Pkm.FLOETTE_YELLOW:
+    case Pkm.FLOETTE_WHITE:
+    case Pkm.FLORGES_BLUE:
+    case Pkm.FLORGES_ORANGE:
+    case Pkm.FLORGES_YELLOW:
+    case Pkm.FLORGES_WHITE:
+      return Pkm.FLABEBE
+
+    default:
+      if (PkmFamily[name] == Pkm.UNOWN_A) {
+        return name
+      }
+      return PkmFamily[name]
+  }
+}
+
+export function isSameFamily(pkm1: Pkm, pkm2: Pkm): boolean {
+  return getPokemonBaseline(pkm1) === getPokemonBaseline(pkm2)
 }

@@ -39,7 +39,11 @@ export function IngameRoomsList() {
       const game: Room<GameState> = await client.joinById(selectedRoom.roomId, {
         idToken: token
       })
-      localStore.set(LocalStoreKeys.RECONNECTION_GAME, game.reconnectionToken, 30)
+      localStore.set(
+        LocalStoreKeys.RECONNECTION_GAME,
+        { reconnectionToken: game.reconnectionToken, roomId: game.roomId },
+        30
+      )
       await Promise.allSettled([
         lobby.connection.isOpen && lobby.leave(false),
         game.connection.isOpen && game.leave(false)

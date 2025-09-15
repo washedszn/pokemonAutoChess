@@ -68,7 +68,9 @@ export default function Preparation() {
           try {
             if (!initialized.current) {
               initialized.current = true
-              const cachedReconnectionToken = localStore.get(LocalStoreKeys.RECONNECTION_PREPARATION)
+              const cachedReconnectionToken = localStore.get(
+                LocalStoreKeys.RECONNECTION_PREPARATION
+              )?.reconnectionToken
               if (cachedReconnectionToken) {
                 let r: Room<PreparationState>
                 try {
@@ -86,7 +88,11 @@ export default function Preparation() {
                   navigate("/lobby")
                   return
                 }
-                localStore.set(LocalStoreKeys.RECONNECTION_PREPARATION, r.reconnectionToken, 30)
+                localStore.set(
+                  LocalStoreKeys.RECONNECTION_PREPARATION,
+                  { reconnectionToken: r.reconnectionToken, roomId: r.roomId },
+                  30
+                )
                 await initialize(r, user.uid)
                 dispatch(joinPreparation(r))
               } else {
@@ -230,7 +236,11 @@ export default function Preparation() {
             "Connection closed unexpectedly or timed out. Attempting reconnect."
           )
           // Restart the expiry timer of the reconnection token for reconnect
-          localStore.set(LocalStoreKeys.RECONNECTION_PREPARATION, room.reconnectionToken, 30)
+          localStore.set(
+            LocalStoreKeys.RECONNECTION_PREPARATION,
+            { reconnectionToken: room.reconnectionToken, roomId: room.roomId },
+            30
+          )
           // clearing state variables to re-initialize
           dispatch(resetPreparation())
           initialized.current = false
@@ -257,7 +267,11 @@ export default function Preparation() {
           const game: Room<GameState> = await client.joinById(roomId, {
             idToken: token
           })
-          localStore.set(LocalStoreKeys.RECONNECTION_GAME, game.reconnectionToken, 5 * 60) // 5 minutes allowed to start game
+          localStore.set(
+            LocalStoreKeys.RECONNECTION_GAME,
+            { reconnectionToken: game.reconnectionToken, roomId: game.roomId },
+            5 * 60
+          ) // 5 minutes allowed to start game
           await Promise.allSettled([
             room.connection.isOpen && room.leave(),
             game.connection.isOpen && game.leave(false)

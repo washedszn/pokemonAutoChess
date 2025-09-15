@@ -3,6 +3,7 @@ import type { Board } from "../core/board"
 import Dps from "../core/dps"
 import { Effect as EffectClass } from "../core/effects/effect"
 import { EvolutionRule } from "../core/evolution-rules"
+import { FlowerPot } from "../core/flower-pots"
 import Count from "../models/colyseus-models/count"
 import ExperienceManager from "../models/colyseus-models/experience-manager"
 import { IPokemonRecord } from "../models/colyseus-models/game-record"
@@ -23,7 +24,6 @@ import { DungeonPMDO } from "./enum/Dungeon"
 import { BoardEffect, EffectEnum } from "./enum/Effect"
 import { Emotion } from "./enum/Emotion"
 import {
-  AttackType,
   GameMode,
   Orientation,
   PokemonActionState,
@@ -86,6 +86,7 @@ export enum Transfer {
   SHOP = "SHOP",
   ITEM = "ITEM",
   COOK = "COOK",
+  DIG = "DIG",
   GAME_START = "GAME_START",
   GAME_START_REQUEST = "GAME_START_REQUEST",
   GAME_END = "GAME_END",
@@ -96,7 +97,7 @@ export enum Transfer {
   BUY_EMOTION = "BUY_EMOTION",
   BOOSTER_CONTENT = "BOOSTER_CONTENT",
   USER = "USER",
-  DRAG_DROP_FAILED = "DRAG_DROP_FAILED",
+  DRAG_DROP_CANCEL = "DRAG_DROP_CANCEL",
   SHOW_EMOTE = "SHOW_EMOTE",
   FINAL_RANK = "FINAL_RANK",
   SEARCH_BY_ID = "SEARCH_BY_ID",
@@ -140,7 +141,8 @@ export enum Transfer {
   NPC_DIALOG = "NPC_DIALOG",
   DELETE_ACCOUNT = "DELETE_ACCOUNT",
   HEAP_SNAPSHOT = "HEAP_SNAPSHOT",
-  RECONNECT_PROMPT = "RECONNECT_PROMPT"
+  RECONNECT_PROMPT = "RECONNECT_PROMPT",
+  OVERWRITE_BOARD = "OVERWRITE_BOARD"
 }
 
 export enum ReadWriteMode {
@@ -149,9 +151,9 @@ export enum ReadWriteMode {
 }
 
 export interface ICreditName {
-  Contact: string
-  Discord: string
-  Name: string
+  contact: string
+  discord: string
+  name: string
 }
 
 export interface IChatV2 {
@@ -176,8 +178,8 @@ export interface IDragDropMessage {
 }
 
 export interface IDragDropItemMessage {
-  x: number
-  y: number
+  zone: string
+  index: number
   id: Item
 }
 
@@ -206,6 +208,7 @@ export interface IGameState extends Schema {
 
 export interface ISimplePlayer {
   elo: number
+  games: number
   name: string
   id: string
   rank: number
@@ -239,6 +242,8 @@ export interface IPokemonAvatar {
   x: number
   y: number
   action: PokemonActionState
+  portalId: string
+  itemId: string
 }
 
 export interface IFloatingItem {
@@ -259,6 +264,7 @@ export interface ISynergySymbol {
   x: number
   y: number
   synergy: Synergy
+  portalId: string
 }
 
 export interface IPlayer {
@@ -293,6 +299,11 @@ export interface IPlayer {
   itemsProposition: ArraySchema<Item>
   pokemonsProposition: ArraySchema<PkmProposition>
   loadingProgress: number
+  berryTreesStages: number[]
+  flowerPots: Pokemon[]
+  flowerPotsSpawnOrder: FlowerPot[]
+  mulch: number
+  mulchCap: number
   effects: Effects
   isBot: boolean
   map: DungeonPMDO | "town"
@@ -328,7 +339,6 @@ export interface IPokemon {
   speed: number
   def: number
   speDef: number
-  attackType: AttackType
   atk: number
   hp: number
   range: number
@@ -527,7 +537,6 @@ export interface IPokemonEntity {
   baseAtk: number
   baseDef: number
   baseSpeDef: number
-  attackType: AttackType
   life: number
   shield: number
   team: number
@@ -605,7 +614,7 @@ export interface ICount {
 export interface IPreparationMetadata {
   name: string
   ownerName: string
-  password: string | null
+  passwordProtected: boolean
   noElo: boolean
   type: "preparation"
   gameStartedAt: string | null
@@ -705,6 +714,8 @@ export enum Title {
   PRIMAL = "PRIMAL",
   DENTIST = "DENTIST",
   FISHERMAN = "FISHERMAN",
+  MOLE = "MOLE",
+  BLOSSOMED = "BLOSSOMED",
   SIREN = "SIREN",
   FEARSOME = "FEARSOME",
   GOLDEN = "GOLDEN",

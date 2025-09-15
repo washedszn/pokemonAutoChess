@@ -139,11 +139,13 @@ export default function Game() {
 
   const connectToGame = useCallback(
     async (attempts = 1) => {
-      const cachedReconnectionToken = localStore.get(LocalStoreKeys.RECONNECTION_GAME)
+      logger.debug(
+        `connectToGame attempt ${attempts} / ${MAX_ATTEMPS_RECONNECT}`
+      )
+      const cachedReconnectionToken = localStore.get(
+        LocalStoreKeys.RECONNECTION_GAME
+      )?.reconnectionToken
       if (cachedReconnectionToken) {
-        logger.debug(
-          `connectToGame attempt ${attempts} / ${MAX_ATTEMPS_RECONNECT} with reconnect token ${cachedReconnectionToken}`
-        )
         connecting.current = true
         const statusMessage = document.querySelector("#status-message")
         if (statusMessage) {
@@ -154,7 +156,14 @@ export default function Game() {
           .reconnect(cachedReconnectionToken)
           .then((room: Room) => {
             // store game token for 1 hour
-            localStore.set(LocalStoreKeys.RECONNECTION_GAME, room.reconnectionToken, 60 * 60)
+            localStore.set(
+              LocalStoreKeys.RECONNECTION_GAME,
+              {
+                reconnectionToken: room.reconnectionToken,
+                roomId: room.roomId
+              },
+              60 * 60
+            )
             dispatch(joinGame(room))
             connected.current = true
             connecting.current = false
@@ -223,6 +232,7 @@ export default function Game() {
       room?.state.players.forEach((p) => {
         const afterPlayer: IAfterGamePlayer = {
           elo: p.elo,
+          games: p.games,
           name: p.name,
           id: p.id,
           rank: p.rank,
@@ -284,7 +294,11 @@ export default function Game() {
       elligibleToELO,
       gameMode
     })
-    localStore.set(LocalStoreKeys.RECONNECTION_AFTER_GAME, r.reconnectionToken, 30)
+    localStore.set(
+      LocalStoreKeys.RECONNECTION_AFTER_GAME,
+      { reconnectionToken: r.reconnectionToken, roomId: r.roomId },
+      30
+    )
     if (r.connection.isOpen) {
       await r.leave(false)
     }
@@ -424,6 +438,19 @@ export default function Game() {
             const pokemon = g.board.pokemons.get(message.pokemonId)
             if (pokemon) {
               pokemon.cookAnimation(message.dishes)
+            }
+          }
+        }
+      )
+
+      room.onMessage(
+        Transfer.DIG,
+        async (message: { pokemonId: string; buriedItem: Item | null }) => {
+          const g = getGameScene()
+          if (g && g.board) {
+            const pokemon = g.board.pokemons.get(message.pokemonId)
+            if (pokemon) {
+              pokemon.digAnimation(message.buriedItem)
             }
           }
         }
@@ -801,6 +828,25 @@ export default function Game() {
             dispatch(setPokemonProposition(values(player.pokemonsProposition)))
           }
         })
+
+        $player.groundHoles.onChange((value) => {
+          if (player.id === store.getState().game.currentPlayerId) {
+            const gameScene = getGameScene()
+            if (gameScene?.board && room.state.phase === GamePhaseState.PICK) {
+              gameScene.board.renderGroundHoles()
+            }
+          }
+        })
+
+        $player.listen("mulch", (value) => {
+          dispatch(changePlayer({ id: player.id, field: "mulch", value }))
+          getGameScene()?.board?.updateMulchCount()
+        })
+        $player.listen("mulchCap", (value) => {
+          dispatch(changePlayer({ id: player.id, field: "mulchCap", value }))
+          getGameScene()?.board?.updateMulchCount()
+        })
+
       })
 
       $state.players.onRemove((player) => {

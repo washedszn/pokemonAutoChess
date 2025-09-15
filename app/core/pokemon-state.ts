@@ -20,7 +20,8 @@ import { logger } from "../utils/logger"
 import { max, min } from "../utils/number"
 import { chance, pickRandomIn } from "../utils/random"
 import type { Board, Cell } from "./board"
-import { PeriodicEffect } from "./effects/effect"
+import { OnShieldDepletedEffect, PeriodicEffect } from "./effects/effect"
+import { humanHealEffect } from "./effects/synergies"
 import { PokemonEntity } from "./pokemon-entity"
 
 export default abstract class PokemonState {
@@ -38,7 +39,7 @@ export default abstract class PokemonState {
       let specialDamage = 0
       let trueDamage = 0
       let totalTakenDamage = 0
-      let attackType = pokemon.attackType
+      let attackType = pokemon.effects.has(EffectEnum.SPECIAL_ATTACKS) ? AttackType.SPECIAL : AttackType.PHYSICAL
 
       if (chance(pokemon.critChance / 100, pokemon)) {
         if (target.items.has(Item.ROCKY_HELMET) === false) {
@@ -60,7 +61,11 @@ export default abstract class PokemonState {
         pokemon.onCriticalAttack({ target, board, damage })
       }
 
-      if (pokemon.attackType === AttackType.SPECIAL) {
+      if (target.effects.has(EffectEnum.WONDER_ROOM)) {
+        attackType = AttackType.SPECIAL
+      }
+
+      if (attackType === AttackType.SPECIAL) {
         damage = Math.ceil(damage * (1 + pokemon.ap / 100))
       }
 
@@ -111,11 +116,6 @@ export default abstract class PokemonState {
 
       if (pokemon.passive === Passive.SPOT_PANDA && target.status.confusion) {
         specialDamage += 1 * damage * (1 + pokemon.ap / 100)
-      }
-
-      if (target.effects.has(EffectEnum.WONDER_ROOM)) {
-        damage = Math.ceil(damage * (1 + pokemon.ap / 100))
-        attackType = AttackType.SPECIAL
       }
 
       let trueDamagePart = 0
@@ -433,7 +433,7 @@ export default abstract class PokemonState {
         if (attacker && attacker.items.has(Item.PROTECTIVE_PADS) === false && !isRetaliation) {
           const crit =
             pokemon.effects.has(EffectEnum.ABILITY_CRIT) &&
-            chance(pokemon.critChance, pokemon)
+            chance(pokemon.critChance / 100, pokemon)
           const reflectDamage = Math.round(0.5 * damage * (1 + pokemon.ap / 100) * (crit ? pokemon.critPower : 1))
           attacker.handleDamage({
             damage: reflectDamage,
@@ -443,6 +443,9 @@ export default abstract class PokemonState {
             shouldTargetGainMana: true,
             isRetaliation: true // important to avoid infinite loops between two units reflecting
           })
+          
+          // we allow human healing from retaliation abilities, but by default it doesnt apply for retaliation damage so we force it here
+          if (pokemon.hasSynergyEffect(Synergy.HUMAN)) humanHealEffect.apply({ pokemon, target: attacker, damage: reflectDamage, isRetaliation: false })
         }
         return { death: false, takenDamage: 0 }
       }
@@ -469,12 +472,12 @@ export default abstract class PokemonState {
           pokemon.effects.has(EffectEnum.JUSTIFIED)
         ) {
           const damageBlocked = pokemon.effects.has(EffectEnum.JUSTIFIED)
-            ? 13
+            ? 12
             : pokemon.effects.has(EffectEnum.DEFIANT)
-              ? 10
+              ? 9
               : pokemon.effects.has(EffectEnum.STURDY)
-                ? 7
-                : 4
+                ? 6
+                : 3
           reducedDamage = reducedDamage - damageBlocked
           pokemon.count.fightingBlockCount++
         }
@@ -524,6 +527,9 @@ export default abstract class PokemonState {
         if (damageOnShield > pokemon.shield) {
           residualDamage += damageOnShield - pokemon.shield
           damageOnShield = pokemon.shield
+          pokemon.getEffects(OnShieldDepletedEffect).forEach((effect) => {
+            effect.apply({ pokemon, board, attacker })
+          })
         }
 
         pokemon.shieldDamageTaken += damageOnShield
@@ -541,7 +547,7 @@ export default abstract class PokemonState {
         takenDamage = 0
         residualDamage = 0
         pokemon.addPP(50, pokemon, 0, false)
-        pokemon.status.triggerProtect(2000)
+        pokemon.status.triggerProtect(1500)
         pokemon.removeItem(Item.SHINY_CHARM)
       }
 
@@ -583,11 +589,11 @@ export default abstract class PokemonState {
       }
 
       if (takenDamage > 0) {
-        if(pokemon.life > 0) {
+        if (pokemon.life > 0) {
           pokemon.onDamageReceived({ attacker, damage: takenDamage, board, attackType, isRetaliation })
         }
         if (attacker) {
-          attacker.onDamageDealt({ target: pokemon, damage: takenDamage })
+          attacker.onDamageDealt({ target: pokemon, damage: takenDamage, attackType, isRetaliation })
           if (pokemon !== attacker) {
             // do not count self damage
             switch (attackType) {
@@ -639,67 +645,71 @@ export default abstract class PokemonState {
       }
 
       if (death) {
-        const originalTeam = pokemon.status.possessed ? (pokemon.team === Team.BLUE_TEAM ? Team.RED_TEAM : Team.BLUE_TEAM) : pokemon.team
-        pokemon.team = originalTeam
-        pokemon.onDeath({ board })
-        board.setEntityOnCell(pokemon.positionX, pokemon.positionY, undefined)
-        if (attacker && pokemon !== attacker) {
-          attacker.onKill({ target: pokemon, board, attackType })
-        }
-        const effectsRemovedList: EffectEnum[] = []
-
-        // Remove field effects on death
-        if (pokemon.passive === Passive.ELECTRIC_TERRAIN) {
-          board.forEach((x, y, pkm) => {
-            if (pkm && pkm.team == pokemon.team && pkm.status.electricField) {
-              pkm.status.removeElectricField(pkm)
-            }
-          })
-          effectsRemovedList.push(EffectEnum.ELECTRIC_TERRAIN)
-        } else if (pokemon.passive === Passive.PSYCHIC_TERRAIN) {
-          board.forEach((x, y, pkm) => {
-            if (pkm && pkm.team == pokemon.team && pkm.status.psychicField) {
-              pkm.status.removePsychicField(pkm)
-            }
-          })
-          effectsRemovedList.push(EffectEnum.PSYCHIC_TERRAIN)
-        } else if (pokemon.passive === Passive.GRASSY_TERRAIN) {
-          board.forEach((x, y, pkm) => {
-            if (pkm && pkm.team == pokemon.team && pkm.status.grassField) {
-              pkm.status.grassField = false
-            }
-          })
-          effectsRemovedList.push(EffectEnum.GRASSY_TERRAIN)
-        } else if (pokemon.passive === Passive.MISTY_TERRAIN) {
-          board.forEach((x, y, pkm) => {
-            if (pkm && pkm.team == pokemon.team && pkm.status.fairyField) {
-              pkm.status.fairyField = false
-            }
-          })
-          effectsRemovedList.push(EffectEnum.MISTY_TERRAIN)
-        }
-
-        if (originalTeam == Team.BLUE_TEAM) {
-          effectsRemovedList.forEach((x) =>
-            pokemon.simulation.blueEffects.delete(x)
-          )
-        } else {
-          effectsRemovedList.forEach((x) =>
-            pokemon.simulation.redEffects.delete(x)
-          )
-        }
-
-        if (pokemon.simulation.redTeam.has(pokemon.id)) {
-          pokemon.simulation.redTeam.delete(pokemon.id)
-        }
-        if (pokemon.simulation.blueTeam.has(pokemon.id)) {
-          pokemon.simulation.blueTeam.delete(pokemon.id)
-        }
+        this.triggerDeath(pokemon, attacker, board, attackType)
       }
     }
 
     takenDamage = Math.round(takenDamage)
     return { death, takenDamage }
+  }
+
+  triggerDeath(pokemon: PokemonEntity, attacker: PokemonEntity | null, board: Board, attackType: AttackType) {
+    const originalTeam = pokemon.status.possessed ? (pokemon.team === Team.BLUE_TEAM ? Team.RED_TEAM : Team.BLUE_TEAM) : pokemon.team
+    pokemon.team = originalTeam
+    pokemon.onDeath({ board })
+    board.setEntityOnCell(pokemon.positionX, pokemon.positionY, undefined)
+    if (attacker && pokemon !== attacker) {
+      attacker.onKill({ target: pokemon, board, attackType })
+    }
+    const effectsRemovedList: EffectEnum[] = []
+
+    // Remove field effects on death
+    if (pokemon.passive === Passive.ELECTRIC_TERRAIN) {
+      board.forEach((x, y, pkm) => {
+        if (pkm && pkm.team == pokemon.team && pkm.status.electricField) {
+          pkm.status.removeElectricField(pkm)
+        }
+      })
+      effectsRemovedList.push(EffectEnum.ELECTRIC_TERRAIN)
+    } else if (pokemon.passive === Passive.PSYCHIC_TERRAIN) {
+      board.forEach((x, y, pkm) => {
+        if (pkm && pkm.team == pokemon.team && pkm.status.psychicField) {
+          pkm.status.removePsychicField(pkm)
+        }
+      })
+      effectsRemovedList.push(EffectEnum.PSYCHIC_TERRAIN)
+    } else if (pokemon.passive === Passive.GRASSY_TERRAIN) {
+      board.forEach((x, y, pkm) => {
+        if (pkm && pkm.team == pokemon.team && pkm.status.grassField) {
+          pkm.status.grassField = false
+        }
+      })
+      effectsRemovedList.push(EffectEnum.GRASSY_TERRAIN)
+    } else if (pokemon.passive === Passive.MISTY_TERRAIN) {
+      board.forEach((x, y, pkm) => {
+        if (pkm && pkm.team == pokemon.team && pkm.status.fairyField) {
+          pkm.status.fairyField = false
+        }
+      })
+      effectsRemovedList.push(EffectEnum.MISTY_TERRAIN)
+    }
+
+    if (originalTeam == Team.BLUE_TEAM) {
+      effectsRemovedList.forEach((x) =>
+        pokemon.simulation.blueEffects.delete(x)
+      )
+    } else {
+      effectsRemovedList.forEach((x) =>
+        pokemon.simulation.redEffects.delete(x)
+      )
+    }
+
+    if (pokemon.simulation.redTeam.has(pokemon.id)) {
+      pokemon.simulation.redTeam.delete(pokemon.id)
+    }
+    if (pokemon.simulation.blueTeam.has(pokemon.id)) {
+      pokemon.simulation.blueTeam.delete(pokemon.id)
+    }
   }
 
   updateCommands(pokemon: PokemonEntity, dt: number) {

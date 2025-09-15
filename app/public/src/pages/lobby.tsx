@@ -61,7 +61,11 @@ export default function Lobby() {
       const game: Room<GameState> = await client.joinById(pendingGameId, {
         idToken
       })
-      localStore.set(LocalStoreKeys.RECONNECTION_GAME, game.reconnectionToken, 30)
+      localStore.set(
+        LocalStoreKeys.RECONNECTION_GAME,
+        { reconnectionToken: game.reconnectionToken, roomId: game.roomId },
+        30
+      )
       await Promise.allSettled([
         lobby?.connection.isOpen && lobby.leave(false),
         game.connection.isOpen && game.leave(false)

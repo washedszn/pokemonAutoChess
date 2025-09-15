@@ -2,11 +2,13 @@ import { EffectEnum } from "../types/enum/Effect"
 import { Berries, Dishes, Item } from "../types/enum/Item"
 import { Pkm } from "../types/enum/Pokemon"
 import { Synergy } from "../types/enum/Synergy"
+import { max, min } from "../utils/number"
 import { chance } from "../utils/random"
 import { values } from "../utils/schemas"
 import { AbilityStrategies } from "./abilities/abilities"
 import {
   Effect,
+  OnDishConsumedEffect,
   OnHitEffect,
   OnSpawnEffect,
   PeriodicEffect
@@ -29,9 +31,9 @@ export const DishByPkm: { [pkm in Pkm]?: Item } = {
   [Pkm.APPLETUN]: Item.SWEET_APPLE,
   [Pkm.DIPPLIN]: Item.SIRUPY_APPLE,
   [Pkm.HYDRAPPLE]: Item.SIRUPY_APPLE,
-  [Pkm.CHERUBI]: Item.SWEET_HERB,
-  [Pkm.CHERRIM]: Item.SWEET_HERB,
-  [Pkm.CHERRIM_SUNLIGHT]: Item.SWEET_HERB,
+  [Pkm.CHERUBI]: Item.HERBA_MYSTICA,
+  [Pkm.CHERRIM]: Item.HERBA_MYSTICA,
+  [Pkm.CHERRIM_SUNLIGHT]: Item.HERBA_MYSTICA,
   [Pkm.TROPIUS]: Item.BERRIES,
   [Pkm.SHUCKLE]: Item.BERRY_JUICE,
   [Pkm.COMBEE]: Item.HONEY,
@@ -65,7 +67,10 @@ export const DishByPkm: { [pkm in Pkm]?: Item } = {
   [Pkm.ALCREMIE_CARAMEL_SWIRL]: Item.SWEETS,
   [Pkm.ALCREMIE_RAINBOW_SWIRL]: Item.SWEETS,
   [Pkm.PECHARUNT]: Item.BINDING_MOCHI,
-  [Pkm.VELUZA]: Item.SMOKED_FILET
+  [Pkm.VELUZA]: Item.SMOKED_FILET,
+  [Pkm.SMOLIV]: Item.OLIVE_OIL,
+  [Pkm.DOLLIV]: Item.OLIVE_OIL,
+  [Pkm.ARBOLIVA]: Item.OLIVE_OIL
 }
 
 export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
@@ -95,7 +100,7 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
             (entity) => {
               entity.handleHeal(0.05 * entity.hp, entity, 0, false)
             },
-            Item.SWEET_HERB,
+            Item.BLACK_SLUDGE,
             2000
           )
         )
@@ -133,6 +138,22 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
       }
     })
   ],
+  HERBA_MYSTICA: [],
+  HERBA_MYSTICA_SWEET: [new OnSpawnEffect((entity) => {
+    entity.status.fairyField = true
+  })],
+  HERBA_MYSTICA_SPICY: [new OnSpawnEffect((entity) => {
+    entity.status.psychicField = true
+  })],
+  HERBA_MYSTICA_SOUR: [new OnSpawnEffect((entity) => {
+    entity.status.electricField = true
+  })],
+  HERBA_MYSTICA_BITTER: [new OnSpawnEffect((entity) => {
+    entity.status.grassField = true
+  })],
+  HERBA_MYSTICA_SALTY: [new OnSpawnEffect((entity) => {
+    entity.status.triggerRuneProtect(40000)
+  })],
   HONEY: [],
   LARGE_LEEK: [
     new OnSpawnEffect((entity) => {
@@ -154,8 +175,9 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
   ],
   LEFTOVERS: [],
   MOOMOO_MILK: [
-    new OnSpawnEffect((entity) => {
-      entity.addMaxHP(15, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) pokemon.hp += 15
+      entity?.addMaxHP(15, entity, 0, false)
     })
   ],
   NUTRITIOUS_EGG: [
@@ -164,6 +186,11 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
       entity.addAttack(0.3 * entity.baseAtk, entity, 0, false)
       entity.addDefense(0.3 * entity.baseDef, entity, 0, false)
       entity.addSpecialDefense(0.3 * entity.baseSpeDef, entity, 0, false)
+    })
+  ],
+  OLIVE_OIL: [
+    new OnSpawnEffect((entity) => {
+      entity.addDodgeChance(0.2, entity, 0, false)
     })
   ],
   POFFIN: [
@@ -184,6 +211,7 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
   ROCK_SALT: [
     new OnSpawnEffect((entity) => {
       entity.status.triggerRuneProtect(10000)
+      entity.addShield(0.15 * entity.hp, entity, 0, false)
     })
   ],
   SANDWICH: [
@@ -246,10 +274,17 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
     })
   ],
   SMOKED_FILET: [
-    new OnSpawnEffect((entity) => {
-      entity.addMaxHP(-5, entity, 0, false, true)
-      entity.addAttack(5, entity, 0, false, true)
-      entity.addAbilityPower(10, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) {
+        pokemon.hp = min(1)(pokemon.hp - 5)
+        pokemon.atk += 5
+        pokemon.ap += 10
+      }
+      if (entity) {
+        entity.addMaxHP(-5, entity, 0, false)
+        entity.addAttack(5, entity, 0, false)
+        entity.addAbilityPower(10, entity, 0, false)
+      }
     })
   ],
   SPINDA_COCKTAIL: [
@@ -293,11 +328,6 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
       target.addDefense(-2, attacker, 0, false)
     })
   ],
-  SWEET_HERB: [
-    new OnSpawnEffect((entity) => {
-      entity.addAbilityPower(80, entity, 0, false)
-    })
-  ],
   TEA: [
     new OnSpawnEffect((entity) => {
       entity.addPP(80, entity, 0, false)
@@ -316,38 +346,45 @@ export const DishEffects: Record<(typeof Dishes)[number], Effect[]> = {
   ],
   SWEETS: [],
   STRAWBERRY_SWEET: [
-    new OnSpawnEffect((entity) => {
-      entity.addAttack(3, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) pokemon.atk += 3
+      entity?.addAttack(3, entity, 0, false)
     })
   ],
   LOVE_SWEET: [
-    new OnSpawnEffect((entity) => {
-      entity.addDefense(3, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) pokemon.def += 3
+      entity?.addDefense(3, entity, 0, false)
     })
   ],
   BERRY_SWEET: [
-    new OnSpawnEffect((entity) => {
-      entity.addMaxHP(15, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) pokemon.hp += 15
+      entity?.addMaxHP(15, entity, 0, false)
     })
   ],
   CLOVER_SWEET: [
-    new OnSpawnEffect((entity) => {
-      entity.addLuck(10, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) pokemon.luck = max(100)(pokemon.luck + 10)
+      entity?.addLuck(10, entity, 0, false)
     })
   ],
   FLOWER_SWEET: [
-    new OnSpawnEffect((entity) => {
-      entity.addSpeed(5, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) pokemon.speed = max(300)(pokemon.speed + 5)
+      entity?.addSpeed(5, entity, 0, false)
     })
   ],
   STAR_SWEET: [
-    new OnSpawnEffect((entity) => {
-      entity.addAbilityPower(10, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) pokemon.ap += 10
+      entity?.addAbilityPower(10, entity, 0, false)
     })
   ],
   RIBBON_SWEET: [
-    new OnSpawnEffect((entity) => {
-      entity.addSpecialDefense(3, entity, 0, false, true)
+    new OnDishConsumedEffect(({ pokemon, entity, isGhostOpponent }) => {
+      if (!isGhostOpponent) pokemon.speDef += 3
+      entity?.addSpecialDefense(3, entity, 0, false)
     })
   ]
 }

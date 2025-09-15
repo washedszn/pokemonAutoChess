@@ -28,13 +28,13 @@ export class Board {
   }
 
   getEntityOnCell(x: number, y: number): PokemonEntity | undefined {
-    if (y >= 0 && y < this.rows && x >= 0 && x < this.columns) {
+    if (this.isOnBoard(x, y)) {
       return this.cells[this.columns * y + x]
     }
   }
 
   setEntityOnCell(x: number, y: number, entity: PokemonEntity | undefined) {
-    if (y >= 0 && y < this.rows && x >= 0 && x < this.columns) {
+    if (this.isOnBoard(x, y)) {
       const index = this.columns * y + x
       this.cells[index] = entity
       if (entity && !(entity.positionX === x && entity.positionY === y)) {
@@ -43,11 +43,6 @@ export class Board {
         if (effectOnPreviousCell != null) {
           //logger.debug(`${value.name} lost effect ${effectOnPreviousCell} by moving out of board effect`)
           entity.effects.delete(effectOnPreviousCell)
-        }
-
-        if (entity.passive === Passive.STENCH) {
-          this.effects[entity.positionY * this.columns + entity.positionX] =
-            EffectEnum.POISON_GAS
         }
 
         entity.positionX = x
@@ -60,12 +55,6 @@ export class Board {
         }
       }
     }
-  }
-
-  moveEntity(x0: number, y0: number, x1: number, y1: number) {
-    const value = this.getEntityOnCell(x0, y0)
-    this.setEntityOnCell(x1, y1, value)
-    this.setEntityOnCell(x0, y0, undefined)
   }
 
   swapCells(x0: number, y0: number, x1: number, y1: number) {
@@ -157,7 +146,7 @@ export class Board {
     for (let y = cellY - 1; y < cellY + 2; y++) {
       for (let x = cellX - 1; x < cellX + 2; x++) {
         if (x == cellX && y == cellY && !includesCenter) continue
-        if (y >= 0 && y < this.rows && x >= 0 && x < this.columns) {
+        if (this.isOnBoard(x, y)) {
           cells.push({ x, y, value: this.cells[this.columns * y + x] })
         }
       }
@@ -179,7 +168,7 @@ export class Board {
         // Skip the center if not included
         if (x == cellX && y == cellY && !includesCenter) continue
         // Ensure coordinates are within grid bounds
-        if (y >= 0 && y < this.rows && x >= 0 && x < this.columns) {
+        if (this.isOnBoard(x, y)) {
           cells.push({ x, y, value: this.cells[this.columns * y + x] })
         }
       }
@@ -193,7 +182,7 @@ export class Board {
     target: PokemonEntity,
     range: number = 1
   ) {
-    const cells = new Array<Cell>()
+    const cellsXY = new Set<string>()
 
     pokemon.orientation = this.orientation(
       pokemon.positionX,
@@ -210,15 +199,27 @@ export class Board {
       OrientationArray[(OrientationArray.indexOf(pokemon.orientation) + 7) % 8]
     ]
 
+    let prevCells: Array<[number, number]> = [[pokemon.positionX, pokemon.positionY]]
     for (let r = 1; r <= range; r++) {
+      let nextCells = new Array<[number, number]>()
       orientations.forEach((orientation) => {
-        const x = pokemon.positionX + OrientationVector[orientation][0] * r
-        const y = pokemon.positionY + OrientationVector[orientation][1] * r
-        if (y >= 0 && y < this.rows && x >= 0 && x < this.columns) {
-          cells.push({ x, y, value: this.cells[this.columns * y + x] })
-        }
+        prevCells.forEach((cell) => {
+          const x = cell[0] + OrientationVector[orientation][0]
+          const y = cell[1] + OrientationVector[orientation][1]
+          cellsXY.add(`${x},${y}`)
+          nextCells.push([x, y])
+        })
       })
+      prevCells = nextCells
     }
+
+    const cells: Cell[] = []
+    cellsXY.forEach((xy) => {
+      const [x, y] = xy.split(",").map(Number)
+      if (this.isOnBoard(x, y)) {
+        cells.push({ x, y, value: this.cells[this.columns * y + x] })
+      }
+    })
 
     return cells
   }
@@ -230,13 +231,7 @@ export class Board {
       for (let x = 0; x < this.columns; x++) {
         if (x == cellX && y == cellY) continue
         const distance = distanceC(cellX, cellY, x, y)
-        if (
-          y >= 0 &&
-          y < this.rows &&
-          x >= 0 &&
-          x < this.columns &&
-          distance <= range
-        ) {
+        if (this.isOnBoard(x, y) && distance <= range) {
           cells.push({ x, y, value: this.cells[this.columns * y + x] })
         }
       }
@@ -255,13 +250,7 @@ export class Board {
         const dy = cellY - y
         const dx = cellX - x
         const distanceSquared = dy * dy + dx * dx
-        if (
-          y >= 0 &&
-          y < this.rows &&
-          x >= 0 &&
-          x < this.columns &&
-          distanceSquared < radiusSquared
-        ) {
+        if (this.isOnBoard(x, y) && distanceSquared < radiusSquared) {
           cells.push({ x, y, value: this.cells[this.columns * y + x] })
         }
       }
@@ -502,7 +491,7 @@ export class Board {
       const dy = OrientationVector[orientation][1]
       const newX = x + dx
       const newY = y + dy
-      if (newX >= 0 && newX < this.columns && newY >= 0 && newY < this.rows) {
+      if (this.isOnBoard(newX, newY)) {
         const cell = this.getEntityOnCell(newX, newY)
         if (cell === undefined) {
           return { x: newX, y: newY }
@@ -510,5 +499,9 @@ export class Board {
       }
     }
     return null
+  }
+
+  isOnBoard(x: number, y: number): boolean {
+    return x >= 0 && x < this.columns && y >= 0 && y < this.rows
   }
 }
