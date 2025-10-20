@@ -14,7 +14,9 @@ import {
   TournamentPlayerSchema
 } from "../../models/colyseus-models/tournament"
 import { Tournament } from "../../models/mongo-models/tournament"
-import UserMetadata, { toUserMetadataJSON } from "../../models/mongo-models/user-metadata"
+import UserMetadata, {
+  toUserMetadataJSON
+} from "../../models/mongo-models/user-metadata"
 import { getPokemonData } from "../../models/precomputed/precomputed-pokemon-data"
 import { discordService } from "../../services/discord"
 import {
@@ -341,12 +343,9 @@ export class OpenBoosterCommand extends Command<
           if (`pokemonCollection.${index}` in updateOperations) {
             // If the item already exists in the update operations, we need to merge
             // the new emotions with the existing ones.
-            const unlocked = updateOperations[`pokemonCollection.${index}`].unlocked
-            CollectionUtils.unlockEmotion(
-              unlocked,
-              card.emotion,
-              card.shiny
-            )
+            const unlocked =
+              updateOperations[`pokemonCollection.${index}`].unlocked
+            CollectionUtils.unlockEmotion(unlocked, card.emotion, card.shiny)
           } else {
             // Create new collection item
             const newCollectionItem: IPokemonCollectionItemMongo = {
@@ -410,7 +409,9 @@ export class OpenBoosterCommand extends Command<
         if (pokemonCollectionItem) {
           pokemonCollectionItem.dust = mongoPokemonCollectionItem.dust
           pokemonCollectionItem.unlocked = Buffer.copyBytesFrom(
-            mongoPokemonCollectionItem.unlocked, 0, 5
+            mongoPokemonCollectionItem.unlocked,
+            0,
+            5
           )
         } else {
           const newConfig: IPokemonCollectionItemMongo = {
@@ -419,14 +420,17 @@ export class OpenBoosterCommand extends Command<
             selectedEmotion: mongoPokemonCollectionItem.selectedEmotion,
             selectedShiny: mongoPokemonCollectionItem.selectedShiny,
             played: mongoPokemonCollectionItem.played,
-            unlocked: Buffer.copyBytesFrom(mongoPokemonCollectionItem.unlocked, 0, 5)
+            unlocked: Buffer.copyBytesFrom(
+              mongoPokemonCollectionItem.unlocked,
+              0,
+              5
+            )
           }
           user.pokemonCollection.set(index, newConfig)
         }
       })
 
-      checkTitlesAfterEmotionUnlocked(mongoUser, boosterContent)
-      await mongoUser.save()
+      await checkTitlesAfterEmotionUnlocked(mongoUser, boosterContent)
       client.send(Transfer.BOOSTER_CONTENT, boosterContent)
       client.send(Transfer.USER_PROFILE, toUserMetadataJSON(mongoUser))
     } catch (error) {
@@ -502,16 +506,21 @@ export class ChangeSelectedEmotionCommand extends Command<
       if (!user) return
       const pokemonCollectionItem = user.pokemonCollection.get(index)
       if (!pokemonCollectionItem) return
-      if (emotion === pokemonCollectionItem.selectedEmotion && shiny === pokemonCollectionItem.selectedShiny) {
+      if (
+        emotion === pokemonCollectionItem.selectedEmotion &&
+        shiny === pokemonCollectionItem.selectedShiny
+      ) {
         return // No change needed
       }
 
-      if (emotion === null ||
+      if (
+        emotion === null ||
         CollectionUtils.hasUnlocked(
           pokemonCollectionItem.unlocked,
           emotion,
           shiny
-        )) {
+        )
+      ) {
         pokemonCollectionItem.selectedEmotion = emotion
         pokemonCollectionItem.selectedShiny = shiny
         await UserMetadata.findOneAndUpdate(
@@ -549,7 +558,11 @@ export class ChangeAvatarCommand extends Command<
       if (!user) return
       if (!mongoUser) return
       const collectionItem = mongoUser.pokemonCollection.get(index)
-      if (!collectionItem || !CollectionUtils.hasUnlocked(collectionItem.unlocked, emotion, shiny)) return
+      if (
+        !collectionItem ||
+        !CollectionUtils.hasUnlocked(collectionItem.unlocked, emotion, shiny)
+      )
+        return
       const portrait = getPortraitSrc(index, shiny, emotion)
         .replace(CDN_PORTRAIT_URL, "")
         .replace(".png", "")
@@ -612,13 +625,18 @@ export class BuyEmotionCommand extends Command<
       mongoItem.dust -= cost
 
       // Update in-memory user data
-      CollectionUtils.unlockEmotion(pokemonCollectionItem.unlocked, emotion, shiny)
+      CollectionUtils.unlockEmotion(
+        pokemonCollectionItem.unlocked,
+        emotion,
+        shiny
+      )
       pokemonCollectionItem.dust = mongoItem.dust
       pokemonCollectionItem.selectedEmotion = emotion
       pokemonCollectionItem.selectedShiny = shiny
 
-      checkTitlesAfterEmotionUnlocked(mongoUser, [{ name: PkmByIndex[index], emotion, shiny }])
-      await mongoUser.save()
+      await checkTitlesAfterEmotionUnlocked(mongoUser, [
+        { name: PkmByIndex[index], emotion, shiny }
+      ])
       client.send(Transfer.USER_PROFILE, toUserMetadataJSON(mongoUser))
     } catch (error) {
       logger.error(error)
@@ -626,7 +644,11 @@ export class BuyEmotionCommand extends Command<
   }
 }
 
-function checkTitlesAfterEmotionUnlocked(mongoUser: IUserMetadataMongo, unlocked: PkmWithCustom[]) {
+async function checkTitlesAfterEmotionUnlocked(
+  mongoUser: IUserMetadataMongo,
+  unlocked: PkmWithCustom[]
+) {
+  const newTitles: Title[] = []
   if (!mongoUser.titles.includes(Title.SHINY_SEEKER)) {
     // update titles
     let numberOfShinies = 0
@@ -635,7 +657,7 @@ function checkTitlesAfterEmotionUnlocked(mongoUser: IUserMetadataMongo, unlocked
       numberOfShinies += shinyEmotions.length
     })
     if (numberOfShinies >= 30) {
-      mongoUser.titles.push(Title.SHINY_SEEKER)
+      newTitles.push(Title.SHINY_SEEKER)
     }
   }
 
@@ -651,21 +673,24 @@ function checkTitlesAfterEmotionUnlocked(mongoUser: IUserMetadataMongo, unlocked
           return emotions.length > 0 || shinyEmotions.length > 0
         })
     ) {
-      mongoUser.titles.push(Title.DUKE)
+      newTitles.push(Title.DUKE)
     }
   }
 
-  if (unlocked.some(p => p.emotion === Emotion.ANGRY && p.name === Pkm.ARBOK) && !mongoUser.titles.includes(Title.DENTIST)) {
-    mongoUser.titles.push(Title.DENTIST)
+  if (
+    unlocked.some((p) => p.emotion === Emotion.ANGRY && p.name === Pkm.ARBOK) &&
+    !mongoUser.titles.includes(Title.DENTIST)
+  ) {
+    newTitles.push(Title.DENTIST)
   }
 
   if (
     !mongoUser.titles.includes(Title.ARCHEOLOGIST) &&
-    Unowns.some((unown) => unlocked.map(p => p.name).includes(unown)) &&
+    Unowns.some((unown) => unlocked.map((p) => p.name).includes(unown)) &&
     Unowns.every((name) => {
       const unownIndex = PkmIndex[name]
       const item = mongoUser.pokemonCollection.get(unownIndex)
-      const isBeingUnlockedRightNow = unlocked.some(p => p.name === name)
+      const isBeingUnlockedRightNow = unlocked.some((p) => p.name === name)
       let isAlreadyUnlocked = false
       if (item) {
         const { emotions, shinyEmotions } =
@@ -675,18 +700,32 @@ function checkTitlesAfterEmotionUnlocked(mongoUser: IUserMetadataMongo, unlocked
       return isAlreadyUnlocked || isBeingUnlockedRightNow
     })
   ) {
-    mongoUser.titles.push(Title.ARCHEOLOGIST)
+    newTitles.push(Title.ARCHEOLOGIST)
   }
 
   if (!mongoUser.titles.includes(Title.DUCHESS)) {
-    if (unlocked.some(p => {
-      const item = mongoUser.pokemonCollection.get(PkmIndex[p.name])
-      if (!item) return false
-      const { emotions, shinyEmotions } = CollectionUtils.getEmotionsUnlocked(item)
-      return shinyEmotions.length >= CollectionEmotions.length && emotions.length >= CollectionEmotions.length
-    })) {
-      mongoUser.titles.push(Title.DUCHESS)
+    if (
+      unlocked.some((p) => {
+        const item = mongoUser.pokemonCollection.get(PkmIndex[p.name])
+        if (!item) return false
+        const { emotions, shinyEmotions } =
+          CollectionUtils.getEmotionsUnlocked(item)
+        return (
+          shinyEmotions.length >= CollectionEmotions.length &&
+          emotions.length >= CollectionEmotions.length
+        )
+      })
+    ) {
+      newTitles.push(Title.DUCHESS)
     }
+  }
+
+  if (newTitles.length > 0) {
+    mongoUser.titles.push(...newTitles)
+    await UserMetadata.updateOne(
+      { uid: mongoUser.uid },
+      { titles: mongoUser.titles }
+    )
   }
 }
 
@@ -942,13 +981,17 @@ export class JoinOrOpenRoomCommand extends Command<
             // 0- 1099
             minRank = EloRank.LEVEL_BALL
             maxRank = EloRank.NET_BALL
-            break
+            break            
           case EloRank.SAFARI_BALL:
           case EloRank.LOVE_BALL:
+            // 1050-1200
+            minRank = EloRank.NET_BALL
+            maxRank = EloRank.LOVE_BALL
+            break
           case EloRank.PREMIER_BALL:
           case EloRank.QUICK_BALL:
-            // 1050-1299
-            minRank = EloRank.NET_BALL
+            // 1150-1299
+            minRank = EloRank.LOVE_BALL
             maxRank = EloRank.QUICK_BALL
             break
           case EloRank.POKE_BALL:

@@ -65,7 +65,10 @@ export function WikiType(props: { type: Synergy }) {
       if (showEvolutions) return true
       // remove if already one member of family in the list
       return (
-        list.findIndex((p2) => PkmFamily[p.name] === PkmFamily[p2.name]) === index
+        list.findIndex(
+          (p2) =>
+            PkmFamily[p.name] === PkmFamily[p2.name] && p2.rarity === p.rarity
+        ) === index
       )
     })
 
@@ -191,7 +194,7 @@ export function WikiType(props: { type: Synergy }) {
                             id={`pokemon-detail-${p.index}`}
                             className="custom-theme-tooltip game-pokemon-detail-tooltip"
                           >
-                            <GamePokemonDetail pokemon={p.name} />
+                            <GamePokemonDetail pokemon={p.name} origin="wiki" />
                           </Tooltip>,
                           document.querySelector(".wiki-modal")!
                         )}
@@ -290,7 +293,7 @@ export function WikiAllTypes() {
             className="custom-theme-tooltip game-pokemon-detail-tooltip"
             float
           >
-            <GamePokemonDetail pokemon={hoveredPokemon} />
+            <GamePokemonDetail pokemon={hoveredPokemon} origin="wiki" />
           </Tooltip>,
           document.querySelector(".wiki-modal")!
         )}

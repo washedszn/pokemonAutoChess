@@ -1,10 +1,11 @@
 import { Schema, type } from "@colyseus/schema"
 import type { Board } from "../../core/board"
+import { ItemStats } from "../../core/items"
 import { PokemonEntity } from "../../core/pokemon-entity"
 import { IPokemonEntity, ISimulation, IStatus, Transfer } from "../../types"
 import { FIGHTING_PHASE_DURATION } from "../../types/Config"
 import { EffectEnum } from "../../types/enum/Effect"
-import { AttackType, Team } from "../../types/enum/Game"
+import { AttackType, Stat, Team } from "../../types/enum/Game"
 import { Item } from "../../types/enum/Item"
 import { Passive } from "../../types/enum/Passive"
 import { Weather } from "../../types/enum/Weather"
@@ -133,22 +134,27 @@ export default class Status extends Schema implements IStatus {
   }
 
   transferNegativeStatus(from: PokemonEntity, to: PokemonEntity) {
-    if(this.burn) to.status.triggerBurn(this.burnCooldown, to, from)
-    if(this.silence) to.status.triggerSilence(this.silenceCooldown, to, from)
-    if(this.fatigue) to.status.triggerFatigue(this.fatigueCooldown, to)
-    if(this.poisonStacks > 0) to.status.triggerPoison(this.poisonCooldown, to, from)
-    if(this.freeze) to.status.triggerFreeze(this.freezeCooldown, to)
-    if(this.sleep) to.status.triggerSleep(this.sleepCooldown, to)
-    if(this.confusion) to.status.triggerConfusion(this.confusionCooldown, to, from)
-    if(this.wound) to.status.triggerWound(this.woundCooldown, to, from)
-    if(this.paralysis) to.status.triggerParalysis(this.paralysisCooldown, to, from)
-    if(this.charm) to.status.triggerCharm(this.charmCooldown, to, from)
-    if(this.flinch) to.status.triggerFlinch(this.flinchCooldown, to, from)
-    if(this.armorReduction) to.status.triggerArmorReduction(this.armorReductionCooldown, to)
-    if(this.curse) to.status.triggerCurse(this.curseCooldown, to)
-    if(this.locked) to.status.triggerLocked(this.lockedCooldown, to)
-    if(this.blinded) to.status.triggerBlinded(this.blindCooldown, to)
-    if(this.possessed) to.status.triggerPossessed(this.possessedCooldown, to, from) 
+    if (this.burn) to.status.triggerBurn(this.burnCooldown, to, from)
+    if (this.silence) to.status.triggerSilence(this.silenceCooldown, to, from)
+    if (this.fatigue) to.status.triggerFatigue(this.fatigueCooldown, to)
+    if (this.poisonStacks > 0)
+      to.status.triggerPoison(this.poisonCooldown, to, from)
+    if (this.freeze) to.status.triggerFreeze(this.freezeCooldown, to)
+    if (this.sleep) to.status.triggerSleep(this.sleepCooldown, to)
+    if (this.confusion)
+      to.status.triggerConfusion(this.confusionCooldown, to, from)
+    if (this.wound) to.status.triggerWound(this.woundCooldown, to, from)
+    if (this.paralysis)
+      to.status.triggerParalysis(this.paralysisCooldown, to, from)
+    if (this.charm) to.status.triggerCharm(this.charmCooldown, to, from)
+    if (this.flinch) to.status.triggerFlinch(this.flinchCooldown, to, from)
+    if (this.armorReduction)
+      to.status.triggerArmorReduction(this.armorReductionCooldown, to)
+    if (this.curse) to.status.triggerCurse(this.curseCooldown, to)
+    if (this.locked) to.status.triggerLocked(this.lockedCooldown, to)
+    if (this.blinded) to.status.triggerBlinded(this.blindCooldown, to)
+    if (this.possessed)
+      to.status.triggerPossessed(this.possessedCooldown, to, from)
   }
 
   updateAllStatus(dt: number, pokemon: PokemonEntity, board: Board) {
@@ -284,7 +290,7 @@ export default class Status extends Schema implements IStatus {
     if (!this.runeProtect) {
       this.armorReduction = true
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       if (duration > this.armorReductionCooldown) {
         this.armorReductionCooldown = Math.round(duration)
@@ -301,7 +307,7 @@ export default class Status extends Schema implements IStatus {
   }
 
   triggerRage(duration: number, pokemon: PokemonEntity) {
-    duration = this.applyAquaticReduction(duration, pokemon)
+    duration = this.applyStatusDurationReductions(duration, pokemon)
     if (!this.enraged) {
       this.enraged = true
       this.protect = false
@@ -348,7 +354,7 @@ export default class Status extends Schema implements IStatus {
     ) {
       this.burn = true
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       if (duration > this.burnCooldown) {
         this.burnCooldown = duration
@@ -378,7 +384,7 @@ export default class Status extends Schema implements IStatus {
   updateBurn(dt: number, pkm: PokemonEntity, board: Board) {
     if (this.burnDamageCooldown - dt <= 0) {
       if (this.burnOrigin) {
-        let burnDamage = pkm.hp * 0.05
+        let burnDamage = pkm.maxHP * 0.05
         if (pkm.simulation.weather === Weather.SUN) {
           burnDamage *= 1.3
           const nbHeatRocks = pkm.player
@@ -440,7 +446,11 @@ export default class Status extends Schema implements IStatus {
 
   triggerSilence(duration: number, pkm: PokemonEntity, origin?: PokemonEntity) {
     if (!this.runeProtect && !this.tree) {
-      duration = this.applyAquaticReduction(duration, pkm)
+      if (pkm.simulation.weather === Weather.MURKY) {
+        duration *= 1.3
+      }
+
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       this.silence = true
       if (duration > this.silenceCooldown) {
@@ -463,7 +473,7 @@ export default class Status extends Schema implements IStatus {
 
   triggerFatigue(duration: number, pkm: PokemonEntity) {
     if (!this.runeProtect) {
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       this.fatigue = true
       if (duration > this.fatigueCooldown) {
@@ -498,7 +508,7 @@ export default class Status extends Schema implements IStatus {
       }
       this.poisonStacks = max(maxStacks)(this.poisonStacks + 1)
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       if (duration > this.poisonCooldown) {
         this.poisonCooldown = duration
@@ -527,10 +537,10 @@ export default class Status extends Schema implements IStatus {
 
   updatePoison(dt: number, pkm: PokemonEntity, board: Board) {
     if (this.poisonDamageCooldown - dt <= 0) {
-      let poisonDamage = pkm.hp * 0.05 * this.poisonStacks
+      let poisonDamage = pkm.maxHP * 0.05 * this.poisonStacks
 
       if (pkm.passive === Passive.GLISCOR || pkm.passive === Passive.GLIGAR) {
-        poisonDamage = pkm.hp * 0.05 * (this.poisonStacks - 2)
+        poisonDamage = pkm.maxHP * 0.05 * (this.poisonStacks - 2)
       }
 
       if (pkm.simulation.weather === Weather.RAIN) {
@@ -605,7 +615,7 @@ export default class Status extends Schema implements IStatus {
         duration = duration / 2
       }
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       this.freeze = true
       this.freezeCooldown = Math.round(duration)
@@ -654,7 +664,7 @@ export default class Status extends Schema implements IStatus {
         duration = duration / 2
       }
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       this.sleep = true
       this.sleepCooldown = Math.round(duration)
@@ -693,7 +703,7 @@ export default class Status extends Schema implements IStatus {
         duration *= 1.3
       }
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       this.confusion = true
       this.confusionCooldown = Math.round(duration)
@@ -730,7 +740,7 @@ export default class Status extends Schema implements IStatus {
         duration *= 1.3
       }
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       this.charm = true
       this.charmCooldown = duration
@@ -759,7 +769,7 @@ export default class Status extends Schema implements IStatus {
         duration *= 1.3
       }
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       if (duration > this.woundCooldown) {
         this.woundCooldown = duration
@@ -801,7 +811,7 @@ export default class Status extends Schema implements IStatus {
         }
       }
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       if (duration > this.paralysisCooldown) {
         this.paralysisCooldown = Math.round(duration)
@@ -848,7 +858,7 @@ export default class Status extends Schema implements IStatus {
     if (!this.runeProtect) {
       this.flinch = true
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       if (duration > this.flinchCooldown) {
         this.flinchCooldown = Math.round(duration)
@@ -938,8 +948,14 @@ export default class Status extends Schema implements IStatus {
         this.curseCooldown = 0 // apply curse immediately if already cursed
       } else {
         this.curse = true
-        if (this.curseCooldown > 0) { // if status has been cleared, take the remaining time
+        if (this.curseCooldown > 0) {
+          // if status has been cleared, take the remaining time
           timer = Math.min(this.curseCooldown, timer)
+        } else {
+          const nbOddStones = pokemon.player
+            ? count(pokemon.player.items, Item.ODD_KEYSTONE)
+            : 0
+          timer += nbOddStones * 1000
         }
 
         this.curseCooldown = timer
@@ -948,7 +964,8 @@ export default class Status extends Schema implements IStatus {
   }
 
   updateCurse(dt: number, board: Board, pokemon: PokemonEntity) {
-    if (this.curseCooldown - dt <= 0) {
+    this.curseCooldown -= dt
+    if (this.curseCooldown <= 0) {
       this.curse = false
       pokemon.handleDamage({
         damage: 9999,
@@ -964,8 +981,6 @@ export default class Status extends Schema implements IStatus {
         positionY: pokemon.positionY,
         orientation: pokemon.orientation
       })
-    } else {
-      this.curseCooldown -= dt
     }
   }
 
@@ -1013,7 +1028,7 @@ export default class Status extends Schema implements IStatus {
         duration = duration / 2
       }
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       this.locked = true
       this.lockedCooldown = Math.round(duration)
@@ -1026,7 +1041,10 @@ export default class Status extends Schema implements IStatus {
     if (this.lockedCooldown - dt <= 0) {
       this.locked = false
       pokemon.range =
-        pokemon.baseRange + (pokemon.items.has(Item.WIDE_LENS) ? 2 : 0)
+        pokemon.baseRange +
+        (pokemon.items.has(Item.WIDE_LENS)
+          ? (ItemStats[Item.WIDE_LENS]?.[Stat.RANGE] ?? 0)
+          : 0)
     } else {
       this.lockedCooldown -= dt
     }
@@ -1044,7 +1062,7 @@ export default class Status extends Schema implements IStatus {
           : pkm.simulation.blueTeam
       if (values(pkmTeam).some((p) => p.id !== pkm.id && !p.status.possessed)) {
         this.possessed = true
-        duration = this.applyAquaticReduction(duration, pkm)
+        duration = this.applyStatusDurationReductions(duration, pkm)
         pkm.team = pkm.team === Team.BLUE_TEAM ? Team.RED_TEAM : Team.BLUE_TEAM
         pkm.setTarget(null) // force retargetting
         origin.setTarget(null) // force retargetting
@@ -1098,7 +1116,7 @@ export default class Status extends Schema implements IStatus {
         duration = duration / 2
       }
 
-      duration = this.applyAquaticReduction(duration, pkm)
+      duration = this.applyStatusDurationReductions(duration, pkm)
 
       this.blinded = true
       this.blindCooldown = Math.round(duration)
@@ -1113,7 +1131,10 @@ export default class Status extends Schema implements IStatus {
     }
   }
 
-  private applyAquaticReduction(duration: number, pkm: IPokemonEntity): number {
+  private applyStatusDurationReductions(
+    duration: number,
+    pkm: IPokemonEntity
+  ): number {
     if (pkm.effects.has(EffectEnum.SWIFT_SWIM)) {
       duration = Math.round(duration * 0.7)
     } else if (pkm.effects.has(EffectEnum.HYDRATION)) {
@@ -1124,6 +1145,14 @@ export default class Status extends Schema implements IStatus {
     ) {
       duration = Math.round(duration * 0.3)
     }
+
+    const nbOddStones = pkm.player
+      ? count(pkm.player.items, Item.ODD_KEYSTONE)
+      : 0
+    if (nbOddStones > 0) {
+      duration = Math.round(duration * (1 - 0.1 * nbOddStones))
+    }
+
     return duration
   }
 

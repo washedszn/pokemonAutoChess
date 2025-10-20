@@ -25,7 +25,7 @@ import {
   PRECOMPUTED_REGIONAL_MONS
 } from "../models/precomputed/precomputed-pokemon-data"
 import { PRECOMPUTED_POKEMONS_PER_RARITY } from "../models/precomputed/precomputed-rarity"
-import { getAdditionalsTier1 } from "../models/shop"
+import { getAdditionalsTier1, getSellPrice } from "../models/shop"
 import { fetchEventLeaderboard } from "../services/leaderboard"
 import {
   IDragDropCombineMessage,
@@ -77,6 +77,7 @@ import {
   getFreeSpaceOnBench
 } from "../utils/board"
 import { isValidDate } from "../utils/date"
+import { formatMinMaxRanks } from "../utils/elo"
 import { logger } from "../utils/logger"
 import { clamp } from "../utils/number"
 import { shuffleArray } from "../utils/random"
@@ -100,7 +101,6 @@ import {
   OnUpdateCommand
 } from "./commands/game-commands"
 import GameState from "./states/game-state"
-import { formatMinMaxRanks } from "../utils/elo"
 
 export default class GameRoom extends Room<GameState> {
   dispatcher: Dispatcher<this>
@@ -158,9 +158,7 @@ export default class GameRoom extends Room<GameState> {
       name,
       ownerName,
       gameMode,
-      playerIds: Object.keys(users).filter(
-        (id) => users[id].isBot === false
-      ),
+      playerIds: Object.keys(users).filter((id) => users[id].isBot === false),
       playersInfo: Object.keys(users).map(
         (u) => `${users[u].name} [${users[u].elo}]`
       ),
@@ -195,6 +193,49 @@ export default class GameRoom extends Room<GameState> {
     this.additionalEpicPool = getAdditionalsTier1(
       PRECOMPUTED_POKEMONS_PER_RARITY.EPIC
     )
+
+    if (this.state.specialGameRule !== SpecialGameRule.EVERYONE_IS_HERE) {
+      /* based on the season, we remove the Deerling seasonal forms to only keep the current season's form */
+      // Determine season based on precise date, not just month
+      const now = new Date()
+      const year = now.getFullYear()
+      const date = new Date(year, now.getMonth(), now.getDate())
+
+      // seasons (Northern Hemisphere)
+      // Spring: Mar 20 - June 21
+      // Summer: Jun 22 - Sep 22
+      // Autumn: Sep 23 - Dec 20
+      // Winter: Dec 21 - Mar 19
+
+      let season: "spring" | "summer" | "autumn" | "winter"
+      const springStart = new Date(year, 2, 20) // Mar 20
+      const summerStart = new Date(year, 5, 22) // Jun 22
+      const autumnStart = new Date(year, 8, 23) // Sep 23
+      const winterStart = new Date(year, 11, 21) // Dec 21
+
+      if (date >= springStart && date < summerStart) {
+        season = "spring"
+      } else if (date >= summerStart && date < autumnStart) {
+        season = "summer"
+      } else if (date >= autumnStart && date < winterStart) {
+        season = "autumn"
+      } else {
+        season = "winter"
+      }
+
+      // Remove all Deerling forms except the current season's
+      this.additionalRarePool = this.additionalRarePool.filter((p) => {
+        if (
+          p === Pkm.DEERLING_SPRING && season !== "spring" ||
+          p === Pkm.DEERLING_SUMMER && season !== "summer" ||
+          p === Pkm.DEERLING_AUTUMN && season !== "autumn" ||
+          p === Pkm.DEERLING_WINTER && season !== "winter"
+        ) {
+          return false
+        }
+        return true
+      })
+    }
 
     shuffleArray(this.additionalUncommonPool)
     shuffleArray(this.additionalRarePool)
@@ -537,21 +578,24 @@ export default class GameRoom extends Room<GameState> {
       }
     })
 
-    this.onMessage(Transfer.OVERWRITE_BOARD, (client, board: IDetailledPokemon[]) => {
-      if (client.auth) {
-        const player = this.state.players.get(client.auth.uid)
-        if (player?.role !== Role.ADMIN) return;
+    this.onMessage(
+      Transfer.OVERWRITE_BOARD,
+      (client, board: IDetailledPokemon[]) => {
+        if (client.auth) {
+          const player = this.state.players.get(client.auth.uid)
+          if (player?.role !== Role.ADMIN) return
 
-        try {
-          this.dispatcher.dispatch(new OnOverwriteBoardCommand(), {
-            playerId: client.auth.uid,
-            board
-          })
-        } catch (error) {
-          logger.error("overwrite board error", error)
+          try {
+            this.dispatcher.dispatch(new OnOverwriteBoardCommand(), {
+              playerId: client.auth.uid,
+              board
+            })
+          } catch (error) {
+            logger.error("overwrite board error", error)
+          }
         }
       }
-    })
+    )
   }
 
   startGame() {
@@ -736,8 +780,8 @@ export default class GameRoom extends Room<GameState> {
       )
 
       if (this.state.stageLevel >= MinStageForGameToCount) {
-        const elligibleToXP = this.state.players.size >= 2
-        if (elligibleToXP) {
+        const eligibleToXP = this.state.players.size >= 2
+        if (eligibleToXP) {
           for (let i = 0; i < bots.length; i++) {
             const botPlayer = bots[i]
             const bot = await BotV2.findOne({ id: botPlayer.id })
@@ -781,7 +825,7 @@ export default class GameRoom extends Room<GameState> {
   // when a player leaves the game
   async updatePlayerAfterGame(player: Player, hasLeftBeforeEnd: boolean) {
     // if player left before stage 10, they do not earn experience to prevent xp farming abuse
-    const elligibleToXP =
+    const eligibleToXP =
       this.state.players.size >= 2 &&
       this.state.stageLevel >= MinStageForGameToCount
 
@@ -796,7 +840,7 @@ export default class GameRoom extends Room<GameState> {
       }
     })
 
-    const elligibleToELO =
+    const eligibleToELO =
       !this.state.noElo &&
       (this.state.stageLevel >= MinStageForGameToCount || hasLeftBeforeEnd) &&
       humans.length >= 2
@@ -806,7 +850,7 @@ export default class GameRoom extends Room<GameState> {
 
     const usr = await UserMetadata.findOne({ uid: player.id })
     if (usr) {
-      if (elligibleToXP) {
+      if (eligibleToXP) {
         const expThreshold = 1000
         if (usr.exp + exp >= expThreshold) {
           usr.level += 1
@@ -860,7 +904,7 @@ export default class GameRoom extends Room<GameState> {
         player.titles.add(Title.GRAND_MASTER)
       }
 
-      if (usr.elo != null && elligibleToELO) {
+      if (usr.elo != null && eligibleToELO) {
         let elo = computeElo(
           this.transformToSimplePlayer(player),
           rank,
@@ -926,11 +970,6 @@ export default class GameRoom extends Room<GameState> {
                 "announcement",
                 `${player.name} won the Victory Road race !`
               )
-            } else {
-              this.presence.publish(
-                "announcement",
-                `${player.name} finished the Victory Road !`
-              )
             }
             player.titles.add(Title.FINISHER)
             fetchEventLeaderboard() // a new finisher is enough to justify fetching the leaderboard again immediately
@@ -980,7 +1019,9 @@ export default class GameRoom extends Room<GameState> {
         Object.values(Pkm)
           .filter((p) => NonPkm.includes(p) === false)
           .every((pkm) => {
-            const pokemonCollectionItem = usr.pokemonCollection.get(PkmIndex[pkm])
+            const pokemonCollectionItem = usr.pokemonCollection.get(
+              PkmIndex[pkm]
+            )
             return pokemonCollectionItem && pokemonCollectionItem.played > 0
           })
       ) {
@@ -1053,7 +1094,7 @@ export default class GameRoom extends Room<GameState> {
   spawnOnBench(player: Player, pkm: Pkm, anim: "fishing" | "spawn" = "spawn") {
     const pokemon = PokemonFactory.createPokemonFromName(pkm, player)
     const x = getFirstAvailablePositionInBench(player.board)
-    if (x !== undefined) {
+    if (x !== null) {
       pokemon.positionX = x
       pokemon.positionY = 0
       if (anim === "fishing") {
@@ -1198,11 +1239,15 @@ export default class GameRoom extends Room<GameState> {
 
     pokemonsObtained.forEach((pokemon) => {
       const freeCellX = getFirstAvailablePositionInBench(player.board)
-      if (freeCellX !== undefined) {
+      if (freeCellX !== null) {
         pokemon.positionX = freeCellX
         pokemon.positionY = 0
         player.board.set(pokemon.id, pokemon)
         pokemon.onAcquired(player)
+      } else {
+        // sell picked pokemon if no more space on bench and bypassLackOfSpace is true
+        const sellPrice = getSellPrice(pokemon, this.state.specialGameRule)
+        player.addMoney(sellPrice, true, null)
       }
     })
   }

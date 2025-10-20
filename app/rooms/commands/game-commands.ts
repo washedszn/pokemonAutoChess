@@ -149,7 +149,7 @@ export class OnBuyPokemonCommand extends Command<
     player.money -= cost
 
     const x = getFirstAvailablePositionInBench(player.board)
-    pokemon.positionX = x !== undefined ? x : -1
+    pokemon.positionX = x !== null ? x : -1
     pokemon.positionY = 0
     player.board.set(pokemon.id, pokemon)
     if (pokemon.types.has(Synergy.WILD)) player.updateWildChance()
@@ -214,10 +214,7 @@ export class OnPokemonCatchCommand extends Command<
     if (!player || !player.alive || !wanderer) return
     this.state.wanderers.delete(id)
 
-    if (wanderer.type === WandererType.SABLEYE) {
-      // prevents sableye from stealing items and give 1 gold
-      player.addMoney(1, true, null)
-    } else if (wanderer.type === WandererType.UNOWN) {
+    if (wanderer.type === WandererType.UNOWN) {
       const unownIndex = PkmIndex[wanderer.pkm]
       if (client.auth) {
         const DUST_PER_ENCOUNTER = 50
@@ -250,7 +247,7 @@ export class OnPokemonCatchCommand extends Command<
 
       if (hasSpaceOnBench) {
         const x = getFirstAvailablePositionInBench(player.board)
-        pokemon.positionX = x !== undefined ? x : -1
+        pokemon.positionX = x !== null ? x : -1
         pokemon.positionY = 0
         player.board.set(pokemon.id, pokemon)
         pokemon.onAcquired(player)
@@ -317,7 +314,7 @@ export class OnDragDropPokemonCommand extends Command<
             })
             player.board.delete(detail.id)
             const position = getFirstAvailablePositionInBench(player.board)
-            if (position !== undefined) {
+            if (position !== null) {
               replaceDitto.positionX = position
               replaceDitto.positionY = 0
               player.board.set(replaceDitto.id, replaceDitto)
@@ -334,10 +331,7 @@ export class OnDragDropPokemonCommand extends Command<
         ) {
           // Meltan can merge with Melmetal
           const melmetal = player.getPokemonAt(x, y)!
-          melmetal.hp += 50
-          if (melmetal.hp >= 1500 && player) {
-            player.titles.add(Title.GIANT)
-          }
+          melmetal.addMaxHP(50, player)
           pokemon.items.forEach((item) => {
             player.items.push(item)
           })
@@ -452,7 +446,10 @@ export class OnSwitchBenchAndBoardCommand extends Command<
           player.experienceManager.level,
           this.room.state.specialGameRule
         )
-      const destination = getFirstAvailablePositionOnBoard(player.board)
+      const destination = getFirstAvailablePositionOnBoard(
+        player.board,
+        pokemon.range
+      )
       if (
         pokemon.canBePlaced &&
         destination &&
@@ -466,7 +463,7 @@ export class OnSwitchBenchAndBoardCommand extends Command<
     } else {
       // pokemon is on board, switch to bench
       const x = getFirstAvailablePositionInBench(player.board)
-      if (x !== undefined) {
+      if (x !== null) {
         pokemon.positionX = x
         pokemon.positionY = 0
         pokemon.onChangePosition(x, 0, player, this.state)
@@ -634,10 +631,14 @@ export class OnDragDropItemCommand extends Command<
       return
     }
 
-    const onItemDroppedEffects: OnItemDroppedEffect[] =
-      ItemEffects[item]?.filter(
+    const onItemDroppedEffects: OnItemDroppedEffect[] = [
+      ...(ItemEffects[item]?.filter(
         (effect) => effect instanceof OnItemDroppedEffect
-      ) ?? []
+      ) ?? []),
+      ...(PassiveEffects[pokemon.passive]?.filter(
+        (effect) => effect instanceof OnItemDroppedEffect
+      ) ?? [])
+    ]
     for (const onItemDroppedEffect of onItemDroppedEffects) {
       const shouldEquipItem = onItemDroppedEffect.apply({
         pokemon,
@@ -761,7 +762,10 @@ export class OnDragDropItemCommand extends Command<
       // if the item is not holdable, we immediately remove it from the pokemon items
       // It is added just in time for ItemEvolutionRule to be checked
       pokemon.items.delete(item)
-      if (ConsumableItems.includes(item) === false) {
+      if (
+        ConsumableItems.includes(item) === false &&
+        Mulches.includes(item) === false
+      ) {
         // item is not holdable and has not been consumed, so we add it back to player items
         player.items.push(item)
       }
@@ -784,35 +788,27 @@ export class OnSellPokemonCommand extends Command<
     if (!player || !player.alive) return
 
     const pokemon = player.board.get(pokemonId)
-    if (
-      pokemon &&
-      !isOnBench(pokemon) &&
-      this.state.phase === GamePhaseState.FIGHT
-    ) {
+    if (!pokemon) return
+    if (!isOnBench(pokemon) && this.state.phase === GamePhaseState.FIGHT) {
       return // can't sell a pokemon currently fighting
     }
 
-    if (
-      pokemon &&
-      canSell(pokemon.name, this.state.specialGameRule) === false
-    ) {
+    if (canSell(pokemon.name, this.state.specialGameRule) === false) {
       return
     }
 
-    if (pokemon) {
-      this.state.shop.releasePokemon(pokemon.name, player, this.state)
-      const sellPrice = getSellPrice(pokemon, this.state.specialGameRule)
-      player.addMoney(sellPrice, false, null)
-      pokemon.items.forEach((it) => {
-        player.items.push(it)
-      })
+    player.board.delete(pokemonId)
+    this.state.shop.releasePokemon(pokemon.name, player, this.state)
 
-      player.board.delete(pokemonId)
+    const sellPrice = getSellPrice(pokemon, this.state.specialGameRule)
+    player.addMoney(sellPrice, false, null)
+    pokemon.items.forEach((it) => {
+      player.items.push(it)
+    })
 
-      player.updateSynergies()
-      player.boardSize = this.room.getTeamSize(player.board)
-      pokemon.afterSell(player)
-    }
+    player.updateSynergies()
+    player.boardSize = this.room.getTeamSize(player.board)
+    pokemon.afterSell(player)
   }
 }
 
@@ -1366,6 +1362,17 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
             })
             this.room.clock.setTimeout(() => {
               player.groundHoles[index] = max(5)(player.groundHoles[index] + 1)
+              player.board.forEach((pokemon) => {
+                if (
+                  pokemon.evolutionRule instanceof ConditionBasedEvolutionRule
+                ) {
+                  pokemon.evolutionRule.tryEvolve(
+                    pokemon,
+                    player,
+                    this.state.stageLevel
+                  )
+                }
+              })
             }, 1000)
 
             if (
@@ -1438,6 +1445,40 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
       this.room.spawnOnBench(player, player.firstPartner, "spawn")
     }
 
+    if (this.state.specialGameRule === SpecialGameRule.GO_BIG_OR_GO_HOME) {
+      board.forEach((pokemon) => {
+        pokemon.addMaxHP(5, player)
+      })
+    }
+
+    if (
+      player.pokemonsTrainingInDojo.some(
+        (p) => p.returnStage === this.state.stageLevel
+      )
+    ) {
+      const returningPokemons = player.pokemonsTrainingInDojo.filter(
+        (p) => p.returnStage === this.state.stageLevel
+      )
+      returningPokemons.forEach((p) => {
+        const substitute = values(player.board).find(
+          (s) => s.name === Pkm.SUBSTITUTE && s.id === p.pokemon.id
+        )
+        if (!substitute) return
+        p.pokemon.hp += [50, 100, 150][p.ticketLevel - 1] ?? 0
+        p.pokemon.atk += [5, 10, 15][p.ticketLevel - 1] ?? 0
+        p.pokemon.ap += [15, 30, 45][p.ticketLevel - 1] ?? 0
+        p.pokemon.positionX = substitute.positionX
+        p.pokemon.positionY = substitute.positionY
+        player.board.delete(substitute.id)
+        player.board.set(p.pokemon.id, p.pokemon)
+        this.room.checkEvolutionsAfterPokemonAcquired(player.id)
+        player.pokemonsTrainingInDojo.splice(
+          player.pokemonsTrainingInDojo.indexOf(p),
+          1
+        )
+      })
+    }
+
     board.forEach((pokemon) => {
       // Passives updating every stage
       const passiveEffects =
@@ -1479,19 +1520,25 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
       if (teamSize < maxTeamSize) {
         const numberOfPokemonsToMove = maxTeamSize - teamSize
         for (let i = 0; i < numberOfPokemonsToMove; i++) {
-          const pokemon = values(player.board).find(
-            (p) => isOnBench(p) && p.canBePlaced
-          )
-          const coordinate = getFirstAvailablePositionOnBoard(player.board)
-          if (coordinate && pokemon) {
-            pokemon.positionX = coordinate[0]
-            pokemon.positionY = coordinate[1]
-            pokemon.onChangePosition(
-              coordinate[0],
-              coordinate[1],
-              player,
-              this.state
+          const pokemon = values(player.board)
+            .filter((p) => isOnBench(p) && p.canBePlaced)
+            .sort((a, b) => a.positionX - b.positionX)[0]
+          if (pokemon) {
+            const coordinates = getFirstAvailablePositionOnBoard(
+              player.board,
+              pokemon.range
             )
+
+            if (coordinates) {
+              pokemon.positionX = coordinates[0]
+              pokemon.positionY = coordinates[1]
+              pokemon.onChangePosition(
+                coordinates[0],
+                coordinates[1],
+                player,
+                this.state
+              )
+            }
           }
         }
         if (numberOfPokemonsToMove > 0) {
@@ -1593,7 +1640,6 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
             if (pokemon.passive === Passive.UNOWN && !isOnBench(pokemon)) {
               // remove after one fight
               player.board.delete(key)
-              player.board.delete(pokemon.id)
             }
           })
 

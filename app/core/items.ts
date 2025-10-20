@@ -6,14 +6,14 @@ import { pickRandomIn } from "../utils/random"
 export function getWonderboxItems(existingItems: SetSchema<Item>): Item[] {
   const wonderboxItems: Item[] = []
   for (let n = 0; n < 2; n++) {
-    const elligibleItems = CraftableItems.filter(
+    const eligibleItems = CraftableItems.filter(
       (i) =>
         !SynergyStones.includes(i) &&
         !wonderboxItems.includes(i) &&
         !existingItems.has(i) &&
         i !== Item.WONDER_BOX
     )
-    wonderboxItems.push(pickRandomIn(elligibleItems))
+    wonderboxItems.push(pickRandomIn(eligibleItems))
   }
   return wonderboxItems
 }
@@ -61,10 +61,13 @@ export const ItemStats: { [item in Item]?: { [stat in Stat]?: number } } = {
   [Item.CHOICE_SCARF]: { [Stat.SPEED]: 10, [Stat.SPE_DEF]: 3 },
   [Item.PUNCHING_GLOVE]: { [Stat.SPEED]: 10, [Stat.ATK]: 3 },
   [Item.MUSCLE_BAND]: { [Stat.SPEED]: 10, [Stat.DEF]: 3 },
-  [Item.WONDER_BOX]: { [Stat.CRIT_CHANCE]: 10 },
   [Item.STICKY_BARB]: { [Stat.DEF]: 3, [Stat.SHIELD]: 15 },
   [Item.ABILITY_SHIELD]: { [Stat.AP]: 10 },
-  [Item.WIDE_LENS]: { [Stat.CRIT_CHANCE]: 10, [Stat.SPE_DEF]: 3 },
+  [Item.WIDE_LENS]: {
+    [Stat.RANGE]: 2,
+    [Stat.CRIT_CHANCE]: 10,
+    [Stat.SPE_DEF]: 3
+  },
   [Item.RAZOR_CLAW]: { [Stat.CRIT_CHANCE]: 50, [Stat.ATK]: 3 },
   [Item.FLUFFY_TAIL]: { [Stat.CRIT_CHANCE]: 10, [Stat.DEF]: 3 },
   [Item.KINGS_ROCK]: { [Stat.SHIELD]: 100 },
@@ -90,6 +93,7 @@ export const ItemStats: { [item in Item]?: { [stat in Stat]?: number } } = {
   [Item.SURFBOARD]: { [Stat.SPEED]: 30 },
   [Item.INCENSE]: { [Stat.SPE_DEF]: 10, [Stat.AP]: 30 },
   [Item.COOKING_POT]: { [Stat.DEF]: 10 },
+  [Item.RUNNING_SHOES]: { [Stat.SPEED]: 15 },
   [Item.EVIOLITE]: {
     [Stat.HP]: 100,
     [Stat.ATK]: 10,

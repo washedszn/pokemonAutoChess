@@ -313,8 +313,12 @@ export default class Shop {
       // Unown shop
       player.shopFreeRolls += 1
       const unowns = getUnownsPoolPerStage(state.stageLevel)
+      const chosenUnowns: Pkm[] = []
       for (let i = 0; i < SHOP_SIZE; i++) {
-        player.shop[i] = pickRandomIn(unowns)
+        const availableUnowns = unowns.filter((u) => !chosenUnowns.includes(u))
+        const randomUnown = pickRandomIn(availableUnowns)
+        chosenUnowns.push(randomUnown)
+        player.shop[i] = randomUnown
       }
     } else {
       for (let i = 0; i < SHOP_SIZE; i++) {
@@ -342,25 +346,21 @@ export default class Shop {
       const synergyWanted: Synergy | undefined = portalSynergies[i]
       let candidates = allCandidates.filter((m) => {
         const pkm: Pkm = m in PkmDuos ? PkmDuos[m][0] : m
-        const specialSynergies: ReadonlyMap<Pkm, Synergy> = new Map([
-          [Pkm.TAPU_BULU, Synergy.GRASS],
-          [Pkm.TAPU_FINI, Synergy.FAIRY],
-          [Pkm.TAPU_KOKO, Synergy.ELECTRIC],
-          [Pkm.TAPU_LELE, Synergy.PSYCHIC],
-          [Pkm.OGERPON_CORNERSTONE, Synergy.ROCK],
-          [Pkm.OGERPON_HEARTHFLAME, Synergy.FIRE],
-          [Pkm.OGERPON_WELLSPRING, Synergy.AQUATIC]
-        ])
-        const hasSynergyWanted =
-          synergyWanted === undefined
-            ? true
-            : specialSynergies.has(pkm)
-              ? specialSynergies.get(pkm) === synergyWanted
-              : getPokemonData(pkm).types.includes(synergyWanted)
+        const { types, regional } = getPokemonData(pkm)
+        if (
+          regional &&
+          new PokemonClasses[pkm](pkm).isInRegion(player.map) === false
+        ) {
+          // skip regional pokemons not in their region
+          return false
+        }
+
+        const hasSynergyWanted = synergyWanted === undefined || types.includes(synergyWanted)
 
         return (
           hasSynergyWanted &&
           !player.pokemonsProposition.some((prop) => {
+            // avoid proposing two pokemons of the same family or regional variants
             const p: Pkm = prop in PkmDuos ? PkmDuos[prop][0] : prop
             return PkmFamily[p] === PkmFamily[pkm] || isRegionalVariant(p, pkm)
           })
@@ -413,8 +413,8 @@ export default class Shop {
         const types = getPokemonData(pkm).types
         const isOfTypeWanted = specificTypesWanted
           ? specificTypesWanted.some((specificTypeWanted) =>
-            types.includes(specificTypeWanted)
-          )
+              types.includes(specificTypeWanted)
+            )
           : types.includes(Synergy.WILD) === false
 
         return isOfTypeWanted && !finals.has(getPokemonBaseline(pkm))
@@ -619,7 +619,8 @@ export default class Shop {
       [Rarity.EPIC]: 0.05,
       [Rarity.ULTRA]: 0.02
     }
-    const rarity_seed = Math.random() * (1 + meltan.ap / 200) * (1 + meltan.luck / 100)
+    const rarity_seed =
+      Math.random() * (1 + meltan.ap / 200) * (1 + meltan.luck / 100)
     let threshold = 0
     const finals = player.getFinalizedLines()
 
@@ -636,7 +637,8 @@ export default class Shop {
       const steelPkm = this.getRandomPokemonFromPool(rarity, player, finals, [
         Synergy.STEEL
       ])
-      if (steelPkm !== Pkm.MAGIKARP) return steelPkm
+      if (getPokemonData(steelPkm).types.includes(Synergy.STEEL))
+        return steelPkm
     }
 
     return Pkm.MELTAN

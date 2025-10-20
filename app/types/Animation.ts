@@ -269,6 +269,7 @@ export enum AttackSprite {
   FIGHTING_RANGE = "FIGHTING/range",
   FIRE_MELEE = "FIRE/melee",
   FIRE_RANGE = "FIRE/range",
+  FLORA_RANGE = "FLORA/range",
   FLYING_MELEE = "FLYING/melee",
   FLYING_RANGE = "FLYING/range",
   GHOST_MELEE = "GHOST/melee",
@@ -315,11 +316,12 @@ export enum HitSprite {
   POISON_HIT = "POISON/hit",
   WILD_HIT = "WILD/hit",
   GHOST_HIT = "GHOST/hit",
-  PSYCHIC_HIT = "PSYCHIC/hit",
+  PSYCHIC_HIT = "PSYCHIC/hit"
 }
 
-
-export const AttackSpriteScale: { [sprite in AttackSprite | HitSprite]: [number, number] } = {
+export const AttackSpriteScale: {
+  [sprite in AttackSprite | HitSprite]: [number, number]
+} = {
   "BUG/melee": [1.5, 1.5],
   "BUG/range": [2, 2],
   "BUG/hit": [2, 2],
@@ -341,6 +343,7 @@ export const AttackSpriteScale: { [sprite in AttackSprite | HitSprite]: [number,
   "FIRE/melee": [1.5, 1.5],
   "FIRE/range": [2, 2],
   "FIRE/hit": [1.5, 1.5],
+  "FLORA/range": [1.5, 1.5],
   "FLYING/melee": [1, 1],
   "FLYING/range": [1.5, 1.5],
   "FLYING/hit": [1, 1],
@@ -403,18 +406,20 @@ export interface AbilityAnimationOptions {
 }
 
 export type AbilityAnimationArgs = {
-  scene: GameScene | DebugScene,
-  pokemonsOnBoard: PokemonSprite[],
-  ability: Ability | string,
-  orientation: Orientation,
-  positionX: number,
-  positionY: number,
-  targetX: number,
-  targetY: number,
-  flip: boolean,
+  scene: GameScene | DebugScene
+  pokemonsOnBoard: PokemonSprite[]
+  ability: Ability | string
+  orientation: Orientation
+  positionX: number
+  positionY: number
+  targetX: number
+  targetY: number
+  flip: boolean
   delay?: number
   ap: number
 }
 
 export type AbilityAnimation = (args: AbilityAnimationArgs) => any
-export type AbilityAnimationMaker<O = AbilityAnimationOptions> = (options: AbilityAnimationOptions & O) => AbilityAnimation
+export type AbilityAnimationMaker<O = AbilityAnimationOptions> = (
+  options: Readonly<AbilityAnimationOptions & O>
+) => AbilityAnimation

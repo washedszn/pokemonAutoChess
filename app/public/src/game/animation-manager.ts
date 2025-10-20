@@ -58,7 +58,10 @@ export default class AnimationManager {
       return
     }
     const pokemonData = getPokemonData(pkm)
-    const config = { ...DEFAULT_POKEMON_ANIMATION_CONFIG, ...(PokemonAnimations[pkm] ?? {}) }
+    const config = {
+      ...DEFAULT_POKEMON_ANIMATION_CONFIG,
+      ...(PokemonAnimations[pkm] ?? {})
+    }
 
     if (config.shinyUnavailable && shiny === PokemonTint.SHINY) return
 
@@ -83,7 +86,10 @@ export default class AnimationManager {
         : [SpriteType.ANIM, SpriteType.SHADOW]
       spriteTypes.forEach((mode) => {
         const directionArray =
-          AnimationOriented[action] === false && PokemonAnimations[PkmByIndex[index]]?.animationsOriented?.includes(action) !== true
+          AnimationOriented[action] === false &&
+          PokemonAnimations[PkmByIndex[index]]?.animationsOriented?.includes(
+            action
+          ) !== true
             ? [Orientation.DOWN]
             : Object.values(Orientation)
         directionArray.forEach((direction) => {
@@ -136,7 +142,10 @@ export default class AnimationManager {
   unloadPokemonAnimations(index: string, shiny: PokemonTint) {
     const pkm = PkmByIndex[index]
     const pokemonData = getPokemonData(pkm)
-    const config = { ...DEFAULT_POKEMON_ANIMATION_CONFIG, ...(PokemonAnimations[pkm] ?? {}) }
+    const config = {
+      ...DEFAULT_POKEMON_ANIMATION_CONFIG,
+      ...(PokemonAnimations[pkm] ?? {})
+    }
 
     if (config.shinyUnavailable && shiny === PokemonTint.SHINY) return
 
@@ -161,7 +170,10 @@ export default class AnimationManager {
         : [SpriteType.ANIM, SpriteType.SHADOW]
       spriteTypes.forEach((mode) => {
         const directionArray =
-          AnimationOriented[action] === false && PokemonAnimations[PkmByIndex[index]]?.animationsOriented?.includes(action) !== true
+          AnimationOriented[action] === false &&
+          PokemonAnimations[PkmByIndex[index]]?.animationsOriented?.includes(
+            action
+          ) !== true
             ? [Orientation.DOWN]
             : Object.values(Orientation)
         directionArray.forEach((direction) => {
@@ -270,11 +282,11 @@ export default class AnimationManager {
 
   convertPokemonActionStateToAnimationType(
     state: PokemonActionState,
-    entity: PokemonSprite
+    pkmSprite: PokemonSprite
   ): AnimationType {
     const config = {
       ...DEFAULT_POKEMON_ANIMATION_CONFIG,
-      ...(PokemonAnimations[PkmByIndex[entity.index]] ?? {})
+      ...(PokemonAnimations[PkmByIndex[pkmSprite.pokemon.index]] ?? {})
     }
     switch (state) {
       case PokemonActionState.HOP:
@@ -317,16 +329,19 @@ export default class AnimationManager {
 
     const timeScale =
       action === PokemonActionState.ATTACK
-        ? getAttackAnimTimeScale(pokemonSprite.index, pokemonSprite.speed)
+        ? getAttackAnimTimeScale(
+            pokemonSprite.pokemon.index,
+            pokemonSprite.pokemon.speed
+          )
         : 1
 
     if (
-      pokemonSprite.passive === Passive.DRUMMER &&
+      pokemonSprite.pokemon.passive === Passive.DRUMMER &&
       pokemonSprite.targetY == null &&
       action === PokemonActionState.WALK
     ) {
       animation =
-        PokemonAnimations[PkmByIndex[pokemonSprite.index]].emote ??
+        PokemonAnimations[PkmByIndex[pokemonSprite.pokemon.index]].emote ??
         DEFAULT_POKEMON_ANIMATION_CONFIG.emote // use drumming animation instead of attack
       pokemonSprite.orientation = Orientation.DOWN
     }
@@ -339,7 +354,10 @@ export default class AnimationManager {
         timeScale
       })
     } catch (err) {
-      logger.warn(`Can't play animation ${animation} for ${pokemonSprite?.name}`, err)
+      logger.warn(
+        `Can't play animation ${animation} for ${pokemonSprite?.name}`,
+        err
+      )
     }
 
     if (pokemonSprite.troopers) {
@@ -351,7 +369,7 @@ export default class AnimationManager {
   }
 
   play(
-    entity: PokemonSprite,
+    pkmSprite: PokemonSprite,
     animation: AnimationType,
     config: {
       flip?: boolean
@@ -360,48 +378,54 @@ export default class AnimationManager {
       timeScale?: number
     } = {}
   ) {
-    if (entity.animationLocked || !entity.sprite?.anims) return
+    if (pkmSprite.animationLocked || !pkmSprite.sprite?.anims) return
 
     let orientation = config.flip
-      ? OrientationFlip[entity.orientation]
-      : entity.orientation
+      ? OrientationFlip[pkmSprite.orientation]
+      : pkmSprite.orientation
 
-    if (AnimationOriented[animation] === false && PokemonAnimations[PkmByIndex[entity.index]]?.animationsOriented?.includes(animation) !== true) {
+    if (
+      AnimationOriented[animation] === false &&
+      PokemonAnimations[
+        PkmByIndex[pkmSprite.pokemon.index]
+      ]?.animationsOriented?.includes(animation) !== true
+    ) {
       orientation = Orientation.DOWN
     }
 
     const textureIndex =
-      entity.scene && entity.scene.textures.exists(entity.index)
-        ? entity.index
+      pkmSprite.scene &&
+      pkmSprite.scene.textures.exists(pkmSprite.pokemon.index)
+        ? pkmSprite.pokemon.index
         : "0000"
     const tint =
-      entity.shiny &&
-        !PokemonAnimations[PkmByIndex[entity.index]].shinyUnavailable
+      pkmSprite.pokemon.shiny &&
+      !PokemonAnimations[PkmByIndex[pkmSprite.pokemon.index]].shinyUnavailable
         ? PokemonTint.SHINY
         : PokemonTint.NORMAL
     const animKey = `${textureIndex}/${tint}/${animation}/${SpriteType.ANIM}/${orientation}`
     const shadowKey = `${textureIndex}/${tint}/${animation}/${SpriteType.SHADOW}/${orientation}`
 
     if (
-      entity.sprite.anims.currentAnim?.key === animKey &&
-      entity.sprite.anims.currentAnim?.repeat === -1
+      pkmSprite.sprite.anims.currentAnim?.key === animKey &&
+      pkmSprite.sprite.anims.currentAnim?.repeat === -1
     )
       return
 
-    entity.sprite.anims.play({
+    pkmSprite.sprite.anims.play({
       key: animKey,
       repeat: config.repeat,
       timeScale: config.timeScale
     })
-    if (entity.shadow) {
-      entity.shadow.anims.play({
+    if (pkmSprite.shadow) {
+      pkmSprite.shadow.anims.play({
         key: shadowKey,
         repeat: config.repeat,
         timeScale: config.timeScale
       })
     }
     if (config.lock) {
-      entity.animationLocked = true
+      pkmSprite.animationLocked = true
     }
   }
 }

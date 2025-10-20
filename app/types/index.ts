@@ -217,8 +217,8 @@ export interface ISimplePlayer {
   role: Role
   pokemons: IPokemonRecord[] | ArraySchema<IPokemonRecord>
   synergies:
-  | Array<{ name: Synergy; value: number }>
-  | ArraySchema<{ name: Synergy; value: number }>
+    | Array<{ name: Synergy; value: number }>
+    | ArraySchema<{ name: Synergy; value: number }>
 }
 
 export interface IAfterGamePlayer extends ISimplePlayer {
@@ -341,12 +341,18 @@ export interface IPokemon {
   speDef: number
   atk: number
   hp: number
+  maxHP: number
+  shield: number
   range: number
   stars: number
+  pp: number
   maxPP: number
   luck: number
-  permanentLuck: number
   ap: number
+  critChance: number
+  critPower: number
+  stacks: number
+  stacksRequired: number
   skill: Ability
   passive: Passive
   items: SetSchema<Item>
@@ -374,8 +380,11 @@ export interface IExperienceManager {
 
 export interface ISimulation {
   room: GameRoom
+  board: Board
   id: string
   weather: Weather
+  bluePlayer: IPlayer | undefined
+  redPlayer: IPlayer | undefined
   blueEffects: Set<EffectEnum>
   redEffects: Set<EffectEnum>
   blueTeam: MapSchema<IPokemonEntity>
@@ -527,7 +536,7 @@ export interface IPokemonEntity {
   id: string
   orientation: Orientation
   critChance: number
-  hp: number
+  maxHP: number
   pp: number
   maxPP: number
   atk: number
@@ -537,7 +546,7 @@ export interface IPokemonEntity {
   baseAtk: number
   baseDef: number
   baseSpeDef: number
-  life: number
+  hp: number
   shield: number
   team: number
   range: number
@@ -560,6 +569,8 @@ export interface IPokemonEntity {
   healDone: number
   shiny: boolean
   emotion: Emotion
+  stacks: number
+  stacksRequired: number
   isSpawn: boolean
   commands: ISimulationCommand[]
   effectsSet: Set<EffectClass>
@@ -600,7 +611,6 @@ export interface ICount {
   attackCount: number
   fightingBlockCount: number
   dodgeCount: number
-  powerLensCount: number
   starDustCount: number
   tripleAttackCount: number
   staticHolderCount: number
@@ -734,7 +744,8 @@ export enum Title {
   ETERNAL = "ETERNAL",
   RUNNER = "RUNNER",
   FINISHER = "FINISHER",
-  VICTORIOUS = "VICTORIOUS"
+  VICTORIOUS = "VICTORIOUS",
+  AQUARIOPHILE = "AQUARIOPHILE"
 }
 
 export interface IBoardEvent {

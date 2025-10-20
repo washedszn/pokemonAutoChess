@@ -46,10 +46,10 @@ import { transformBoardCoordinates } from "../pages/utils/utils"
 import { preference, subscribeToPreferences } from "../preferences"
 import store from "../stores"
 import { changePlayer, setPlayer, setSimulation } from "../stores/GameStore"
+import { clearAbilityAnimations } from "./components/abilities-animations"
 import { BoardMode } from "./components/board-manager"
 import { DEPTH } from "./depths"
 import GameScene from "./scenes/game-scene"
-import { clearAbilityAnimations } from "./components/abilities-animations"
 
 class GameContainer {
   room: Room<GameState>
@@ -96,7 +96,7 @@ class GameContainer {
 
     for (const team of [$simulation.blueTeam, $simulation.redTeam]) {
       team.onAdd((p, key) =>
-        this.initializePokemon(<PokemonEntity>p, simulation)
+        this.initializePokemon(<PokemonEntity>p, simulation, team === $simulation.blueTeam ? simulation.bluePlayerId : simulation.redPlayerId)
       )
       team.onRemove((pokemon, key) => {
         // logger.debug('remove pokemon');
@@ -116,8 +116,8 @@ class GameContainer {
     })
   }
 
-  initializePokemon(pokemon: PokemonEntity, simulation: Simulation) {
-    this.gameScene?.battle?.addPokemonEntitySprite(simulation.id, pokemon)
+  initializePokemon(pokemon: PokemonEntity, simulation: Simulation, playerId: string) {
+    this.gameScene?.battle?.addPokemonEntitySprite(simulation.id, pokemon, playerId)
     const fields: NonFunctionPropNames<Status>[] = [
       "armorReduction",
       "burn",
@@ -172,32 +172,34 @@ class GameContainer {
     $pokemon.onChange(() => {
       const fields: (NonFunctionPropNames<PokemonEntity> &
         keyof IPokemonEntity)[] = [
-          "positionX",
-          "positionY",
-          "orientation",
-          "action",
-          "critChance",
-          "critPower",
-          "ap",
-          "luck",
-          "speed",
-          "life",
-          "hp",
-          "shield",
-          "pp",
-          "atk",
-          "def",
-          "speDef",
-          "range",
-          "targetX",
-          "targetY",
-          "team",
-          "index",
-          "shiny",
-          "skill",
-          "stars",
-          "types"
-        ]
+        "positionX",
+        "positionY",
+        "orientation",
+        "action",
+        "critChance",
+        "critPower",
+        "ap",
+        "luck",
+        "speed",
+        "hp",
+        "maxHP",
+        "shield",
+        "pp",
+        "atk",
+        "def",
+        "speDef",
+        "range",
+        "targetX",
+        "targetY",
+        "team",
+        "index",
+        "shiny",
+        "skill",
+        "stars",
+        "types",
+        "stacks",
+        "stacksRequired"
+      ]
 
       fields.forEach((field) => {
         $pokemon.listen(field, (value, previousValue) => {
@@ -223,7 +225,6 @@ class GameContainer {
       "fieldCount",
       "fightingBlockCount",
       "fairyCritCount",
-      "powerLensCount",
       "starDustCount",
       "spellBlockedCount",
       "manaBurnCount",
@@ -418,10 +419,12 @@ class GameContainer {
         "positionY",
         "action",
         "hp",
+        "maxHP",
         "atk",
         "ap",
         "def",
         "speed",
+        "luck",
         "shiny",
         "skill",
         "meal"
@@ -440,15 +443,6 @@ class GameContainer {
               )
             }
           })
-        })
-
-        $pokemon.types.onChange((value, key) => {
-          if (player.id === this.spectatedPlayerId) {
-            const pokemonUI = this.gameScene?.board?.pokemons.get(pokemon.id)
-            if (pokemonUI) {
-              pokemonUI.types = new Set(values(pokemon.types))
-            }
-          }
         })
 
         $pokemon.items.onChange((value, key) => {
@@ -595,6 +589,8 @@ class GameContainer {
           this.gameScene.weatherManager.addMist()
         } else if (value === Weather.SMOG) {
           this.gameScene.weatherManager.addSmog()
+        } else if (value === Weather.MURKY) {
+          this.gameScene.weatherManager.addMurky()
         }
       }
     }
@@ -637,7 +633,7 @@ class GameContainer {
     targetX?: number
     targetY?: number
     delay?: number
-    ap: number
+    ap?: number
   }) {
     if (document.hidden) return // do not display abilities when the tab is not focused
     this.gameScene?.battle?.displayAbility(message)

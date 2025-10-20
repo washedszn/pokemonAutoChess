@@ -30,8 +30,8 @@ export default class AttackingState extends PokemonState {
         const candidates = this.getTargetsAtRange(pokemon, board)
         let minLife = Infinity
         for (const candidate of candidates) {
-          if (candidate.life + candidate.shield < minLife) {
-            minLife = candidate.life + candidate.shield
+          if (candidate.hp + candidate.shield < minLife) {
+            minLife = candidate.hp + candidate.shield
             target = candidate
           }
         }
@@ -136,6 +136,7 @@ export function getAttackTimings(pokemon: IPokemonEntity): {
     pokemon.positionX,
     pokemon.positionY
   )
-  const travelTime = (distance * 1000) / (BASE_PROJECTILE_SPEED * (1 + speed / 100))
+  const travelTime =
+    (distance * 1000) / (BASE_PROJECTILE_SPEED * (1 + speed / 100))
   return { delayBeforeShoot, travelTime, attackDuration }
 }

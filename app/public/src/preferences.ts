@@ -1,15 +1,19 @@
 import Phaser from "phaser"
-import { localStore, LocalStoreKeys } from "./pages/utils/store"
 import { useCallback, useEffect, useState } from "react"
 import { removeInArray } from "../../utils/array"
+import { LocalStoreKeys, localStore } from "./pages/utils/store"
 
 export type Keybindings = {
   sell: string
   buy_xp: string
   refresh: string
   lock: string
+  camera_lock: string
   switch: string
   emote: string
+  prev_player: string
+  next_player: string
+  board_return: string
 }
 export interface IPreferencesState {
   musicVolume: number
@@ -22,6 +26,7 @@ export interface IPreferencesState {
   filterAvailableAddsAndRegionals: boolean
   disableAnimatedTilemap: boolean
   disableCameraShake: boolean
+  cameraLocked: boolean
   keybindings: Keybindings
   renderer: number
   antialiasing: boolean
@@ -38,6 +43,7 @@ const defaultPreferences: IPreferencesState = {
   filterAvailableAddsAndRegionals: false,
   disableAnimatedTilemap: false,
   disableCameraShake: true,
+  cameraLocked: false,
   renderer: Phaser.AUTO,
   antialiasing: true,
   keybindings: {
@@ -45,8 +51,12 @@ const defaultPreferences: IPreferencesState = {
     buy_xp: "F",
     refresh: "D",
     lock: "R",
+    camera_lock: "L",
     switch: "SPACE",
-    emote: "A"
+    emote: "A",
+    prev_player: "PAGEUP",
+    next_player: "PAGEDOWN",
+    board_return: "HOME"
   }
 }
 
@@ -112,13 +122,13 @@ export function usePreferences(): [IPreferencesState, typeof savePreferences] {
 export function usePreference<T extends keyof IPreferencesState>(
   key: T
 ): [
-    IPreferencesState[T],
-    (
-      set:
-        | IPreferencesState[T]
-        | ((old: IPreferencesState[T]) => IPreferencesState[T])
-    ) => void
-  ] {
+  IPreferencesState[T],
+  (
+    set:
+      | IPreferencesState[T]
+      | ((old: IPreferencesState[T]) => IPreferencesState[T])
+  ) => void
+] {
   const [preferenceState, setPreferenceState] = useState<IPreferencesState[T]>(
     preferences[key]
   )

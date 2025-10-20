@@ -15,10 +15,7 @@ import { Portal, SynergySymbol } from "../models/colyseus-models/portal"
 import GameRoom from "../rooms/game-room"
 import GameState from "../rooms/states/game-state"
 import { Transfer } from "../types"
-import {
-  ItemCarouselStages,
-  PortalCarouselStages
-} from "../types/Config"
+import { ItemCarouselStages, PortalCarouselStages } from "../types/Config"
 import { DungeonDetails, DungeonPMDO } from "../types/enum/Dungeon"
 import { PokemonActionState } from "../types/enum/Game"
 import {
@@ -34,7 +31,8 @@ import {
 } from "../types/enum/Item"
 import { SpecialGameRule } from "../types/enum/SpecialGameRule"
 import { Synergy, SynergyArray } from "../types/enum/Synergy"
-import { clamp, min } from "../utils/number"
+import { isIn } from "../utils/array"
+import { clamp, max, min } from "../utils/number"
 import { getOrientation } from "../utils/orientation"
 import {
   chance,
@@ -51,7 +49,6 @@ import {
   TownEncounters,
   TownEncountersByStage
 } from "./town-encounters"
-import { isIn } from "../utils/array"
 
 const PLAYER_VELOCITY = 2
 const ITEM_ROTATION_SPEED = 0.0004
@@ -121,11 +118,11 @@ export class MiniGame {
             const x =
               this.centerX +
               Math.cos(t + (Math.PI * 2 * item.index) / this.items!.size) *
-              CAROUSEL_RADIUS_X
+                CAROUSEL_RADIUS_X
             const y =
               this.centerY +
               Math.sin(t + (Math.PI * 2 * item.index) / this.items!.size) *
-              CAROUSEL_RADIUS_Y
+                CAROUSEL_RADIUS_Y
             Body.setPosition(itemBody, { x, y })
           }
         }
@@ -139,11 +136,11 @@ export class MiniGame {
             const x =
               this.centerX +
               Math.cos(t + (Math.PI * 2 * portal.index) / this.portals!.size) *
-              CAROUSEL_RADIUS_X
+                CAROUSEL_RADIUS_X
             const y =
               this.centerY +
               Math.sin(t + (Math.PI * 2 * portal.index) / this.portals!.size) *
-              CAROUSEL_RADIUS_Y
+                CAROUSEL_RADIUS_Y
             Body.setPosition(portalBody, { x, y })
           }
         }
@@ -297,11 +294,11 @@ export class MiniGame {
         avatar.targetX =
           this.centerX +
           Math.cos((2 * Math.PI * i) / this.alivePlayers.length) *
-          CAROUSEL_RADIUS_X
+            CAROUSEL_RADIUS_X
         avatar.targetY =
           this.centerY +
           Math.sin((2 * Math.PI * i) / this.alivePlayers.length) *
-          CAROUSEL_RADIUS_Y
+            CAROUSEL_RADIUS_Y
       }
 
       this.avatars!.set(avatar.id, avatar)
@@ -364,6 +361,16 @@ export class MiniGame {
     } else if (state.townEncounter === TownEncounters.MUNCHLAX) {
       this.alivePlayers.forEach((player) => {
         player.items.push(Item.PICNIC_SET)
+      })
+    } else if (state.townEncounter === TownEncounters.MAKUHITA) {
+      const ticket =
+        state.stageLevel >= 20
+          ? Item.GOLD_DOJO_TICKET
+          : state.stageLevel >= 10
+            ? Item.SILVER_DOJO_TICKET
+            : Item.BRONZE_DOJO_TICKET
+      this.alivePlayers.forEach((player) => {
+        player.items.push(ticket)
       })
     }
   }
@@ -442,16 +449,16 @@ export class MiniGame {
             portal.x +
             Math.cos(
               this.timeElapsed * SYMBOL_ROTATION_SPEED +
-              (Math.PI * 2 * symbol.index) / symbols.length
+                (Math.PI * 2 * symbol.index) / symbols.length
             ) *
-            25
+              25
           symbol.y =
             portal.y +
             Math.sin(
               this.timeElapsed * SYMBOL_ROTATION_SPEED +
-              (Math.PI * 2 * symbol.index) / symbols.length
+                (Math.PI * 2 * symbol.index) / symbols.length
             ) *
-            25
+              25
         })
       }
     })
@@ -564,9 +571,19 @@ export class MiniGame {
         ).map(([type, value]) => {
           let levelReached = player.synergies.getSynergyStep(type)
           // removing low triggers synergies
-          if (type === Synergy.FLORA || type === Synergy.LIGHT)
+          if (type === Synergy.FLORA || type === Synergy.LIGHT) {
             levelReached = min(0)(levelReached - 1)
-          if (type === Synergy.GOURMET && levelReached > 1) levelReached = 1 // to compensate for the current lack of diversity in the legendary pool
+          }
+          if (
+            stageLevel === 20 &&
+            (type === Synergy.GOURMET || type === Synergy.NORMAL)
+          ) {
+            // not enough legendaries of that type
+            levelReached = max(2)(levelReached)
+          }
+          if (type === Synergy.BABY && stageLevel === 20) {
+            levelReached = 0 // no baby legendaries
+          }
           return [type, levelReached]
         })
         const candidatesSymbols: Synergy[] = []

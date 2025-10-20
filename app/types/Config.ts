@@ -183,8 +183,8 @@ export const BoosterPriceByRarity: { [key in Rarity]: number } = {
 }
 
 export const DITTO_RATE = 0.005
-export const KECLEON_RATE = 1 / 150
-export const ARCEUS_RATE = 1 / 150
+export const KECLEON_RATE = 1 / 200
+export const ARCEUS_RATE = 1 / 200
 
 export const RarityProbabilityPerLevel: { [key: number]: number[] } = {
   1: [1, 0, 0, 0, 0],
@@ -273,7 +273,6 @@ export const UniquePool = new Array<PkmProposition>(
   Pkm.CYCLIZAR,
   Pkm.MINIOR,
   Pkm.MORPEKO,
-  Pkm.TYPE_NULL,
   Pkm.KANGASKHAN,
   Pkm.DRUDDIGON,
   Pkm.COSMOG,
@@ -312,7 +311,12 @@ export const UniquePool = new Array<PkmProposition>(
   Pkm.FALINKS_BRASS,
   Pkm.DEDENNE,
   Pkm.DUNSPARCE,
-  Pkm.PACHIRISU
+  Pkm.PACHIRISU,
+  Pkm.QWILFISH,
+  Pkm.HISUIAN_QWILFISH,
+  PkmDuo.BASCULIN_RED_BLUE,
+  Pkm.BASCULIN_WHITE,
+  Pkm.FLUTTER_MANE
 )
 
 export const LegendaryPool = new Array<PkmProposition>(
@@ -392,7 +396,9 @@ export const LegendaryPool = new Array<PkmProposition>(
   Pkm.OGERPON_WELLSPRING,
   Pkm.OGERPON_HEARTHFLAME,
   Pkm.OGERPON_CORNERSTONE,
-  Pkm.MANAPHY
+  Pkm.MANAPHY,
+  Pkm.CHI_YU,
+  Pkm.TYPE_NULL
 )
 
 export const NB_UNIQUE_PROPOSITIONS = 6
@@ -489,7 +495,8 @@ export const WeatherThreshold: { [weather in Weather]: number } = {
   [Weather.STORM]: 8,
   [Weather.SUN]: 8,
   [Weather.WINDY]: 8,
-  [Weather.SMOG]: 8
+  [Weather.SMOG]: 8,
+  [Weather.MURKY]: 8
 }
 
 // 4  A  1

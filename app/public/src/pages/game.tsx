@@ -93,6 +93,9 @@ import { MainSidebar } from "./component/main-sidebar/main-sidebar"
 import { ConnectionStatusNotification } from "./component/system/connection-status-notification"
 import { playMusic, preloadMusic } from "./utils/audio"
 import { LocalStoreKeys, localStore } from "./utils/store"
+import { preference } from "../preferences"
+import { throttle } from "../../../utils/function"
+import Player from "../../../models/colyseus-models/player"
 
 let gameContainer: GameContainer
 
@@ -100,6 +103,42 @@ export function getGameScene(): GameScene | undefined {
   return gameContainer?.game?.scene?.getScene<GameScene>("gameScene") as
     | GameScene
     | undefined
+}
+
+export function cyclePlayers(amt: number) {
+  const players = values(gameContainer.room?.state.players)
+  playerClick(
+    players[
+      (players.findIndex((p) => p === gameContainer.player) +
+        amt +
+        players.length) %
+        players.length
+    ].id
+  )
+}
+
+export function playerClick(id: string) {
+  const scene = getGameScene()
+  if (scene?.spectate) {
+    // if spectating game we switch directly without notifying the server to not show spectators avatars
+    if (gameContainer?.room?.state?.players) {
+      const spectatedPlayer = gameContainer?.room?.state?.players.get(id)
+      if (spectatedPlayer) {
+        gameContainer.setPlayer(spectatedPlayer)
+
+        const simulation = gameContainer?.room?.state.simulations.get(
+          spectatedPlayer.simulationId
+        )
+        if (simulation) {
+          gameContainer.setSimulation(simulation)
+        }
+      }
+
+      gameContainer?.gameScene?.board?.updateScoutingAvatars()
+    }
+  } else {
+    gameContainer?.room?.send(Transfer.SPECTATE, id)
+  }
 }
 
 export default function Game() {
@@ -176,7 +215,7 @@ export default function Game() {
               let connectError = error.message
               if (error.code === 4212) {
                 // room disposed
-                connectError = "This game does no longer exist"
+                connectError = "This game does no longer exists"
               }
               //TODO: handle more known error codes with informative messages
               setConnectError(connectError)
@@ -190,30 +229,6 @@ export default function Game() {
     },
     [client, dispatch]
   )
-
-  function playerClick(id: string) {
-    const scene = getGameScene()
-    if (scene?.spectate) {
-      // if spectating game we switch directly without notifying the server to not show spectators avatars
-      if (room?.state?.players) {
-        const spectatedPlayer = room?.state?.players.get(id)
-        if (spectatedPlayer) {
-          gameContainer.setPlayer(spectatedPlayer)
-
-          const simulation = room.state.simulations.get(
-            spectatedPlayer.simulationId
-          )
-          if (simulation) {
-            gameContainer.setSimulation(simulation)
-          }
-        }
-
-        gameContainer.gameScene?.board?.updateScoutingAvatars()
-      }
-    } else {
-      room?.send(Transfer.SPECTATE, id)
-    }
-  }
 
   const leave = useCallback(async () => {
     const afterPlayers = new Array<IAfterGamePlayer>()
@@ -277,9 +292,9 @@ export default function Game() {
       })
     }
 
-    const elligibleToXP =
+    const eligibleToXP =
       nbPlayers >= 2 && (room?.state.stageLevel ?? 0) >= MinStageForGameToCount
-    const elligibleToELO =
+    const eligibleToELO =
       nbPlayers >= 2 &&
       ((room?.state.stageLevel ?? 0) >= MinStageForGameToCount ||
         hasLeftBeforeEnd) &&
@@ -290,8 +305,8 @@ export default function Game() {
     const r: Room<AfterGameState> = await client.create("after-game", {
       players: afterPlayers,
       idToken: token,
-      elligibleToXP,
-      elligibleToELO,
+      eligibleToXP,
+      eligibleToELO,
       gameMode
     })
     localStore.set(
@@ -848,7 +863,6 @@ export default function Game() {
           dispatch(changePlayer({ id: player.id, field: "mulchCap", value }))
           getGameScene()?.board?.updateMulchCount()
         })
-
       })
 
       $state.players.onRemove((player) => {

@@ -84,15 +84,15 @@ export default function AfterGame() {
         dispatch(addPlayer(player))
         if (player.id === currentPlayerId) {
           playSound(
-            SOUNDS["FINISH" + player.rank],
+            SOUNDS["FINISH" + player.rank as keyof typeof SOUNDS],
             preference("musicVolume") / 100
           )
         }
       })
-      $state.listen("elligibleToELO", (value, previousValue) => {
+      $state.listen("eligibleToELO", (value, previousValue) => {
         dispatch(setElligibilityToELO(value))
       })
-      $state.listen("elligibleToXP", (value, previousValue) => {
+      $state.listen("eligibleToXP", (value, previousValue) => {
         dispatch(setElligibilityToXP(value))
       })
       $state.listen("gameMode", (value, previousValue) => {

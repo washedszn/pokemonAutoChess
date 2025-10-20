@@ -144,6 +144,7 @@ export default class LoadingManager {
     scene.load.image("sand", "/assets/environment/sand.png")
     scene.load.image("wind", "/assets/environment/wind.png")
     scene.load.image("smog", "/assets/environment/smog.png")
+    scene.load.image("fog", "/assets/environment/fog.png")
     scene.load.image("sun", "/assets/environment/sun.png")
     scene.load.image("clouds", "/assets/environment/clouds.png")
     scene.load.multiatlas(
@@ -213,6 +214,11 @@ export function loadEnvironmentMultiAtlas(scene: Phaser.Scene) {
   scene.load.multiatlas(
     "flower_pots",
     "/assets/environment/flower_pots.json",
+    "/assets/environment/"
+  )
+  scene.load.multiatlas(
+    "ground_holes",
+    "/assets/environment/ground_holes.json",
     "/assets/environment/"
   )
 }

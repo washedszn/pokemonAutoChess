@@ -13,6 +13,7 @@ import {
   Flavors,
   HMs,
   Item,
+  MemoryDiscs,
   OgerponMasks,
   Sweets,
   SynergyGivenByItem,
@@ -20,7 +21,7 @@ import {
   TMs
 } from "../../types/enum/Item"
 import { Passive } from "../../types/enum/Passive"
-import { Pkm } from "../../types/enum/Pokemon"
+import { Pkm, PkmFamily } from "../../types/enum/Pokemon"
 import { Synergy } from "../../types/enum/Synergy"
 import { removeInArray } from "../../utils/array"
 import { getFreeSpaceOnBench, isOnBench } from "../../utils/board"
@@ -45,6 +46,7 @@ import {
   OnItemGainedEffect,
   OnItemRemovedEffect,
   OnKillEffect,
+  OnMoveEffect,
   OnStageStartEffect,
   PeriodicEffect
 } from "./effect"
@@ -97,6 +99,7 @@ export const blueOrbOnAttackEffect = new OnAttackEffect(
             board,
             AttackType.SPECIAL,
             pokemon,
+            false,
             false
           )
           secondaryTargetHit.addPP(-20, pokemon, 0, false)
@@ -125,7 +128,7 @@ export const choiceScarfOnAttackEffect = new OnAttackEffect(
       const candidateTargets = cells
         .filter((cell) => cell.value && pokemon.team != cell.value.team)
         .map((cell) => cell.value!)
-      candidateTargets.sort((a, b) => a.life - b.life) // target lowest life first
+      candidateTargets.sort((a, b) => a.hp - b.hp) // target lowest life first
 
       let targetCount = 1
       candidateTargets.forEach((target) => {
@@ -163,6 +166,7 @@ export const choiceScarfOnAttackEffect = new OnAttackEffect(
               const damageBlocked = min(0)(
                 scarfSpecialDamage - damageAfterReduction
               )
+              pokemon.broadcastAbility({ skill: "POWER_LENS" })
               pokemon.handleDamage({
                 damage: Math.round(damageBlocked),
                 board,
@@ -212,8 +216,19 @@ export class SoulDewEffect extends PeriodicEffect {
   }
 }
 
+export class RunningShoesOnMoveEffect extends OnMoveEffect {
+  stacks = 0
+
+  constructor() {
+    super((pkm) => {
+      pkm.addSpeed(5, pkm, 0, false)
+      this.stacks += 1
+    })
+  }
+}
+
 const smokeBallEffect = new OnDamageReceivedEffect(({ pokemon, board }) => {
-  if (pokemon.life > 0 && pokemon.life < 0.4 * pokemon.hp) {
+  if (pokemon.hp > 0 && pokemon.hp < 0.4 * pokemon.maxHP) {
     const cells = board.getAdjacentCells(pokemon.positionX, pokemon.positionY)
     cells.forEach((cell) => {
       if (cell.value && cell.value.team !== pokemon.team) {
@@ -266,6 +281,29 @@ const ogerponMaskEffect = new OnItemDroppedEffect(
   }
 )
 
+export class DojoTicketOnItemDroppedEffect extends OnItemDroppedEffect {
+  constructor(ticketLevel: number) {
+    super(({ pokemon, player, room, item }) => {
+      const substitute = PokemonFactory.createPokemonFromName(
+        Pkm.SUBSTITUTE,
+        player
+      )
+      player.board.delete(pokemon.id)
+      substitute.id = pokemon.id
+      substitute.positionX = pokemon.positionX
+      substitute.positionY = pokemon.positionY
+      player.board.set(substitute.id, substitute)
+      player.pokemonsTrainingInDojo.push({
+        pokemon,
+        ticketLevel,
+        returnStage: room.state.stageLevel + ([3, 4, 5][ticketLevel - 1] ?? 5)
+      })
+      removeInArray(player.items, item)
+      return false // prevent item from being equipped
+    })
+  }
+}
+
 const chefCookEffect = new OnStageStartEffect(({ pokemon, player, room }) => {
   if (!pokemon) return
   const chef = pokemon
@@ -280,8 +318,8 @@ const chefCookEffect = new OnStageStartEffect(({ pokemon, player, room }) => {
   }
 
   if (chef.passive === Passive.GLUTTON) {
-    chef.hp += 30
-    if (chef.hp > 750) {
+    chef.addMaxHP(30, player)
+    if (chef.maxHP > 750) {
       player.titles.add(Title.GLUTTON)
     }
   }
@@ -327,10 +365,14 @@ const chefCookEffect = new OnStageStartEffect(({ pokemon, player, room }) => {
             const pokemon = candidates[i] ?? chef
             if (dish === Item.HERBA_MYSTICA) {
               const flavors: Dish[] = []
-              if (pokemon.types.has(Synergy.FAIRY)) flavors.push(Item.HERBA_MYSTICA_SWEET)
-              if (pokemon.types.has(Synergy.PSYCHIC)) flavors.push(Item.HERBA_MYSTICA_SPICY)
-              if (pokemon.types.has(Synergy.ELECTRIC)) flavors.push(Item.HERBA_MYSTICA_SOUR)
-              if (pokemon.types.has(Synergy.GRASS)) flavors.push(Item.HERBA_MYSTICA_BITTER)
+              if (pokemon.types.has(Synergy.FAIRY))
+                flavors.push(Item.HERBA_MYSTICA_SWEET)
+              if (pokemon.types.has(Synergy.PSYCHIC))
+                flavors.push(Item.HERBA_MYSTICA_SPICY)
+              if (pokemon.types.has(Synergy.ELECTRIC))
+                flavors.push(Item.HERBA_MYSTICA_SOUR)
+              if (pokemon.types.has(Synergy.GRASS))
+                flavors.push(Item.HERBA_MYSTICA_BITTER)
               if (flavors.length === 0) flavors.push(Item.HERBA_MYSTICA_SALTY)
               meal = pickRandomIn(flavors)
             }
@@ -360,7 +402,7 @@ export class FishingRodEffect extends OnStageStartEffect {
   }
 }
 
-export const ItemEffects: { [i in Item]?: Effect[] } = {
+export const ItemEffects: { [i in Item]?: (Effect | (() => Effect))[] } = {
   ...Object.fromEntries(
     SynergyStones.map((stone) => [
       stone,
@@ -407,7 +449,10 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       const alliesSortByLowestAtk = (
         board.cells.filter(
           (p) =>
-            p && p.team === pokemon.team && p.id !== pokemon.id && p.items.size < 3
+            p &&
+            p.team === pokemon.team &&
+            p.id !== pokemon.id &&
+            p.items.size < 3
         ) as PokemonEntity[]
       ).sort((a, b) => a.atk - b.atk)
 
@@ -436,7 +481,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
   [Item.PUNCHING_GLOVE]: [
     new OnHitEffect(({ attacker, target, board }) => {
       target.handleDamage({
-        damage: Math.round(0.08 * target.hp),
+        damage: Math.round(0.08 * target.maxHP),
         board,
         attackType: AttackType.PHYSICAL,
         attacker,
@@ -448,15 +493,6 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
   [Item.SHELL_BELL]: [
     new OnDamageDealtEffect(({ pokemon, damage }) => {
       pokemon.handleHeal(Math.ceil(0.33 * damage), pokemon, 0, false)
-    })
-  ],
-
-  [Item.WIDE_LENS]: [
-    new OnItemGainedEffect((pokemon) => {
-      pokemon.range += 2
-    }),
-    new OnItemRemovedEffect((pokemon) => {
-      pokemon.range = min(1)(pokemon.range - 2)
     })
   ],
 
@@ -551,21 +587,21 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
     new OnItemRemovedEffect((pokemon) => {
       pokemon.addCritPower(-(pokemon.player?.money ?? 0), pokemon, 0, false)
     }),
-    new OnKillEffect((pokemon, target, board, attackType) => {
-      if (pokemon.player) {
+    new OnKillEffect(({ attacker, board }) => {
+      if (attacker.player) {
         const isLastEnemy =
           board.cells.some(
             (p) =>
               p &&
-              p.team !== pokemon.team &&
-              (p.life > 0 || p.status.resurecting)
+              p.team !== attacker.team &&
+              (p.hp > 0 || p.status.resurecting)
           ) === false
-        pokemon.count.bottleCapCount++
-        const moneyGained = isLastEnemy ? pokemon.count.bottleCapCount + 1 : 1
-        pokemon.player.addMoney(moneyGained, true, pokemon)
-        pokemon.count.moneyCount += moneyGained
-        if (isLastEnemy && pokemon.count.bottleCapCount >= 10) {
-          pokemon.player.titles.add(Title.LUCKY)
+        attacker.count.bottleCapCount++
+        const moneyGained = isLastEnemy ? attacker.count.bottleCapCount + 1 : 1
+        attacker.player.addMoney(moneyGained, true, attacker)
+        attacker.count.moneyCount += moneyGained
+        if (isLastEnemy && attacker.count.bottleCapCount >= 10) {
+          attacker.player.titles.add(Title.LUCKY)
         }
       }
     })
@@ -576,7 +612,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addShield(
         Math.floor(
           ((pokemon.player?.rerollCount ?? 0) + pokemon.simulation.stageLevel) /
-          2
+            2
         ) * 2,
         pokemon,
         0,
@@ -585,7 +621,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addSpeed(
         Math.floor(
           ((pokemon.player?.rerollCount ?? 0) + pokemon.simulation.stageLevel) /
-          2
+            2
         ),
         pokemon,
         0,
@@ -596,7 +632,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addAbilityPower(
         -Math.floor(
           ((pokemon.player?.rerollCount ?? 0) + pokemon.simulation.stageLevel) /
-          2
+            2
         ),
         pokemon,
         0,
@@ -656,11 +692,11 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
   ],
 
   [Item.AMULET_COIN]: [
-    new OnKillEffect((pokemon) => {
-      if (pokemon.player) {
-        pokemon.player.addMoney(1, true, pokemon)
-        pokemon.count.moneyCount += 1
-        pokemon.count.amuletCoinCount += 1
+    new OnKillEffect(({ attacker }) => {
+      if (attacker.player) {
+        attacker.player.addMoney(1, true, attacker)
+        attacker.count.moneyCount += 1
+        attacker.count.amuletCoinCount += 1
       }
     })
   ],
@@ -673,7 +709,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addAbilityPower(comfey.ap, pokemon, 0, false)
       pokemon.addAttack(comfey.atk, pokemon, 0, false)
       pokemon.addSpeed(comfey.speed - DEFAULT_SPEED, pokemon, 0, false)
-      pokemon.addMaxHP(comfey.hp, pokemon, 0, false)
+      pokemon.addMaxHP(comfey.maxHP, pokemon, 0, false)
       pokemon.addDefense(comfey.def, pokemon, 0, false)
       pokemon.addSpecialDefense(comfey.speDef, pokemon, 0, false)
     }),
@@ -682,7 +718,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
       pokemon.addAbilityPower(-comfey.ap, pokemon, 0, false)
       pokemon.addAttack(-comfey.atk, pokemon, 0, false)
       pokemon.addSpeed(-(comfey.speed - DEFAULT_SPEED), pokemon, 0, false)
-      pokemon.addMaxHP(-comfey.hp, pokemon, 0, false)
+      pokemon.addMaxHP(-comfey.maxHP, pokemon, 0, false)
       pokemon.addDefense(-comfey.def, pokemon, 0, false)
       pokemon.addSpecialDefense(-comfey.speDef, pokemon, 0, false)
     }),
@@ -718,6 +754,17 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
         target.count.manaBurnCount++
         target.status.triggerParalysis(2000, target, pokemon)
       }
+    })
+  ],
+
+  [Item.RUNNING_SHOES]: [
+    () => new RunningShoesOnMoveEffect(), // needs new instance of effect for each pokemon due to internal stack counter
+    new OnItemRemovedEffect((pokemon) => {
+      const stacks =
+        Object.values(pokemon.effectsSet).find(
+          (effect) => effect instanceof RunningShoesOnMoveEffect
+        )?.stacks ?? 0
+      pokemon.addSpeed(-5 * stacks, pokemon, 0, false)
     })
   ],
 
@@ -808,7 +855,7 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
 
   [Item.ABSORB_BULB]: [
     new OnDamageReceivedEffect(({ pokemon, board }) => {
-      if (pokemon.life < 0.5 * pokemon.hp) {
+      if (pokemon.hp < 0.5 * pokemon.maxHP) {
         const damage =
           pokemon.physicalDamageReduced + pokemon.specialDamageReduced
         pokemon.broadcastAbility({ skill: Ability.EXPLOSION })
@@ -1003,11 +1050,26 @@ export const ItemEffects: { [i in Item]?: Effect[] } = {
   [Item.AMAZE_MULCH]: [
     new OnItemDroppedEffect(({ pokemon, player, item }) => {
       if (FlowerPotMons.includes(pokemon.name)) {
-        pokemon.hp += 50
+        pokemon.addMaxHP(50, player)
         pokemon.ap += 30
         removeInArray(player.items, item)
       }
-      return false // prevent item from being equipped      
+      return false // prevent item from being equipped
     })
-  ]
+  ],
+
+  [Item.BRONZE_DOJO_TICKET]: [new DojoTicketOnItemDroppedEffect(1)],
+  [Item.SILVER_DOJO_TICKET]: [new DojoTicketOnItemDroppedEffect(2)],
+  [Item.GOLD_DOJO_TICKET]: [new DojoTicketOnItemDroppedEffect(3)],
+
+  ...Object.fromEntries(
+    MemoryDiscs.map((memory) => [
+      memory,
+      [
+        new OnItemDroppedEffect(
+          ({ pokemon }) => PkmFamily[pokemon.name] === Pkm.TYPE_NULL
+        )
+      ]
+    ])
+  )
 }
