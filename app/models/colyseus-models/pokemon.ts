@@ -80,7 +80,7 @@ export class Pokemon extends Schema implements IPokemon {
   @type("uint8") stars: number = 1
   @type("uint8") pp = 0
   @type("uint8") maxPP: number = 100
-  @type("uint16") ap: number = 0
+  @type("int16") ap: number = 0
   @type("uint8") luck: number = 0
   @type("string") skill: Ability = Ability.DEFAULT
   @type("string") passive: Passive = Passive.NONE
@@ -93,6 +93,7 @@ export class Pokemon extends Schema implements IPokemon {
   @type("uint8") stacksRequired: number = 0
   dodge: number = 0
   deathCount: number = 0
+  killCount: number = 0
   evolutions: Pkm[] = []
   evolutionRule: EvolutionRule = new CountEvolutionRule(3)
   additional = false
@@ -5766,7 +5767,7 @@ export class Regice extends Pokemon {
   atk = 25
   speed = 41
   def = 15
-  speDef = 25
+  speDef = 20
   maxPP = 100
   range = 1
   skill = Ability.HAIL
@@ -5823,7 +5824,7 @@ export class Regirock extends Pokemon {
   hp = 300
   atk = 25
   speed = 41
-  def = 25
+  def = 20
   speDef = 15
   maxPP = 100
   range = 1
@@ -5881,8 +5882,8 @@ export class Registeel extends Pokemon {
   hp = 300
   atk = 25
   speed = 41
-  def = 20
-  speDef = 20
+  def = 15
+  speDef = 15
   maxPP = 100
   range = 1
   skill = Ability.IRON_HEAD
@@ -18772,7 +18773,6 @@ export class Runerigus extends Pokemon {
 }
 
 export class Chewtle extends Pokemon {
-  jawLockTargets: string[] = []
   types = new SetSchema<Synergy>([
     Synergy.AQUATIC,
     Synergy.ROCK,
@@ -18793,7 +18793,6 @@ export class Chewtle extends Pokemon {
 }
 
 export class Drednaw extends Pokemon {
-  jawLockTargets: string[] = []
   types = new SetSchema<Synergy>([
     Synergy.AQUATIC,
     Synergy.ROCK,
@@ -18985,13 +18984,12 @@ export class BasculinWhite extends Pokemon {
   skill = Ability.GRUDGE_DIVE
   passive = Passive.BASCULIN_WHITE
   evolutions = [Pkm.BASCULEGION_MALE, Pkm.BASCULEGION_FEMALE]
-  evolutionRule = new ConditionBasedEvolutionRule(
-    (pokemon) =>
-      pokemon instanceof BasculinWhite &&
-      (pokemon.killCount >= 5 || pokemon.deathCount >= 5),
-    (pokemon) =>
-      pokemon.deathCount >= 5 ? Pkm.BASCULEGION_FEMALE : Pkm.BASCULEGION_MALE
-  )
+  evolutionRule = new StackBasedEvolutionRule((pokemon) => {
+    return pokemon.deathCount >= 5
+      ? Pkm.BASCULEGION_FEMALE
+      : Pkm.BASCULEGION_MALE
+  })
+  stacksRequired = 5
   onAcquired = basculinOnAcquired
 }
 

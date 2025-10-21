@@ -4170,13 +4170,14 @@ export class SpectralThiefStrategy extends AbilityStrategy {
         return logger.error(
           `Spectral Thief: No class found for ${target.name} [index ${target.index}]`
         )
+
       const base = new PkmClass(target.name)
       const boostAtk = min(0)(target.atk - target.baseAtk)
       const boostSpeed = min(0)(target.speed - base.speed)
       const boostDef = min(0)(target.def - target.baseDef)
       const boostSpeDef = min(0)(target.speDef - target.baseSpeDef)
       const boostAP = target.ap
-      const boostHP = min(0)(target.maxHP - base.maxHP)
+      const boostHP = min(0)(target.maxHP - base.hp)
       const boostCritChance = min(0)(target.critChance - base.critChance)
       const boostCritPower = min(0)(target.critPower - base.critPower)
       const boostLuck = min(0)(target.luck - base.luck)
@@ -7424,6 +7425,7 @@ export class BarbBarrageStrategy extends AbilityStrategy {
     crit: boolean
   ) {
     super.process(pokemon, board, target, crit, true)
+    const damage = [20, 40, 60, 80][pokemon.stars - 1] ?? 80
     const mostSurroundedCoordinate =
       pokemon.state.getMostSurroundedCoordinateAvailablePlace(pokemon, board)
 
@@ -7441,6 +7443,7 @@ export class BarbBarrageStrategy extends AbilityStrategy {
         .forEach((v) => {
           if (v) {
             v.status.triggerPoison(3000, v, pokemon)
+            v.handleSpecialDamage(damage, board, AttackType.SPECIAL, pokemon, crit)
             pokemon.broadcastAbility({
               targetX: v.positionX,
               targetY: v.positionY,
@@ -7448,10 +7451,10 @@ export class BarbBarrageStrategy extends AbilityStrategy {
             })
           }
         })
+    } else {
+      target.handleSpecialDamage(damage, board, AttackType.SPECIAL, pokemon, crit)
     }
-
-    const damage = [20, 40, 60, 80][pokemon.stars - 1] ?? 80
-    target.handleSpecialDamage(damage, board, AttackType.SPECIAL, pokemon, crit)
+    
   }
 }
 
@@ -13846,12 +13849,11 @@ export class JawLockStrategy extends AbilityStrategy {
     const heal = [25, 50, 100][pokemon.stars - 1] ?? 100
 
     // Check if target is already locked (already bitten)
-    const alreadyBitten =
-      (pokemon instanceof Chewtle || pokemon instanceof Drednaw) &&
-      pokemon.jawLockTargets.includes(target.id)
+    const alreadyBitten = target.effects.has(EffectEnum.JAW_LOCK)
 
     // Apply LOCKED status for 3 seconds
     target.status.triggerLocked(3000, target)
+    target.effects.add(EffectEnum.JAW_LOCK)
 
     // Deal damage
     target.handleSpecialDamage(
@@ -13861,11 +13863,6 @@ export class JawLockStrategy extends AbilityStrategy {
       pokemon,
       crit
     )
-
-    // Add the target id to the jawLockTargets
-    ;(pokemon instanceof Chewtle || pokemon instanceof Drednaw) &&
-      pokemon.jawLockTargets.push(target.id)
-
     // If target was already bitten, heal the user
     if (alreadyBitten) {
       pokemon.handleHeal(heal, pokemon, 1, crit)
@@ -14315,19 +14312,17 @@ export class MoonblastStrategy extends AbilityStrategy {
     super.process(pokemon, board, target, crit, true)
 
     const damage = 20
-    let lastTarget: PokemonEntity | undefined = pokemon
     let currentTarget: PokemonEntity | undefined = target
     let moonsRemaining = 6
     let moonIndex = 0
 
-    // Launch 6 moons instantly, gaining extra moons when targets die
-    while (moonsRemaining > 0 && currentTarget) {
+    function sendMoon() {
+      if (!currentTarget) return
       pokemon.broadcastAbility({
-        positionX: lastTarget.positionX,
-        positionY: lastTarget.positionY,
+        positionX: pokemon.positionX,
+        positionY: pokemon.positionY,
         targetX: currentTarget.positionX,
-        targetY: currentTarget.positionY,
-        delay: moonIndex * 200
+        targetY: currentTarget.positionY
       })
 
       moonIndex++
@@ -14368,14 +14363,23 @@ export class MoonblastStrategy extends AbilityStrategy {
           )[0]
 
         if (closestEnemy) {
-          lastTarget = currentTarget
           currentTarget = closestEnemy
           moonsRemaining++ // Gain 1 additional moon when switching targets
         } else {
           currentTarget = undefined
         }
       }
+
+      if (moonsRemaining > 0 && currentTarget) {
+        pokemon.commands.push(
+          new DelayedCommand(() => {
+            sendMoon()
+          }, 200)
+        )
+      }
     }
+
+    sendMoon()
   }
 }
 
