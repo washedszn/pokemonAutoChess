@@ -945,6 +945,7 @@ const spiritombWispEffect = new OnSimulationStartEffect(
     if (nbOddKeystones === 0) return
     const shieldAmount = nbOddKeystones * 10
     const onKOEffect = new OnDeathEffect(({ pokemon }) => {
+      if (entity.hp <= 0) return
       entity.broadcastAbility({
         skill: "WISP",
         positionX: entity.positionX,
@@ -1198,7 +1199,11 @@ export const PassiveEffects: Partial<
   [Passive.CHINGLING]: [chinglingCountCastsEffect],
   [Passive.RECYCLE]: [
     new OnItemDroppedEffect(({ pokemon, item, player }) => {
-      if (ConsumableItems.includes(item)) {
+      if (Berries.includes(item)) {
+        pokemon.addMaxHP(15, player)
+        removeInArray(player.items, item)
+        return false
+      } else if (ConsumableItems.includes(item)) {
         pokemon.addMaxHP(30, player)
         player.items.push(Item.TRASH)
         removeInArray(player.items, item)
