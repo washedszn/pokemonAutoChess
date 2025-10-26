@@ -221,9 +221,10 @@ export default class Shop {
     }
   }
 
-  addAdditionalPokemon(pkmProposition: PkmProposition) {
+  addAdditionalPokemon(pkmProposition: PkmProposition, state: GameState) {        
     const pkm: Pkm =
       pkmProposition in PkmDuos ? PkmDuos[pkmProposition][0] : pkmProposition
+    state.additionalPokemons.push(pkm)
     const { rarity, stages } = getPokemonData(pkm)
     const pool = this.getPool(rarity)
     const entityNumber = getPoolSize(rarity, stages)
@@ -373,7 +374,7 @@ export default class Shop {
 
       if (selected in PkmRegionalVariants) {
         const regionalVariants = PkmRegionalVariants[selected]!.filter((p) =>
-          new PokemonClasses[selected](selected).isInRegion(player.map)
+          new PokemonClasses[p](p).isInRegion(player.map)
         )
         if (regionalVariants.length > 0)
           selected = pickRandomIn(regionalVariants)
