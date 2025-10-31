@@ -1725,7 +1725,9 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
     if (this.passive) {
       const oldPassiveEffects = PassiveEffects[this.passive] ?? []
       oldPassiveEffects.forEach((effect) => {
-        this.effectsSet.delete(effect)
+        if (effect instanceof EffectClass) {
+          this.effectsSet.delete(effect)
+        }
       })
     }
 
@@ -1761,6 +1763,7 @@ export class PokemonEntity extends Schema implements IPokemonEntity {
         // evolve mid-fight ; does not gain immediately the new stats, this will be done at the end of the fight
         this.index = pokemonEvolved.index
         this.name = pokemonEvolved.name
+        this.refToBoardPokemon = pokemonEvolved
       }
     }
     return
