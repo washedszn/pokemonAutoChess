@@ -68,6 +68,7 @@ export enum Pkm {
   BEEDRILL = "BEEDRILL",
   BEHEEYEM = "BEHEEYEM",
   BELDUM = "BELDUM",
+  BELLIBOLT = "BELLIBOLT",
   BELLOSSOM = "BELLOSSOM",
   BELLSPROUT = "BELLSPROUT",
   BIBAREL = "BIBAREL",
@@ -306,6 +307,7 @@ export enum Pkm {
   GALARIAN_MOLTRES = "GALARIAN_MOLTRES",
   GALARIAN_PONYTA = "GALARIAN_PONYTA",
   GALARIAN_RAPIDASH = "GALARIAN_RAPIDASH",
+  GALARIAN_WEEZING = "GALARIAN_WEEZING",
   GALARIAN_ZAPDOS = "GALARIAN_ZAPDOS",
   GALARIAN_ZIGZAGOON = "GALARIAN_ZIGZAGOON",
   GALLADE = "GALLADE",
@@ -441,8 +443,11 @@ export enum Pkm {
   KINGDRA = "KINGDRA",
   KINGLER = "KINGLER",
   KIRLIA = "KIRLIA",
+  KLANG = "KLANG",
   KLEAVOR = "KLEAVOR",
   KLEFKI = "KLEFKI",
+  KLINK = "KLINK",
+  KLINKLANG = "KLINKLANG",
   KOFFING = "KOFFING",
   KOMMO_O = "KOMMO_O",
   KRABBY = "KRABBY",
@@ -654,6 +659,7 @@ export enum Pkm {
   PILLAR_IRON = "PILLAR_IRON",
   PILLAR_CONCRETE = "PILLAR_CONCRETE",
   PILOSWINE = "PILOSWINE",
+  PINCURCHIN = "PINCURCHIN",
   PINECO = "PINECO",
   PINSIR = "PINSIR",
   PIPLUP = "PIPLUP",
@@ -718,6 +724,11 @@ export enum Pkm {
   ROSELIA = "ROSELIA",
   ROSERADE = "ROSERADE",
   ROTOM = "ROTOM",
+  ROTOM_HEAT = "ROTOM_HEAT",
+  ROTOM_WASH = "ROTOM_WASH",
+  ROTOM_FROST = "ROTOM_FROST",
+  ROTOM_FAN = "ROTOM_FAN",
+  ROTOM_MOW = "ROTOM_MOW",
   ROTOM_DRONE = "ROTOM_DRONE",
   ROWLET = "ROWLET",
   RUFFLET = "RUFFLET",
@@ -841,6 +852,7 @@ export enum Pkm {
   SWIRLIX = "SWIRLIX",
   SWOOBAT = "SWOOBAT",
   SYLVEON = "SYLVEON",
+  TADBULB = "TADBULB",
   TAILLOW = "TAILLOW",
   TALONFLAME = "TALONFLAME",
   TANDEMAUS = "TANDEMAUS",
@@ -1062,7 +1074,9 @@ export enum Pkm {
   GALARIAN_SLOWKING = "GALARIAN_SLOWKING",
   WIGLETT = "WIGLETT",
   WUGTRIO = "WUGTRIO",
-  FLUTTER_MANE = "FLUTTER_MANE"
+  FLUTTER_MANE = "FLUTTER_MANE",
+  ORTHWORM = "ORTHWORM",
+  IRON_THORNS = "IRON_THORNS"
 }
 
 export const PkmIndex: { [key in Pkm]: string } = {
@@ -1209,6 +1223,7 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.LICKITUNG]: "0108",
   [Pkm.KOFFING]: "0109",
   [Pkm.WEEZING]: "0110",
+  [Pkm.GALARIAN_WEEZING]: "0110-0001",
   [Pkm.RHYHORN]: "0111",
   [Pkm.RHYDON]: "0112",
   [Pkm.CHANSEY]: "0113",
@@ -1648,6 +1663,11 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.DUSKNOIR]: "0477",
   [Pkm.FROSLASS]: "0478",
   [Pkm.ROTOM]: "0479",
+  [Pkm.ROTOM_HEAT]: "0479-0001",
+  [Pkm.ROTOM_WASH]: "0479-0002",
+  [Pkm.ROTOM_FROST]: "0479-0003",
+  [Pkm.ROTOM_FAN]: "0479-0004",
+  [Pkm.ROTOM_MOW]: "0479-0005",
   [Pkm.ROTOM_DRONE]: "0479-0008",
   [Pkm.UXIE]: "0480",
   [Pkm.MESPRIT]: "0481",
@@ -1790,9 +1810,9 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.GALVANTULA]: "0596",
   [Pkm.FERROSEED]: "0597",
   [Pkm.FERROTHORN]: "0598",
-  //[Pkm.KLINK]: "0599",
-  //[Pkm.KLANG]: "0600",
-  //[Pkm.KLINKLANG]: "0601",
+  [Pkm.KLINK]: "0599",
+  [Pkm.KLANG]: "0600",
+  [Pkm.KLINKLANG]: "0601",
   [Pkm.TYNAMO]: "0602",
   [Pkm.EELEKTRIK]: "0603",
   [Pkm.EELEKTROSS]: "0604",
@@ -2101,9 +2121,9 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.ALCREMIE_RUBY_SWIRL]: "0869-0042",
   [Pkm.ALCREMIE_CARAMEL_SWIRL]: "0869-0049",
   [Pkm.ALCREMIE_RAINBOW_SWIRL]: "0869-0056",
-  [Pkm.FALINKS_BRASS]: "0870-0001",
-  [Pkm.FALINKS_TROOPER]: "0870-0002",
-  //[Pkm.PINCURCHIN]: "0871",
+  [Pkm.FALINKS_BRASS]: "0870-0002",
+  [Pkm.FALINKS_TROOPER]: "0870-0003",
+  [Pkm.PINCURCHIN]: "0871",
   [Pkm.SNOM]: "0872",
   [Pkm.FROSMOTH]: "0873",
   [Pkm.STONJOURNER]: "0874",
@@ -2182,8 +2202,8 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.CHARCADET]: "0935",
   [Pkm.ARMAROUGE]: "0936",
   [Pkm.CERULEDGE]: "0937",
-  //[Pkm.TABDULB]: "0938",
-  //[Pkm.BELLIBOLT]: "0939",
+  [Pkm.TADBULB]: "0938",
+  [Pkm.BELLIBOLT]: "0939",
   [Pkm.WATTREL]: "0940",
   [Pkm.KILOWATTREL]: "0941",
   //[Pkm.MASCHIFF]: "0942",
@@ -2213,7 +2233,7 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.VAROOM]: "0965",
   [Pkm.REVAVROOM]: "0966",
   [Pkm.CYCLIZAR]: "0967",
-  //[Pkm.ORTHWOEM]: "0968",
+  [Pkm.ORTHWORM]: "0968",
   [Pkm.GLIMMET]: "0969",
   [Pkm.GLIMMORA]: "0970",
   [Pkm.GREAVARD]: "0971",
@@ -2240,7 +2260,7 @@ export const PkmIndex: { [key in Pkm]: string } = {
   [Pkm.IRON_HANDS]: "0992",
   //[Pkm.IRON_JUGULIS]: "0993",
   //[Pkm.IRON_MOTH]: "0994",
-  //[Pkm.IRON_THORNS]: "0995",
+  [Pkm.IRON_THORNS]: "0995",
   [Pkm.FRIGIBAX]: "0996",
   [Pkm.ARCTIBAX]: "0997",
   [Pkm.BAXCALIBUR]: "0998",
@@ -2494,7 +2514,12 @@ export const PkmFamily: { [key in Pkm]: Pkm } = {
   [Pkm.COBALION]: Pkm.COBALION,
   [Pkm.MANAPHY]: Pkm.MANAPHY,
   [Pkm.ROTOM]: Pkm.ROTOM,
-  [Pkm.ROTOM_DRONE]: Pkm.ROTOM_DRONE,
+  [Pkm.ROTOM_HEAT]: Pkm.ROTOM,
+  [Pkm.ROTOM_WASH]: Pkm.ROTOM,
+  [Pkm.ROTOM_FROST]: Pkm.ROTOM,
+  [Pkm.ROTOM_FAN]: Pkm.ROTOM,
+  [Pkm.ROTOM_MOW]: Pkm.ROTOM,
+  [Pkm.ROTOM_DRONE]: Pkm.ROTOM,
   [Pkm.SPIRITOMB]: Pkm.SPIRITOMB,
   [Pkm.ABSOL]: Pkm.ABSOL,
   [Pkm.LAPRAS]: Pkm.LAPRAS,
@@ -2917,6 +2942,7 @@ export const PkmFamily: { [key in Pkm]: Pkm } = {
   [Pkm.DHELMISE]: Pkm.DHELMISE,
   [Pkm.KOFFING]: Pkm.KOFFING,
   [Pkm.WEEZING]: Pkm.KOFFING,
+  [Pkm.GALARIAN_WEEZING]: Pkm.KOFFING,
   [Pkm.STARYU]: Pkm.STARYU,
   [Pkm.STARMIE]: Pkm.STARYU,
   [Pkm.NOSEPASS]: Pkm.NOSEPASS,
@@ -3335,13 +3361,21 @@ export const PkmFamily: { [key in Pkm]: Pkm } = {
   [Pkm.BASCULIN_WHITE]: Pkm.BASCULIN_WHITE,
   [Pkm.BASCULEGION_MALE]: Pkm.BASCULIN_WHITE,
   [Pkm.BASCULEGION_FEMALE]: Pkm.BASCULIN_WHITE,
+  [Pkm.KLINK]: Pkm.KLINK,
+  [Pkm.KLANG]: Pkm.KLINK,
+  [Pkm.KLINKLANG]: Pkm.KLINK,
   [Pkm.GALARIAN_SLOWPOKE]: Pkm.GALARIAN_SLOWPOKE,
   [Pkm.GALARIAN_SLOWBRO]: Pkm.GALARIAN_SLOWPOKE,
   [Pkm.GALARIAN_SLOWKING]: Pkm.GALARIAN_SLOWPOKE,
   [Pkm.WIGLETT]: Pkm.WIGLETT,
   [Pkm.WUGTRIO]: Pkm.WIGLETT,
   [Pkm.FLUTTER_MANE]: Pkm.FLUTTER_MANE,
-  [Pkm.WALKING_WAKE]: Pkm.WALKING_WAKE
+  [Pkm.WALKING_WAKE]: Pkm.WALKING_WAKE,
+  [Pkm.ORTHWORM]: Pkm.ORTHWORM,
+  [Pkm.IRON_THORNS]: Pkm.IRON_THORNS,
+  [Pkm.TADBULB]: Pkm.TADBULB,
+  [Pkm.BELLIBOLT]: Pkm.TADBULB,
+  [Pkm.PINCURCHIN]: Pkm.PINCURCHIN
 }
 
 export const PkmRegionalVariants: { [key in Pkm]?: readonly Pkm[] } = {
@@ -3367,7 +3401,8 @@ export const PkmRegionalVariants: { [key in Pkm]?: readonly Pkm[] } = {
   [Pkm.QWILFISH]: [Pkm.HISUIAN_QWILFISH],
   [Pkm.YAMASK]: [Pkm.GALARIAN_YAMASK],
   [Pkm.SLOWPOKE]: [Pkm.GALARIAN_SLOWPOKE],
-  [Pkm.SUICUNE]: [Pkm.WALKING_WAKE]
+  [Pkm.SUICUNE]: [Pkm.WALKING_WAKE],
+  [Pkm.SCYTHER]: [Pkm.SCIZOR, Pkm.KLEAVOR]
 } as const
 
 export function isRegionalVariant(a: Pkm, b: Pkm): boolean {
@@ -3428,81 +3463,18 @@ export const Unowns: Pkm[] = [
   Pkm.UNOWN_EXCLAMATION
 ]
 
-export const UnownsStage1 = [
-  Pkm.UNOWN_A,
-  Pkm.UNOWN_C,
-  Pkm.UNOWN_D,
-  Pkm.UNOWN_E,
-  Pkm.UNOWN_F,
-  Pkm.UNOWN_G,
-  Pkm.UNOWN_I,
-  Pkm.UNOWN_O,
-  Pkm.UNOWN_R,
-  Pkm.UNOWN_T,
-  Pkm.UNOWN_V,
-  Pkm.UNOWN_W
-]
-
-export const UnownsStage2 = [
-  Pkm.UNOWN_A,
-  Pkm.UNOWN_B,
-  Pkm.UNOWN_C,
-  Pkm.UNOWN_D,
-  Pkm.UNOWN_G,
-  Pkm.UNOWN_H,
-  Pkm.UNOWN_I,
-  Pkm.UNOWN_J,
-  Pkm.UNOWN_K,
-  Pkm.UNOWN_L,
-  Pkm.UNOWN_M,
-  Pkm.UNOWN_N,
-  Pkm.UNOWN_O,
-  Pkm.UNOWN_P,
-  Pkm.UNOWN_Q,
-  Pkm.UNOWN_R,
-  Pkm.UNOWN_S,
-  Pkm.UNOWN_T,
-  Pkm.UNOWN_U,
-  Pkm.UNOWN_V,
-  Pkm.UNOWN_W,
-  Pkm.UNOWN_X,
-  Pkm.UNOWN_Y,
-  Pkm.UNOWN_Z,
-  Pkm.UNOWN_QUESTION
-]
-
-export const UnownsStage3 = [
-  Pkm.UNOWN_B,
-  Pkm.UNOWN_H,
-  Pkm.UNOWN_J,
-  Pkm.UNOWN_K,
-  Pkm.UNOWN_L,
-  Pkm.UNOWN_M,
-  Pkm.UNOWN_N,
-  Pkm.UNOWN_O,
-  Pkm.UNOWN_P,
-  Pkm.UNOWN_R,
-  Pkm.UNOWN_S,
-  Pkm.UNOWN_U,
-  Pkm.UNOWN_V,
-  Pkm.UNOWN_W,
-  Pkm.UNOWN_X,
-  Pkm.UNOWN_Y,
-  Pkm.UNOWN_Z,
-  Pkm.UNOWN_QUESTION,
-  Pkm.UNOWN_EXCLAMATION
-]
-
-export function getUnownsPoolPerStage(stageLevel: number) {
-  if (stageLevel < 10) return UnownsStage1
-  else if (stageLevel < 20) return UnownsStage2
-  else return UnownsStage3
-}
-
 export const NonPkm: Pkm[] = [
   Pkm.SUBSTITUTE,
+  Pkm.EGG,
   Pkm.PILLAR_WOOD,
   Pkm.PILLAR_IRON,
   Pkm.PILLAR_CONCRETE,
   Pkm.DEFAULT
+]
+
+export const NON_PMD_PKM_INDEXES: string[] = [
+  "0532-0002", // Pillar Wood
+  "0533-0002", // Pillar Iron
+  "0534-0002", // Pillar Concrete,
+  "0025-9999" // Pikachu Surfer
 ]

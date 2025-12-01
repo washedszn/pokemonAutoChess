@@ -15,6 +15,7 @@ import Simulation from "../simulation"
 type EffectOrigin = EffectEnum | Item | Passive | Ability
 
 export abstract class Effect {
+  priority: number = 0
   origin?: EffectOrigin
   apply(...args: any[]) {}
   constructor(effect?: (...args: any[]) => void, origin?: EffectOrigin) {
@@ -28,9 +29,14 @@ export abstract class Effect {
 // applied on fight start or when spawning
 export class OnSpawnEffect extends Effect {
   constructor(
-    effect?: (entity: PokemonEntity, player?: Player, isSpawn?: boolean) => void
+    effect?: (
+      entity: PokemonEntity,
+      player?: Player,
+      isSpawn?: boolean
+    ) => void,
+    origin?: EffectOrigin
   ) {
-    super(effect)
+    super(effect, origin)
   }
   override apply(entity: PokemonEntity, player?: Player, isSpawn?: boolean) {}
 }
@@ -72,8 +78,11 @@ interface OnStageStartEffectArgs {
 
 // applied in between rounds at the start of the picking phase
 export class OnStageStartEffect extends Effect {
-  constructor(effect?: (args: OnStageStartEffectArgs) => void) {
-    super(effect)
+  constructor(
+    effect?: (args: OnStageStartEffectArgs) => void,
+    origin?: EffectOrigin
+  ) {
+    super(effect, origin)
   }
   apply(args: OnStageStartEffectArgs) {}
 }
@@ -82,13 +91,16 @@ interface OnSimulationStartEffectArgs {
   simulation: Simulation
   player: Player
   team: MapSchema<IPokemonEntity>
-  entity: IPokemonEntity
+  entity: PokemonEntity
 }
 
 // applied after simulation started, when the board is fully set up
 export class OnSimulationStartEffect extends Effect {
-  constructor(effect?: (args: OnSimulationStartEffectArgs) => void) {
-    super(effect)
+  constructor(
+    effect?: (args: OnSimulationStartEffectArgs) => void,
+    origin?: EffectOrigin
+  ) {
+    super(effect, origin)
   }
   apply(args: OnSimulationStartEffectArgs) {}
 }
@@ -131,13 +143,24 @@ export class OnKillEffect extends Effect {
   }
 }
 
-// applied on KO (does not proc if resurection)
-interface OnDeathEffectArgs {
+// applied on KO (does not proc if resurrection)
+export interface OnDeathEffectArgs {
   board: Board
   pokemon: PokemonEntity
+  attacker: PokemonEntity | null
 }
 
 export class OnDeathEffect extends Effect {
+  apply(args: OnDeathEffectArgs) {}
+  constructor(
+    effect?: (args: OnDeathEffectArgs) => void,
+    origin?: EffectOrigin
+  ) {
+    super(effect, origin)
+  }
+}
+
+export class OnResurrectEffect extends Effect {
   apply(args: OnDeathEffectArgs) {}
   constructor(
     effect?: (args: OnDeathEffectArgs) => void,
@@ -238,11 +261,12 @@ export class OnAbilityCastEffect extends Effect {
 
 // applied after having received damage and not being KO
 
-interface OnDamageReceivedEffectArgs {
+export interface OnDamageReceivedEffectArgs {
   pokemon: PokemonEntity
   attacker: PokemonEntity | null
   board: Board
   damage: number
+  damageBeforeReduction: number
   attackType?: AttackType
   isRetaliation: boolean
 }

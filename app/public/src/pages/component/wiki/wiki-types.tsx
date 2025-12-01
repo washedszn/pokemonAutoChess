@@ -3,10 +3,10 @@ import ReactDOM from "react-dom"
 import { useTranslation } from "react-i18next"
 import { Tab, TabList, TabPanel, Tabs } from "react-tabs"
 import { Tooltip } from "react-tooltip"
+import { RarityColor, SynergyTriggers } from "../../../../../config"
 import { SynergyEffects } from "../../../../../models/effects"
 import { getPokemonData } from "../../../../../models/precomputed/precomputed-pokemon-data"
 import { PRECOMPUTED_POKEMONS_PER_TYPE } from "../../../../../models/precomputed/precomputed-types"
-import { RarityColor, SynergyTriggers } from "../../../../../types/Config"
 import { Ability } from "../../../../../types/enum/Ability"
 import { Rarity } from "../../../../../types/enum/Game"
 import { Pkm, PkmFamily } from "../../../../../types/enum/Pokemon"
@@ -17,7 +17,10 @@ import { getPortraitSrc } from "../../../../../utils/avatar"
 import { addIconsToDescription } from "../../utils/descriptions"
 import { cc } from "../../utils/jsx"
 import { Checkbox } from "../checkbox/checkbox"
-import { GamePokemonDetail } from "../game/game-pokemon-detail"
+import {
+  GamePokemonDetail,
+  GamePokemonDetailTooltip
+} from "../game/game-pokemon-detail"
 import SynergyIcon from "../icons/synergy-icon"
 import { EffectDescriptionComponent } from "../synergy/effect-description"
 
@@ -63,13 +66,12 @@ export function WikiType(props: { type: Synergy }) {
       if (p.skill === Ability.DEFAULT) return false // pokemons with no ability are not ready for the show
       if (p.rarity === Rarity.SPECIAL) return true // show all summons & specials, even in the same family
       if (showEvolutions) return true
-      // remove if already one member of family in the list
-      return (
-        list.findIndex(
-          (p2) =>
-            PkmFamily[p.name] === PkmFamily[p2.name] && p2.rarity === p.rarity
-        ) === index
+      const prevolution = list.find(
+        (p2) => p2.evolution === p.name || p2.evolutions.includes(p.name)
       )
+      // if show evolutions is unchecked, do not show a pokemon if it has a prevolution and that prevolution is in the same rarity category
+      if (prevolution && prevolution.rarity === p.rarity) return false
+      return true
     })
 
   const filteredPokemons = pokemons.filter((p) =>
@@ -187,17 +189,9 @@ export function WikiType(props: { type: Synergy }) {
                       >
                         <img
                           src={getPortraitSrc(p.index)}
-                          data-tooltip-id={`pokemon-detail-${p.index}`}
+                          data-tooltip-id="game-pokemon-detail-tooltip"
+                          data-tooltip-content={p.name}
                         />
-                        {ReactDOM.createPortal(
-                          <Tooltip
-                            id={`pokemon-detail-${p.index}`}
-                            className="custom-theme-tooltip game-pokemon-detail-tooltip"
-                          >
-                            <GamePokemonDetail pokemon={p.name} origin="wiki" />
-                          </Tooltip>,
-                          document.querySelector(".wiki-modal")!
-                        )}
                       </div>
                     )
                   })}
@@ -207,6 +201,7 @@ export function WikiType(props: { type: Synergy }) {
           })}
         </tbody>
       </table>
+      <GamePokemonDetailTooltip origin="wiki" />
     </div>
   )
 }
@@ -248,7 +243,6 @@ export function WikiAllTypes() {
     ) // put first stage first
   }
 
-  const [hoveredPokemon, setHoveredPokemon] = useState<Pkm>()
   const { t } = useTranslation()
 
   return (
@@ -269,14 +263,11 @@ export function WikiAllTypes() {
                         additional: p.additional,
                         regional: p.regional
                       })}
-                      onMouseOver={() => {
-                        setHoveredPokemon(p.name)
-                      }}
-                      data-tooltip-id="pokemon-detail"
                     >
                       <img
                         src={getPortraitSrc(p.index)}
-                        data-tooltip-id={`pokemon-detail-${p.index}`}
+                        data-tooltip-id="game-pokemon-detail-tooltip"
+                        data-tooltip-content={p.name}
                       />
                     </li>
                   )
@@ -286,17 +277,7 @@ export function WikiAllTypes() {
           )
         })}
       </div>
-      {hoveredPokemon &&
-        ReactDOM.createPortal(
-          <Tooltip
-            id="pokemon-detail"
-            className="custom-theme-tooltip game-pokemon-detail-tooltip"
-            float
-          >
-            <GamePokemonDetail pokemon={hoveredPokemon} origin="wiki" />
-          </Tooltip>,
-          document.querySelector(".wiki-modal")!
-        )}
+      <GamePokemonDetailTooltip origin="wiki" />
     </>
   )
 }

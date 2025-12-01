@@ -1,7 +1,8 @@
+import { getRegionTint, RegionDetails } from "../../../../config"
 import { DesignTiled } from "../../../../core/design"
 import PokemonFactory from "../../../../models/pokemon-factory"
 import { AnimationType } from "../../../../types/Animation"
-import { DungeonDetails, DungeonPMDO } from "../../../../types/enum/Dungeon"
+import { DungeonPMDO } from "../../../../types/enum/Dungeon"
 import { Orientation, Stat } from "../../../../types/enum/Game"
 import { Pkm, PkmByIndex } from "../../../../types/enum/Pokemon"
 import { Status } from "../../../../types/enum/Status"
@@ -11,6 +12,7 @@ import { max } from "../../../../utils/number"
 import { OrientationVector } from "../../../../utils/orientation"
 import { playMusic, preloadMusic } from "../../pages/utils/audio"
 import { transformEntityCoordinates } from "../../pages/utils/utils"
+import { preference } from "../../preferences"
 import AnimationManager from "../animation-manager"
 import {
   clearAbilityAnimations,
@@ -114,7 +116,7 @@ export class DebugScene extends Phaser.Scene {
     this.pokemonSprite.positionY = 3
 
     this.pokemonSprite.sprite.setTint(
-      DungeonDetails[this.mapName].tint ?? 0xffffff
+      getRegionTint(this.mapName, preference("colorblindMode"))
     )
 
     let animationName = AnimationType[animationType]
@@ -148,17 +150,19 @@ export class DebugScene extends Phaser.Scene {
       animationName = anims.eat
     }
 
-    try {
-      this.animationManager?.play(this.pokemonSprite, animationName, {
-        repeat: -1
-      })
-    } catch (err) {
-      logger.error(
-        `Error playing animation ${this.pokemonSprite.name} ${animationType}: ${animationName}`,
-        err
-      )
-    }
-    this.applyStatusAnimation(status)
+    this.pokemonSprite.once("loaded", () => {
+      try {
+        this.animationManager?.play(this.pokemonSprite!, animationName, {
+          repeat: -1
+        })
+      } catch (err) {
+        logger.error(
+          `Error playing animation ${this.pokemonSprite!.name} ${animationType}: ${animationName}`,
+          err
+        )
+      }
+      this.applyStatusAnimation(status)
+    })
   }
 
   updateMap(mapName: DungeonPMDO | "town"): Promise<void> {
@@ -179,7 +183,7 @@ export class DebugScene extends Phaser.Scene {
         if (sys.animatedTiles) {
           sys.animatedTiles.pause()
         }
-        playMusic(this as any, DungeonDetails[mapName].music)
+        playMusic(this as any, RegionDetails[mapName].music)
         resolve()
       })
     }
@@ -198,7 +202,7 @@ export class DebugScene extends Phaser.Scene {
             )
           })
           this.load.tilemapTiledJSON(mapName, tilemap)
-          preloadMusic(this, DungeonDetails[mapName].music)
+          preloadMusic(this, RegionDetails[mapName].music)
           this.load.once("complete", resolve)
           this.load.start()
         })
@@ -214,7 +218,7 @@ export class DebugScene extends Phaser.Scene {
           map.createLayer(layer.name, tileset, 0, 0)?.setScale(2, 2)
         })
         ;(this.sys as any).animatedTiles.init(map)
-        playMusic(this as any, DungeonDetails[mapName].music)
+        playMusic(this as any, RegionDetails[mapName].music)
       })
       .then(() => {
         this.updateSprite(Pkm.SMEARGLE, Orientation.DOWNLEFT, "Idle", "", false)
@@ -249,7 +253,7 @@ export class DebugScene extends Phaser.Scene {
 
   updateLandscape() {
     if (!this.map) return
-    const tint = DungeonDetails[this.mapName].tint ?? 0xffffff
+    const tint = getRegionTint(this.mapName, preference("colorblindMode"))
     this.landscape.forEach((sprite) => sprite.destroy())
     this.landscape = [
       this.scene.scene.add.sprite(850, 600, "ground_holes", `trench3.png`),
@@ -266,7 +270,7 @@ export class DebugScene extends Phaser.Scene {
   applyStatusAnimation(status: Status | Boost | "") {
     if (this.pokemonSprite) {
       this.pokemonSprite.sprite.setTint(
-        DungeonDetails[this.mapName].tint ?? 0xffffff
+        getRegionTint(this.mapName, preference("colorblindMode"))
       )
       this.pokemonSprite.removePoison()
       this.pokemonSprite.removeSleep()
@@ -277,7 +281,7 @@ export class DebugScene extends Phaser.Scene {
       this.pokemonSprite.removeFreeze()
       this.pokemonSprite.removeProtect()
       this.pokemonSprite.removeWound()
-      this.pokemonSprite.removeResurection()
+      this.pokemonSprite.removeResurrection()
       this.pokemonSprite.removeParalysis()
       this.pokemonSprite.removePokerus()
       this.pokemonSprite.removeLocked()
@@ -321,11 +325,11 @@ export class DebugScene extends Phaser.Scene {
       if (status == Status.WOUND) {
         this.pokemonSprite.addWound()
       }
-      if (status == Status.RESURECTION) {
-        this.pokemonSprite.addResurection()
+      if (status == Status.RESURRECTION) {
+        this.pokemonSprite.addResurrection()
       }
-      if (status == Status.RESURECTING) {
-        this.pokemonSprite.resurectAnimation()
+      if (status == Status.RESURRECTING) {
+        this.pokemonSprite.resurrectAnimation()
       }
       if (status == Status.PARALYSIS) {
         this.pokemonSprite.addParalysis()

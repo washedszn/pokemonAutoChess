@@ -2,6 +2,7 @@ import { Room } from "colyseus.js"
 import firebase from "firebase/compat/app"
 import { GameObjects, Scene } from "phaser"
 import OutlinePlugin from "phaser3-rex-plugins/plugins/outlinepipeline-plugin"
+import { BOARD_WIDTH, RegionDetails } from "../../../../config"
 import { DesignTiled } from "../../../../core/design"
 import { FLOWER_POTS_POSITIONS_BLUE } from "../../../../core/flower-pots"
 import { canSell } from "../../../../core/pokemon-entity"
@@ -14,15 +15,11 @@ import {
   IDragDropMessage,
   Transfer
 } from "../../../../types"
-import { BOARD_WIDTH } from "../../../../types/Config"
-import {
-  DungeonDetails,
-  DungeonMusic,
-  DungeonPMDO
-} from "../../../../types/enum/Dungeon"
+import { DungeonMusic, DungeonPMDO } from "../../../../types/enum/Dungeon"
 import { GamePhaseState } from "../../../../types/enum/Game"
 import { Item, ItemRecipe, Mulches } from "../../../../types/enum/Item"
 import { Pkm } from "../../../../types/enum/Pokemon"
+import { isIn } from "../../../../utils/array"
 import { throttle } from "../../../../utils/function"
 import { logger } from "../../../../utils/logger"
 import { clamp } from "../../../../utils/number"
@@ -96,12 +93,16 @@ export default class GameScene extends Scene {
       this.room?.send(Transfer.LOADING_PROGRESS, value * 100)
     })
 
-    this.load.on("complete", () => {
-      this.room?.send(Transfer.LOADING_COMPLETE)
+    this.load.once("complete", () => {
+      logger.debug("Loading complete")
+      if (!this.started) {
+        this.room?.send(Transfer.LOADING_COMPLETE)
+      }
     })
 
     this.room!.onMessage(Transfer.LOADING_COMPLETE, () => {
       if (!this.started) {
+        logger.debug("Game starting")
         this.started = true
         this.startGame()
       }
@@ -161,7 +162,7 @@ export default class GameScene extends Scene {
       if (!this.music) {
         playMusic(
           this,
-          DungeonDetails[player.map].music ?? DungeonMusic.TREASURE_TOWN
+          RegionDetails[player.map].music ?? DungeonMusic.TREASURE_TOWN
         )
       }
       //;(this.sys as any).animatedTiles.init(this.map)
@@ -714,7 +715,7 @@ export default class GameScene extends Scene {
         if (
           gameObject instanceof ItemContainer &&
           dropZone.name === "flower-pot-zone" &&
-          Mulches.includes(gameObject.name)
+          isIn(Mulches, gameObject.name)
         ) {
           const flowerMonSprite =
             this.board?.flowerPokemonsInPots[dropZone.getData("index")]

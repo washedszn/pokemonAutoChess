@@ -2,12 +2,12 @@ import { GameObjects } from "phaser"
 import React, { useMemo } from "react"
 import ReactDOM from "react-dom/client"
 import { useTranslation } from "react-i18next"
+import { Tooltip } from "react-tooltip"
+import { ItemStats, RarityColor } from "../../../../../config"
 import { DishByPkm } from "../../../../../core/dishes"
-import { ItemStats } from "../../../../../core/items"
 import PokemonFactory from "../../../../../models/pokemon-factory"
 import { getPokemonData } from "../../../../../models/precomputed/precomputed-pokemon-data"
 import { Emotion, IPokemon, IPokemonEntity } from "../../../../../types"
-import { RarityColor } from "../../../../../types/Config"
 import { Ability } from "../../../../../types/enum/Ability"
 import { Stat } from "../../../../../types/enum/Game"
 import { Item } from "../../../../../types/enum/Item"
@@ -34,7 +34,15 @@ interface StatInfo {
 
 export function GamePokemonDetail(props: {
   pokemon: Pkm | IPokemon | IPokemonEntity
-  origin: "shop" | "proposition" | "team" | "planner" | "battle" | "wiki"
+  origin:
+    | "shop"
+    | "proposition"
+    | "team"
+    | "planner"
+    | "battle"
+    | "wiki"
+    | "patchnotes"
+    | "after"
   shiny?: boolean
   emotion?: Emotion
   isAlly?: boolean
@@ -147,6 +155,16 @@ export function GamePokemonDetail(props: {
     return undefined
   }, [pokemon.items, props.origin, pokemon.shield])
 
+  let name = t(`pkm.${pokemon.name}`)
+  if (
+    pokemon.index === PkmIndex[Pkm.SUBSTITUTE] &&
+    "evolution" in pokemon &&
+    pokemon.evolution != null &&
+    pokemon.evolution != Pkm.DEFAULT
+  ) {
+    name += ` (${t(`pkm.${pokemon.evolution}`)})` // indicate the original pokemon for Dojo substitute
+  }
+
   return (
     <div className="game-pokemon-detail">
       <PokemonPortrait
@@ -167,9 +185,7 @@ export function GamePokemonDetail(props: {
           />
         )}
       <div className="game-pokemon-detail-entry">
-        <p className="game-pokemon-detail-entry-name">
-          {t(`pkm.${pokemon.name}`)}
-        </p>
+        <p className="game-pokemon-detail-entry-name">{name}</p>
         <p
           className="game-pokemon-detail-entry-rarity"
           style={{ color: RarityColor[pokemon.rarity] }}
@@ -212,7 +228,7 @@ export function GamePokemonDetail(props: {
             <img
               src={`assets/icons/${stat}.png`}
               alt={stat}
-              title={t(`stat.${stat}`)}
+              title={`${t(`stat.${stat}`)}${value !== baseValue ? ` (${baseValue} ${value > baseValue ? "+" : "-"} ${value - baseValue})` : ""}`}
             />
             <span
               className={cc({
@@ -243,7 +259,15 @@ export function GamePokemonDetail(props: {
       {pokemon.passive !== Passive.NONE && (
         <div className="game-pokemon-detail-passive">
           <p>
-            {addIconsToDescription(t(`passive_description.${pokemon.passive}`))}
+            {addIconsToDescription(
+              t(`passive_description.${pokemon.passive}`),
+              {
+                ap: pokemon.ap,
+                luck: pokemon.luck,
+                stars: pokemon.stars,
+                stages: getPokemonData(pokemon.name).stages
+              }
+            )}
           </p>
           {pokemon.stacksRequired > 0 && (
             <div className="game-pokemon-detail-passive-bar">
@@ -293,10 +317,10 @@ export class GamePokemonDetailDOMWrapper extends GameObjects.DOMElement {
     x: number,
     y: number,
     pokemon: Pkm | IPokemon | IPokemonEntity,
+    origin: "shop" | "team" | "planner" | "battle" | "wiki",
+    isAlly: boolean = true,
     shiny?: boolean,
-    emotion?: Emotion,
-    origin: "shop" | "team" | "planner" | "battle" | "wiki" = "wiki",
-    isAlly: boolean = true
+    emotion?: Emotion
   ) {
     super(scene, x, y)
     this.dom = document.createElement("div")
@@ -338,4 +362,19 @@ export class GamePokemonDetailDOMWrapper extends GameObjects.DOMElement {
     this.root.unmount()
     super.destroy()
   }
+}
+
+export function GamePokemonDetailTooltip(props: {
+  origin: "wiki" | "patchnotes" | "after" | "planner"
+}) {
+  return (
+    <Tooltip
+      id="game-pokemon-detail-tooltip"
+      className="custom-theme-tooltip game-pokemon-detail-tooltip"
+      render={({ content }) => (
+        <GamePokemonDetail pokemon={content as Pkm} origin={props.origin} />
+      )}
+      float
+    />
+  )
 }

@@ -225,8 +225,8 @@ export const PokemonAnimations: {
     hitSprite: HitSprite.SOUND_HIT
   },
   [Pkm.WIGGLYTUFF]: {
-    attack: AnimationType.Shoot,
-    ability: AnimationType.Sleep,
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
     emote: AnimationType.Shoot,
     attackSprite: AttackSprite.SOUND_RANGE,
     hitSprite: HitSprite.SOUND_HIT
@@ -1003,7 +1003,7 @@ export const PokemonAnimations: {
   },
   [Pkm.BELDUM]: {
     attack: AnimationType.Attack,
-    ability: AnimationType.Swing,
+    ability: AnimationType.Shoot,
     emote: AnimationType.Shoot,
     attackSprite: AttackSprite.PSYCHIC_MELEE,
     hitSprite: HitSprite.PSYCHIC_HIT
@@ -1211,14 +1211,14 @@ export const PokemonAnimations: {
     hitSprite: HitSprite.DARK_HIT
   },
   [Pkm.SPEAROW]: {
-    attack: AnimationType.Shoot,
+    attack: AnimationType.Attack,
     ability: AnimationType.Attack,
     emote: AnimationType.Shoot,
     attackSprite: AttackSprite.NORMAL_MELEE,
     hitSprite: HitSprite.FLYING_HIT
   },
   [Pkm.FEAROW]: {
-    attack: AnimationType.Shoot,
+    attack: AnimationType.Attack,
     ability: AnimationType.Attack,
     emote: AnimationType.Shoot,
     attackSprite: AttackSprite.NORMAL_MELEE,
@@ -1702,10 +1702,45 @@ export const PokemonAnimations: {
     attackSprite: AttackSprite.ELECTRIC_RANGE,
     hitSprite: HitSprite.ELECTRIC_HIT
   },
+  [Pkm.ROTOM_HEAT]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.SpAttack,
+    emote: AnimationType.Charge,
+    attackSprite: AttackSprite.ELECTRIC_RANGE,
+    hitSprite: HitSprite.ELECTRIC_HIT
+  },
+  [Pkm.ROTOM_WASH]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.SpAttack,
+    emote: AnimationType.Charge,
+    attackSprite: AttackSprite.ELECTRIC_RANGE,
+    hitSprite: HitSprite.ELECTRIC_HIT
+  },
+  [Pkm.ROTOM_FROST]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Charge,
+    attackSprite: AttackSprite.ELECTRIC_RANGE,
+    hitSprite: HitSprite.ELECTRIC_HIT
+  },
+  [Pkm.ROTOM_FAN]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Twirl,
+    attackSprite: AttackSprite.ELECTRIC_RANGE,
+    hitSprite: HitSprite.ELECTRIC_HIT
+  },
+  [Pkm.ROTOM_MOW]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Emit,
+    emote: AnimationType.Shoot,
+    attackSprite: AttackSprite.ELECTRIC_RANGE,
+    hitSprite: HitSprite.ELECTRIC_HIT
+  },
   [Pkm.ROTOM_DRONE]: {
     attack: AnimationType.Attack,
     ability: AnimationType.Shoot,
-    emote: AnimationType.Shoot,
+    emote: AnimationType.Charge,
     shinyUnavailable: true,
     attackSprite: AttackSprite.GHOST_RANGE,
     hitSprite: HitSprite.ELECTRIC_HIT
@@ -2843,8 +2878,8 @@ export const PokemonAnimations: {
     hitSprite: HitSprite.ROCK_HIT
   },
   [Pkm.BLACEPHALON]: {
-    attack: AnimationType.Hop,
-    ability: AnimationType.Attack,
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
     emote: AnimationType.Shoot,
     attackSprite: AttackSprite.GHOST_RANGE,
     hitSprite: HitSprite.FIRE_HIT
@@ -4379,6 +4414,13 @@ export const PokemonAnimations: {
     hitSprite: HitSprite.POISON_HIT
   },
   [Pkm.WEEZING]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Gas,
+    emote: AnimationType.Shoot,
+    attackSprite: AttackSprite.POISON_MELEE,
+    hitSprite: HitSprite.POISON_HIT
+  },
+  [Pkm.GALARIAN_WEEZING]: {
     attack: AnimationType.Attack,
     ability: AnimationType.Gas,
     emote: AnimationType.Shoot,
@@ -7258,6 +7300,30 @@ export const PokemonAnimations: {
     emote: AnimationType.Charge,
     attackSprite: AttackSprite.WATER_MELEE
   },
+  [Pkm.KLINK]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Shoot,
+    attackSprite: AttackSprite.STEEL_RANGE,
+    hitSprite: HitSprite.STEEL_HIT,
+    shinyUnavailable: true
+  },
+  [Pkm.KLANG]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Shoot,
+    attackSprite: AttackSprite.STEEL_RANGE,
+    hitSprite: HitSprite.STEEL_HIT,
+    shinyUnavailable: true
+  },
+  [Pkm.KLINKLANG]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Shoot,
+    attackSprite: AttackSprite.STEEL_RANGE,
+    hitSprite: HitSprite.STEEL_HIT,
+    shinyUnavailable: true
+  },
   [Pkm.GALARIAN_SLOWPOKE]: {
     attack: AnimationType.Attack,
     ability: AnimationType.Shoot,
@@ -7300,5 +7366,36 @@ export const PokemonAnimations: {
     emote: AnimationType.Shoot,
     attackSprite: AttackSprite.DRAGON_MELEE,
     hitSprite: HitSprite.WILD_HIT
+  },
+  [Pkm.ORTHWORM]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Charge,
+    attackSprite: AttackSprite.GROUND_MELEE,
+    hurt: AnimationType.Charge
+  },
+  [Pkm.IRON_THORNS]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Charge,
+    attackSprite: AttackSprite.ROCK_MELEE
+  },
+  [Pkm.TADBULB]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shoot,
+    emote: AnimationType.Hover,
+    attackSprite: AttackSprite.ELECTRIC_MELEE
+  },
+  [Pkm.BELLIBOLT]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shock,
+    emote: AnimationType.Shoot,
+    attackSprite: AttackSprite.ELECTRIC_MELEE
+  },
+  [Pkm.PINCURCHIN]: {
+    attack: AnimationType.Attack,
+    ability: AnimationType.Shock,
+    emote: AnimationType.Shock,
+    attackSprite: AttackSprite.ELECTRIC_MELEE
   }
 }

@@ -1,9 +1,8 @@
 import { Schema, type } from "@colyseus/schema"
+import { FIGHTING_PHASE_DURATION, ItemStats } from "../../config"
 import type { Board } from "../../core/board"
-import { ItemStats } from "../../core/items"
 import { PokemonEntity } from "../../core/pokemon-entity"
 import { IPokemonEntity, ISimulation, IStatus, Transfer } from "../../types"
-import { FIGHTING_PHASE_DURATION } from "../../types/Config"
 import { EffectEnum } from "../../types/enum/Effect"
 import { AttackType, Stat, Team } from "../../types/enum/Game"
 import { Item } from "../../types/enum/Item"
@@ -23,8 +22,8 @@ export default class Status extends Schema implements IStatus {
   @type("boolean") sleep = false
   @type("boolean") confusion = false
   @type("boolean") wound = false
-  @type("boolean") resurection = false
-  @type("boolean") resurecting = false
+  @type("boolean") resurrection = false
+  @type("boolean") resurrecting = false
   @type("boolean") paralysis = false
   @type("boolean") pokerus = false
   @type("boolean") possessed = false
@@ -76,7 +75,7 @@ export default class Status extends Schema implements IStatus {
   spikeArmorCooldown = 0
   magicBounceCooldown = 0
   reflectCooldown = 0
-  resurectingCooldown = 0
+  resurrectingCooldown = 0
   curseCooldown = 0
   pokerusCooldown = 2500
   possessedCooldown = 0
@@ -158,19 +157,35 @@ export default class Status extends Schema implements IStatus {
   }
 
   updateAllStatus(dt: number, pokemon: PokemonEntity, board: Board) {
-    if (pokemon.effects.has(EffectEnum.POISON_GAS) && this.poisonStacks === 0) {
+    if (
+      pokemon.effects.has(EffectEnum.POISON_GAS) &&
+      this.poisonStacks === 0 &&
+      pokemon.items.has(Item.HEAVY_DUTY_BOOTS) === false
+    ) {
       this.triggerPoison(1500, pokemon, undefined)
     }
 
-    if (pokemon.effects.has(EffectEnum.SMOKE) && !this.blinded) {
+    if (
+      pokemon.effects.has(EffectEnum.SMOKE) &&
+      !this.blinded &&
+      !pokemon.items.has(Item.HEAVY_DUTY_BOOTS)
+    ) {
       this.triggerBlinded(1000, pokemon)
     }
 
-    if (pokemon.effects.has(EffectEnum.STICKY_WEB) && !this.paralysis) {
+    if (
+      pokemon.effects.has(EffectEnum.STICKY_WEB) &&
+      !this.paralysis &&
+      !pokemon.items.has(Item.HEAVY_DUTY_BOOTS)
+    ) {
       this.triggerParalysis(2000, pokemon, null)
     }
 
-    if (pokemon.effects.has(EffectEnum.COTTON_BALL) && !this.sleep) {
+    if (
+      pokemon.effects.has(EffectEnum.COTTON_BALL) &&
+      !this.sleep &&
+      !pokemon.items.has(Item.HEAVY_DUTY_BOOTS)
+    ) {
       this.triggerSleep(1000, pokemon)
       pokemon.effects.delete(EffectEnum.COTTON_BALL)
     }
@@ -259,8 +274,8 @@ export default class Status extends Schema implements IStatus {
       this.updateReflect(dt)
     }
 
-    if (this.resurecting) {
-      this.updateResurecting(dt, pokemon)
+    if (this.resurrecting) {
+      this.updateResurrecting(dt, pokemon)
     }
 
     if (this.curse) {
@@ -374,6 +389,9 @@ export default class Status extends Schema implements IStatus {
       if (pkm.passive === Passive.WELL_BAKED) {
         pkm.addDefense(20, pkm, 0, false)
       }
+      if (pkm.items.has(Item.MAGMARIZER)) {
+        pkm.addSpeed(30, pkm, 0, false)
+      }
 
       if (pkm.items.has(Item.RAWST_BERRY)) {
         pkm.eatBerry(Item.RAWST_BERRY)
@@ -401,7 +419,10 @@ export default class Status extends Schema implements IStatus {
           burnDamage *= 0.5
         }
 
-        if (pkm.passive === Passive.WELL_BAKED) {
+        if (
+          pkm.passive === Passive.WELL_BAKED ||
+          pkm.items.has(Item.MAGMARIZER)
+        ) {
           burnDamage = 0
         }
 
@@ -441,6 +462,9 @@ export default class Status extends Schema implements IStatus {
     }
     if (pkm.passive === Passive.WELL_BAKED) {
       pkm.addDefense(-20, pkm, 0, false)
+    }
+    if (pkm.items.has(Item.MAGMARIZER)) {
+      pkm.addSpeed(-30, pkm, 0, false)
     }
   }
 
@@ -539,7 +563,7 @@ export default class Status extends Schema implements IStatus {
     if (this.poisonDamageCooldown - dt <= 0) {
       let poisonDamage = pkm.maxHP * 0.05 * this.poisonStacks
 
-      if (pkm.passive === Passive.GLISCOR || pkm.passive === Passive.GLIGAR) {
+      if (pkm.passive === Passive.GLISCOR) {
         poisonDamage = pkm.maxHP * 0.05 * (this.poisonStacks - 2)
       }
 
@@ -630,7 +654,7 @@ export default class Status extends Schema implements IStatus {
     if (this.freezeCooldown - dt <= 0) {
       this.freeze = false
     } else {
-      this.freezeCooldown -= dt
+      this.freezeCooldown -= dt * (this.burn ? 2 : 1) // burn makes freeze wear off faster
     }
   }
 
@@ -921,24 +945,24 @@ export default class Status extends Schema implements IStatus {
 
   addResurrection(pokemon: IPokemonEntity) {
     if (pokemon.passive === Passive.INANIMATE) return // Inanimate objects cannot be resurrected
-    this.resurection = true
+    this.resurrection = true
   }
 
-  triggerResurection(pokemon: PokemonEntity) {
-    this.resurection = false
-    this.resurecting = true
-    this.resurectingCooldown = 2000
+  triggerResurrection(pokemon: PokemonEntity, board: Board) {
+    this.resurrection = false
+    this.resurrecting = true
+    this.resurrectingCooldown = 2000
     pokemon.status.clearNegativeStatus()
   }
 
-  updateResurecting(dt: number, pokemon: PokemonEntity) {
-    if (this.resurectingCooldown - dt <= 0) {
-      this.resurecting = false
+  updateResurrecting(dt: number, pokemon: PokemonEntity) {
+    if (this.resurrectingCooldown - dt <= 0) {
+      this.resurrecting = false
       pokemon.resurrect()
       pokemon.toMovingState()
       pokemon.cooldown = 0
     } else {
-      this.resurectingCooldown -= dt
+      this.resurrectingCooldown -= dt
     }
   }
 
@@ -1182,5 +1206,21 @@ export default class Status extends Schema implements IStatus {
     if (entity.passive === Passive.SURGE_SURFER) {
       entity.addSpeed(-30, entity, 0, false)
     }
+  }
+
+  addFairyField(entity: IPokemonEntity) {
+    this.fairyField = true
+  }
+
+  removeFairyField(entity: IPokemonEntity) {
+    this.fairyField = false
+  }
+
+  addGrassField(entity: IPokemonEntity) {
+    this.grassField = true
+  }
+
+  removeGrassField(entity: IPokemonEntity) {
+    this.grassField = false
   }
 }

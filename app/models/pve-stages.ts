@@ -19,6 +19,7 @@ export type PVEStage = {
   avatar: Pkm
   emotion?: Emotion
   shinyChance?: number
+  rewards?: Item[]
   getRewards?: (player: Player) => Item[]
   getRewardsPropositions?: (player: Player) => Item[]
   board: [pkm: Pkm, x: number, y: number][]
@@ -35,6 +36,7 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Pkm.MAGIKARP, 5, 1]
     ],
     shinyChance: 1 / 40,
+    rewards: NonSpecialItemComponents,
     getRewards(player: Player) {
       const randomComponent = pickRandomIn(NonSpecialItemComponents)
       player.randomComponentsGiven.push(randomComponent)
@@ -49,6 +51,7 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Pkm.RATTATA, 3, 1],
       [Pkm.RATTATA, 5, 1]
     ],
+    rewards: NonSpecialItemComponents,
     getRewards(player) {
       const randomComponent = pickRandomIn(
         NonSpecialItemComponents.filter(
@@ -68,6 +71,7 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Pkm.SPEAROW, 5, 1],
       [Pkm.SPEAROW, 4, 2]
     ],
+    rewards: NonSpecialItemComponents,
     getRewards(player) {
       const randomComponent = pickRandomIn(
         NonSpecialItemComponents.filter(
@@ -85,6 +89,7 @@ export const PVEStages: { [turn: number]: PVEStage } = {
     board: [[Pkm.GYARADOS, 4, 2]],
     marowakItems: [[Item.KINGS_ROCK]],
     shinyChance: 1 / 100,
+    rewards: ItemComponents,
     getRewards(player: Player) {
       const randomComponents = pickNRandomIn(ItemComponents, 1)
       return randomComponents
@@ -99,10 +104,8 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Pkm.MEWTWO, 0, 1],
       [Pkm.MEW, 7, 1]
     ],
-    marowakItems: [
-      [Item.METAL_COAT, Item.LIGHT_BALL],
-      [Item.WIDE_LENS, Item.DEEP_SEA_TOOTH]
-    ],
+    marowakItems: [[Item.METAL_COAT], [Item.DEEP_SEA_TOOTH]],
+    rewards: NonSpecialItemComponents,
     getRewards(player: Player) {
       const rewards = [pickRandomIn(NonSpecialItemComponents)]
       if (values(player.board).some((p) => p.name === Pkm.CHARCADET)) {
@@ -137,6 +140,7 @@ export const PVEStages: { [turn: number]: PVEStage } = {
     },
     marowakItems: [[Item.COMET_SHARD], [Item.SACRED_ASH]],
     shinyChance: 1 / 100,
+    rewards: [...NonSpecialItemComponents, ...CraftableNonSynergyItems],
     getRewards(player: Player) {
       const items = values(player.board)
         .flatMap((p) => values(p.items))
@@ -168,10 +172,11 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Stat.AP]: 50
     },
     marowakItems: [
-      [Item.AQUA_EGG, Item.SOUL_DEW, Item.XRAY_VISION],
-      [Item.AQUA_EGG, Item.SOUL_DEW, Item.POKEMONOMICON],
-      [Item.AQUA_EGG, Item.SOUL_DEW, Item.STAR_DUST]
+      [Item.XRAY_VISION, Item.BLUE_ORB],
+      [Item.SOUL_DEW, Item.POKEMONOMICON],
+      [Item.AQUA_EGG, Item.STAR_DUST]
     ],
+    rewards: CraftableItems,
     getRewards(player: Player) {
       for (const p of values(player.board)) {
         if (p.name === Pkm.ZACIAN) {
@@ -208,10 +213,11 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Stat.AP]: 50
     },
     marowakItems: [
-      [Item.ICE_STONE, Item.THUNDER_STONE, Item.SHELL_BELL],
-      [Item.FIRE_STONE, Item.ICE_STONE, Item.SHELL_BELL],
-      [Item.FIRE_STONE, Item.THUNDER_STONE, Item.SHELL_BELL]
+      [Item.ASSAULT_VEST, Item.ROCKY_HELMET],
+      [Item.XRAY_VISION, Item.PUNCHING_GLOVE],
+      [Item.DEEP_SEA_TOOTH, Item.CHOICE_SPECS]
     ],
+    rewards: CraftableItems,
     getRewardsPropositions(player: Player) {
       const rewards = pickNRandomIn(CraftableNonSynergyItems, 2)
       rewards.push(
@@ -241,6 +247,7 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Item.GREEN_ORB, Item.STAR_DUST, Item.POWER_LENS],
       [Item.RED_ORB, Item.FLAME_ORB, Item.PROTECTIVE_PADS]
     ],
+    rewards: CraftableItems,
     getRewardsPropositions(player: Player) {
       const rewards = pickNRandomIn(CraftableNonSynergyItems, 2)
       rewards.push(
@@ -273,6 +280,7 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Item.ABILITY_SHIELD, Item.GRACIDEA_FLOWER, Item.GREEN_ORB],
       []
     ],
+    rewards: CraftableItems,
     getRewardsPropositions(player: Player) {
       const rewards = pickNRandomIn(CraftableNonSynergyItems, 2)
       rewards.push(
@@ -305,6 +313,7 @@ export const PVEStages: { [turn: number]: PVEStage } = {
       [Item.DYNAMAX_BAND],
       [Item.DYNAMAX_BAND]
     ],
+    rewards: ShinyItems,
     getRewardsPropositions(player: Player) {
       return pickNRandomIn(ShinyItems, 3)
     }

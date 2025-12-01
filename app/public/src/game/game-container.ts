@@ -158,6 +158,7 @@ class GameContainer {
       "targetY",
       "team",
       "index",
+      "name",
       "shiny",
       "skill",
       "stars",
@@ -200,8 +201,8 @@ class GameContainer {
       "protect",
       "skydiving",
       "psychicField",
-      "resurection",
-      "resurecting",
+      "resurrection",
+      "resurrecting",
       "runeProtect",
       "silence",
       "sleep",
@@ -248,8 +249,7 @@ class GameContainer {
       "tripleAttackCount",
       "upgradeCount",
       "soulDewCount",
-      "defensiveRibbonCount",
-      "magmarizerCount"
+      "defensiveRibbonCount"
     ]
 
     fieldsCount.forEach((field) => {
@@ -440,7 +440,8 @@ class GameContainer {
         "luck",
         "shiny",
         "skill",
-        "meal"
+        "meal",
+        "supercharged"
       ]
     ) => {
       const $pokemon = this.$<Pokemon>(pokemon)
@@ -495,9 +496,6 @@ class GameContainer {
       store.dispatch(
         changePlayer({ id: player.id, field: "board", value: player.board })
       )
-      if (pokemon) {
-        listenForPokemonChanges(pokemon)
-      }
     })
 
     $player.items.onChange((value, key) => {

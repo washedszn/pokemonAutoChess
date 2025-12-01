@@ -18,7 +18,7 @@ type ThrottledFunction<T extends (...args: any) => any> = (
   ...args: Parameters<T>
 ) => Promise<ReturnType<T>>
 
-// fn will be executed if there has not been any previous call during a delay or if a previous call is not still executing
+// fn will be executed if there has not been any previous call during a delay and if no previous call is still executing
 export function throttle<T extends (...args: any) => any>(
   fn: T,
   delayInMs: number
@@ -65,4 +65,5 @@ export const repeat = (n: number) => (cb: (i: number) => void) => {
   }
 }
 
-export const isPlainFunction = (fn: any): fn is () => any => Object.getPrototypeOf(fn) === Function.prototype
+export const isPlainFunction = (fn: any): fn is () => any =>
+  Object.getPrototypeOf(fn) === Function.prototype

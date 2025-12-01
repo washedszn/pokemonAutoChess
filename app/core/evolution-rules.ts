@@ -1,8 +1,8 @@
+import { EvolutionTime } from "../config"
 import Player from "../models/colyseus-models/player"
 import { Pokemon, PokemonClasses } from "../models/colyseus-models/pokemon"
 import PokemonFactory from "../models/pokemon-factory"
 import { IPlayer } from "../types"
-import { EvolutionTime } from "../types/Config"
 import { Ability } from "../types/enum/Ability"
 import { EffectEnum } from "../types/enum/Effect"
 import { PokemonActionState } from "../types/enum/Game"
@@ -10,6 +10,7 @@ import { Item, ItemComponents, ShinyItems } from "../types/enum/Item"
 import { Passive } from "../types/enum/Passive"
 import { Pkm } from "../types/enum/Pokemon"
 import { sum } from "../utils/array"
+import { isOnBench } from "../utils/board"
 import { logger } from "../utils/logger"
 import { pickRandomIn, shuffleArray } from "../utils/random"
 import { values } from "../utils/schemas"
@@ -97,7 +98,7 @@ export class CountEvolutionRule extends EvolutionRule {
     return copies.length >= this.numberRequired
   }
 
-  canEvolveIfBuyingOne(pokemon: Pokemon, player: Player): boolean {
+  canEvolveIfGettingOne(pokemon: Pokemon, player: Player): boolean {
     if (!pokemon.hasEvolution) return false
     const copies = values(player.board).filter(
       (p) => p.index === pokemon.index && !p.items.has(Item.EVIOLITE)
@@ -108,8 +109,10 @@ export class CountEvolutionRule extends EvolutionRule {
   evolve(pokemon: Pokemon, player: Player, stageLevel: number): Pokemon {
     const pokemonEvolutionName = this.getEvolution(pokemon, player, stageLevel)
     let coord: { x: number; y: number } | undefined
-    const itemsToAdd = new Array<Item>()
-    const itemComponentsToAdd = new Array<Item>()
+    const itemsComponentsOnBench: Item[] = []
+    const itemsCompleteOnBench: Item[] = []
+    const itemsComponentsOnBoard: Item[] = []
+    const itemsCompleteOnBoard: Item[] = []
 
     const pokemonsBeforeEvolution: Pokemon[] = []
 
@@ -136,9 +139,17 @@ export class CountEvolutionRule extends EvolutionRule {
 
         pkm.items.forEach((el) => {
           if (ItemComponents.includes(el)) {
-            itemComponentsToAdd.push(el)
+            if (isOnBench(pkm)) {
+              itemsComponentsOnBench.push(el)
+            } else {
+              itemsComponentsOnBoard.push(el)
+            }
           } else {
-            itemsToAdd.push(el)
+            if (isOnBench(pkm)) {
+              itemsCompleteOnBench.push(el)
+            } else {
+              itemsCompleteOnBoard.push(el)
+            }
           }
         })
         player.board.delete(id)
@@ -158,8 +169,15 @@ export class CountEvolutionRule extends EvolutionRule {
       )
     }
 
-    shuffleArray(itemsToAdd)
-    for (const item of itemsToAdd) {
+    shuffleArray(itemsCompleteOnBench)
+    shuffleArray(itemsCompleteOnBoard)
+
+    const itemsCompleteToAdd = [
+      ...itemsCompleteOnBoard,
+      ...itemsCompleteOnBench
+    ].slice(0, 3)
+
+    for (const item of itemsCompleteToAdd) {
       if (pokemonEvolved.items.has(item) || pokemonEvolved.items.size >= 3) {
         player.items.push(item)
       } else {
@@ -170,7 +188,12 @@ export class CountEvolutionRule extends EvolutionRule {
       }
     }
 
-    shuffleArray(itemComponentsToAdd)
+    shuffleArray(itemsComponentsOnBench)
+    shuffleArray(itemsComponentsOnBoard)
+    const itemComponentsToAdd = [
+      ...itemsComponentsOnBoard,
+      ...itemsComponentsOnBench
+    ]
     for (const itemComponent of itemComponentsToAdd) {
       if (
         values(pokemonEvolved.items).some((i) => ItemComponents.includes(i)) ||
@@ -264,12 +287,8 @@ export class HatchEvolutionRule extends EvolutionRule {
     const willHatch = this.canEvolve(pokemon, player, stageLevel)
     if (willHatch) {
       pokemon.action = PokemonActionState.HOP
-      setTimeout(() => {        
-        pokemon.evolutionRule.tryEvolve(
-          pokemon,
-          player,
-          stageLevel
-        )        
+      setTimeout(() => {
+        pokemon.evolutionRule.tryEvolve(pokemon, player, stageLevel)
       }, 2000)
     } else if (pokemon.name === Pkm.EGG) {
       const hatchTime = this.getHatchTime(pokemon, player)
@@ -290,14 +309,14 @@ export class HatchEvolutionRule extends EvolutionRule {
     return pokemon.stacks >= pokemon.stacksRequired
   }
 
-  evolve(pokemon: Pokemon, player: Player, stageLevel: number): Pokemon {    
+  evolve(pokemon: Pokemon, player: Player, stageLevel: number): Pokemon {
     pokemon.stacks = 0 // prevent trying to evolve twice in a row
     const pokemonEvolutionName = this.getEvolution(pokemon, player, stageLevel)
     const pokemonEvolved = player.transformPokemon(
       pokemon,
       pokemonEvolutionName
     )
-    
+
     if (pokemonEvolved != null && pokemon.name === Pkm.EGG && pokemon.shiny) {
       player.items.push(pickRandomIn(ShinyItems))
     }
@@ -344,6 +363,7 @@ export function carryOverPermanentStats(
   // carry over the permanent stat buffs
   const permanentBuffStats = [
     "hp",
+    "maxHP",
     "atk",
     "def",
     "speDef",
@@ -352,7 +372,7 @@ export function carryOverPermanentStats(
     "luck"
   ] as const
   const pkm = pokemonsBeforeEvolution[0].name
-  const baseData = new PokemonClasses[pkm](pkm)
+  const baseData = PokemonFactory.createPokemonFromName(pkm)
   for (const stat of permanentBuffStats) {
     const sumOfPermaStatsModifier = sum(
       pokemonsBeforeEvolution.map((p) => p[stat] - baseData[stat])

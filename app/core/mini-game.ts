@@ -8,6 +8,11 @@ import {
   Events,
   Vector
 } from "matter-js"
+import {
+  ItemCarouselStages,
+  PortalCarouselStages,
+  RegionDetails
+} from "../config"
 import { FloatingItem } from "../models/colyseus-models/floating-item"
 import Player from "../models/colyseus-models/player"
 import { PokemonAvatarModel } from "../models/colyseus-models/pokemon-avatar"
@@ -15,19 +20,19 @@ import { Portal, SynergySymbol } from "../models/colyseus-models/portal"
 import GameRoom from "../rooms/game-room"
 import GameState from "../rooms/states/game-state"
 import { Transfer } from "../types"
-import { ItemCarouselStages, PortalCarouselStages } from "../types/Config"
-import { DungeonDetails, DungeonPMDO } from "../types/enum/Dungeon"
+import { DungeonPMDO } from "../types/enum/Dungeon"
 import { PokemonActionState } from "../types/enum/Game"
 import {
-  ArtificialItems,
   Berries,
   CraftableItems,
   CraftableNonSynergyItems,
   Item,
   ItemComponents,
+  MissionOrders,
   SynergyGems,
   SynergyGivenByGem,
-  SynergyStones
+  SynergyStones,
+  Tools
 } from "../types/enum/Item"
 import { SpecialGameRule } from "../types/enum/SpecialGameRule"
 import { Synergy, SynergyArray } from "../types/enum/Synergy"
@@ -44,6 +49,7 @@ import {
 } from "../utils/random"
 import { keys, values } from "../utils/schemas"
 import { giveRandomEgg } from "./eggs"
+import { spawnDIAYAvatar } from "./scribbles"
 import {
   TownEncounterSellPrice,
   TownEncounters,
@@ -268,7 +274,7 @@ export class MiniGame {
         this.centerY +
         Math.sin((2 * Math.PI * i) / this.alivePlayers.length) * 250
       let retentionDelay =
-        4000 + (this.alivePlayers.length - player.rank) * 2000
+        5000 + (this.alivePlayers.length - player.rank) * 2000
 
       if (stageLevel === 0) {
         retentionDelay = 12000
@@ -355,6 +361,10 @@ export class MiniGame {
         player.life += 15
       })
     } else if (state.townEncounter === TownEncounters.WOBBUFFET) {
+      this.alivePlayers.forEach((player) => {
+        player.items.push(Item.RECYCLE_TICKET)
+      })
+    } else if (state.townEncounter === TownEncounters.CROAGUNK) {
       this.alivePlayers.forEach((player) => {
         player.items.push(Item.EXCHANGE_TICKET)
       })
@@ -471,7 +481,7 @@ export class MiniGame {
 
     let nbItemsToPick = clamp(this.alivePlayers.length + 3, 5, 9)
     let maxCopiesPerItem = 2
-    let itemsSet = ItemComponents
+    let itemsSet: readonly Item[] = ItemComponents
 
     if (stageLevel >= 20) {
       // Carousels after stage 20 propose full items and no longer components, and have one more proposition
@@ -491,7 +501,7 @@ export class MiniGame {
     }
 
     if (encounter === TownEncounters.ELECTIVIRE) {
-      itemsSet = ArtificialItems
+      itemsSet = Tools
       maxCopiesPerItem = 2
     }
 
@@ -542,9 +552,9 @@ export class MiniGame {
     }
 
     if (itemsSet === CraftableItems) {
-      while (items.filter((i) => SynergyStones.includes(i)).length > 4) {
+      while (items.filter((i) => isIn(SynergyStones, i)).length > 4) {
         // ensure that there are at most 4 synergy stones in the carousel
-        const index = items.findIndex((i) => SynergyStones.includes(i))
+        const index = items.findIndex((i) => isIn(SynergyStones, i))
         items[index] = pickRandomIn(CraftableNonSynergyItems)
       }
     }
@@ -580,10 +590,7 @@ export class MiniGame {
             if (type === Synergy.FLORA || type === Synergy.LIGHT) {
               levelReached = min(0)(levelReached - 1)
             }
-            if (
-              stageLevel === 20 &&
-              (type === Synergy.GOURMET || type === Synergy.NORMAL)
-            ) {
+            if (stageLevel === 20 && type === Synergy.GOURMET) {
               // not enough legendaries of that type
               levelReached = max(2)(levelReached)
             }
@@ -656,8 +663,9 @@ export class MiniGame {
       let nbMaxInCommon = 0,
         candidateMaps: DungeonPMDO[] = []
       maps.forEach((map) => {
-        const synergies = DungeonDetails[map].synergies
+        const synergies = RegionDetails[map].synergies
         const inCommon = synergies.filter((s) => portalSynergies.includes(s))
+
         if (inCommon.length > nbMaxInCommon) {
           nbMaxInCommon = inCommon.length
           candidateMaps = [map]
@@ -743,7 +751,7 @@ export class MiniGame {
         }
       }
 
-      if (avatar.portalId == "" && player && !player.isBot) {
+      if (avatar.portalId == "") {
         // random propositions if no portal was taken
         avatar.portalId = "random"
         if (state.stageLevel == 0 && this.portals) {
@@ -794,12 +802,12 @@ export class MiniGame {
 
         const symbols = this.symbolsByPortal.get(avatar.portalId) ?? []
         const portalSynergies = symbols.map((s) => s.synergy)
-        if (state.stageLevel > 1) {
-          state.shop.assignUniquePropositions(
-            player,
-            state.stageLevel,
-            portalSynergies
-          )
+        if (state.specialGameRule === SpecialGameRule.DO_IT_ALL_YOURSELF && state.stageLevel === 0) {
+          const avatar = spawnDIAYAvatar(player)
+          player.board.set(avatar.id, avatar)
+          avatar.onAcquired(player)
+        } else {
+          state.shop.assignUniquePropositions(player, state, portalSynergies)
         }
       }
 
@@ -821,6 +829,12 @@ export class MiniGame {
     if (this.symbols) {
       this.symbols.forEach((symbol) => {
         this.symbols!.delete(symbol.id)
+      })
+    }
+
+    if (state.townEncounter === TownEncounters.WIGGLYTUFF) {
+      this.alivePlayers.forEach((player) => {
+        player.itemsProposition.push(...pickNRandomIn(MissionOrders, 3))
       })
     }
   }

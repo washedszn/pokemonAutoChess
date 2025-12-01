@@ -20,6 +20,8 @@ export interface IPreferencesState {
   sfxVolume: number
   playInBackground: boolean
   showDpsMeter: boolean
+  dpsMeterPosition: { x: number; y: number }
+  synergiesPosition: { x: number; y: number }
   showDetailsOnHover: boolean
   showDamageNumbers: boolean
   showEvolutions: boolean
@@ -30,6 +32,7 @@ export interface IPreferencesState {
   keybindings: Keybindings
   renderer: number
   antialiasing: boolean
+  colorblindMode: boolean
 }
 
 const defaultPreferences: IPreferencesState = {
@@ -37,6 +40,8 @@ const defaultPreferences: IPreferencesState = {
   sfxVolume: 30,
   playInBackground: false,
   showDpsMeter: false,
+  dpsMeterPosition: { x: 0, y: 0 },
+  synergiesPosition: { x: 0, y: 0 },
   showDetailsOnHover: false,
   showDamageNumbers: true,
   showEvolutions: true,
@@ -46,6 +51,7 @@ const defaultPreferences: IPreferencesState = {
   cameraLocked: false,
   renderer: Phaser.AUTO,
   antialiasing: true,
+  colorblindMode: false,
   keybindings: {
     sell: "E",
     buy_xp: "F",
@@ -54,8 +60,8 @@ const defaultPreferences: IPreferencesState = {
     camera_lock: "L",
     switch: "SPACE",
     emote: "A",
-    prev_player: "PAGEUP",
-    next_player: "PAGEDOWN",
+    prev_player: "PAGE_UP",
+    next_player: "PAGE_DOWN",
     board_return: "HOME"
   }
 }
@@ -104,7 +110,7 @@ export function savePreferences(
 ) {
   const resolved: Partial<IPreferencesState> =
     typeof modified === "function" ? modified(preferences) : modified
-  localStore.put(LocalStoreKeys.PREFERENCES, resolved)
+  localStore.put(LocalStoreKeys.PREFERENCES, resolved, Infinity)
   preferences = Object.freeze({ ...preferences, ...resolved })
   subscriptions.forEach((s) => s(preferences))
 }

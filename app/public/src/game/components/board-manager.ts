@@ -1,6 +1,14 @@
 import { t } from "i18next"
 import { GameObjects } from "phaser"
 import {
+  BOARD_HEIGHT,
+  BOARD_WIDTH,
+  getRegionTint,
+  PortalCarouselStages,
+  RegionDetails,
+  SynergyTriggers
+} from "../../../../config"
+import {
   FLOWER_POTS_POSITIONS_BLUE,
   FlowerPotMons,
   FlowerPots
@@ -13,13 +21,7 @@ import { getPokemonData } from "../../../../models/precomputed/precomputed-pokem
 import { PVEStage, PVEStages } from "../../../../models/pve-stages"
 import GameState from "../../../../rooms/states/game-state"
 import { IPokemon } from "../../../../types"
-import {
-  BOARD_HEIGHT,
-  BOARD_WIDTH,
-  PortalCarouselStages,
-  SynergyTriggers
-} from "../../../../types/Config"
-import { DungeonDetails, DungeonMusic } from "../../../../types/enum/Dungeon"
+import { DungeonMusic } from "../../../../types/enum/Dungeon"
 import {
   GameMode,
   GamePhaseState,
@@ -37,11 +39,13 @@ import { isOnBench } from "../../../../utils/board"
 import { logger } from "../../../../utils/logger"
 import { randomBetween } from "../../../../utils/random"
 import { values } from "../../../../utils/schemas"
+import { GamePokemonDetailDOMWrapper } from "../../pages/component/game/game-pokemon-detail"
 import { playMusic } from "../../pages/utils/audio"
 import {
   transformBoardCoordinates,
   transformEntityCoordinates
 } from "../../pages/utils/utils"
+import { preference } from "../../preferences"
 import store from "../../stores"
 import { refreshShopUI } from "../../stores/GameStore"
 import AnimationManager from "../animation-manager"
@@ -352,7 +356,9 @@ export default class BoardManager {
         )
         .setScale(2, 2)
         .setOrigin(0.5, 0.5)
-        .setTint(DungeonDetails[this.scene.mapName]?.tint ?? 0xffffff)
+        .setTint(
+          getRegionTint(this.scene.mapName, preference("colorblindMode"))
+        )
       const potPokemon = this.player.flowerPots[i]
 
       const simulation = this.scene?.room?.state.simulations.get(
@@ -459,7 +465,9 @@ export default class BoardManager {
             .setScale(2)
             .setAlpha(0.9)
             .setDepth(DEPTH.BOARD_EFFECT_GROUND_LEVEL)
-            .setTint(DungeonDetails[this.scene.mapName]?.tint ?? 0xffffff)
+            .setTint(
+              getRegionTint(this.scene.mapName, preference("colorblindMode"))
+            )
           this.groundHoles.push(trench)
           col += trenchWidth - 1
         } else {
@@ -471,7 +479,9 @@ export default class BoardManager {
               .sprite(x, y + 10, "ground_holes", `hole${hole}.png`)
               .setScale(2)
               .setDepth(DEPTH.BOARD_EFFECT_GROUND_LEVEL)
-              .setTint(DungeonDetails[this.scene.mapName]?.tint ?? 0xffffff)
+              .setTint(
+                getRegionTint(this.scene.mapName, preference("colorblindMode"))
+              )
             this.groundHoles.push(groundHole)
           }
         }
@@ -573,7 +583,9 @@ export default class BoardManager {
       this.pveChest = this.scene.add.sprite(1512, 122, "chest", "1.png")
       this.pveChest
         .setScale(2)
-        .setTint(DungeonDetails[this.scene.mapName]?.tint ?? 0xffffff)
+        .setTint(
+          getRegionTint(this.scene.mapName, preference("colorblindMode"))
+        )
       this.pveChestGroup.add(this.pveChest)
     } else if (
       this.mode === BoardMode.BATTLE &&
@@ -761,12 +773,12 @@ export default class BoardManager {
     this.scene.setMap(this.player.map)
     if (
       this.scene.cache.audio.has(
-        "music_" + DungeonDetails[this.player.map].music
+        "music_" + RegionDetails[this.player.map].music
       ) &&
       PortalCarouselStages.includes(this.state.stageLevel)
     ) {
       // play back original region music when leaving town
-      playMusic(this.scene, DungeonDetails[this.player.map].music)
+      playMusic(this.scene, RegionDetails[this.player.map].music)
     }
     this.renderBoard(true)
     this.updatePlayerAvatar()
@@ -839,7 +851,7 @@ export default class BoardManager {
     pokemon: IPokemon,
     field: F,
     value: IPokemon[F],
-    previousValue: IPokemon[F]
+    previousValue?: IPokemon[F]
   ) {
     const pokemonUI = this.pokemons.get(pokemon.id)
     let coordinates: number[]
@@ -894,29 +906,40 @@ export default class BoardManager {
           const baseHP = getPokemonData(pokemon.name).hp
           const sizeBuff = (pokemon.hp - baseHP) / baseHP
           pokemonUI.sprite.setScale(2 + sizeBuff)
-          if (previousValue && value && value > previousValue)
+          if (previousValue != null && value && value > previousValue)
             pokemonUI.displayBoost(Stat.HP)
           break
         }
 
         case "atk":
-          if (previousValue && value && value > previousValue)
+          if (previousValue != null && value && value > previousValue)
             pokemonUI.displayBoost(Stat.ATK)
           break
 
         case "def":
-          if (previousValue && value && value > previousValue)
+          if (previousValue != null && value && value > previousValue)
             pokemonUI.displayBoost(Stat.DEF)
           break
 
         case "speed":
-          if (previousValue && value && value > previousValue)
+          if (previousValue != null && value && value > previousValue)
             pokemonUI.displayBoost(Stat.SPEED)
           break
 
         case "ap":
-          if (previousValue && value && value > previousValue)
+          if (previousValue != null && value && value > previousValue)
             pokemonUI.displayBoost(Stat.AP)
+          if (pokemonUI.detail instanceof GamePokemonDetailDOMWrapper) {
+            pokemonUI.detail.updatePokemon(pokemonUI.pokemon)
+          }
+          break
+
+        case "luck":
+          if (previousValue != null && value && value > previousValue)
+            pokemonUI.displayBoost(Stat.LUCK)
+          if (pokemonUI.detail instanceof GamePokemonDetailDOMWrapper) {
+            pokemonUI.detail.updatePokemon(pokemonUI.pokemon)
+          }
           break
 
         case "shiny":
@@ -928,13 +951,13 @@ export default class BoardManager {
           break
 
         case "index":
-          if (value !== previousValue) {
+          if (previousValue != null && value !== previousValue) {
             pokemonUI.evolutionAnimation()
           }
           break
 
         case "skill":
-          if (previousValue && value !== previousValue) {
+          if (previousValue != null && value !== previousValue) {
             pokemonUI.evolutionAnimation()
           }
           break
@@ -942,6 +965,12 @@ export default class BoardManager {
         case "meal":
           if (pokemonUI.meal !== value) {
             pokemonUI.updateMeal(value as IPokemon["meal"])
+          }
+          break
+
+        case "supercharged":
+          if (value === true && previousValue === false) {
+            pokemonUI.superchargeAnimation(this.scene, false, false)
           }
           break
       }
@@ -1033,7 +1062,7 @@ export default class BoardManager {
         pokemon,
         id,
         false,
-        false
+        true
       )
 
       this.pokemons.set(id, pkmSprite)
@@ -1048,12 +1077,8 @@ export default class BoardManager {
         )
       } else {
         pkmSprite.y -= 500
-        pkmSprite.orientation = Orientation.DOWN
-        this.scene.animationManager?.animatePokemon(
-          pkmSprite,
-          PokemonActionState.WALK,
-          false
-        )
+        pkmSprite.orientation = Orientation.UP
+        pkmSprite.pokemon.action = PokemonActionState.WALK
 
         this.scene.tweens.add({
           targets: pkmSprite,

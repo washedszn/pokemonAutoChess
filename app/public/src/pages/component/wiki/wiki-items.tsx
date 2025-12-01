@@ -1,30 +1,66 @@
-import React, { useState } from "react"
+import React, { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Tooltip } from "react-tooltip"
 import {
   ArtificialItems,
   Berries,
   Dishes,
+  FishingRods,
   HMs,
   Item,
   ItemComponents,
   ItemRecipe,
   MemoryDiscs,
+  Mulches,
   ShinyItems,
   SpecialItems,
   SynergyGems,
+  SynergyGemsBuried,
   TMs,
+  Tools,
+  TownItems,
   WeatherRocks
 } from "../../../../../types/enum/Item"
 import { Synergy } from "../../../../../types/enum/Synergy"
+import { isIn } from "../../../../../utils/array"
 import { ItemDetailTooltip } from "../../../game/components/item-detail"
 import { addIconsToDescription } from "../../utils/descriptions"
 import SynergyIcon from "../icons/synergy-icon"
 
+function ItemList(props: { items: readonly Item[]; icon?: string }) {
+  return props.items.map((i) => (
+    <li key={i} data-tooltip-id="item-detail-tooltip" data-tooltip-content={i}>
+      <img
+        src={props.icon ?? "assets/item/" + i + ".png"}
+        className="item"
+      ></img>
+    </li>
+  ))
+}
+
 export default function WikiItems() {
-  const [itemHovered, setItemHovered] = useState<Item>()
   const { t } = useTranslation()
-  const specialItems = SpecialItems.filter((i) => !(MemoryDiscs as readonly Item[]).includes(i)) // too many memory discs to display
+  const otherBuriedItems = [
+    Item.TRASH,
+    Item.LEFTOVERS,
+    Item.COIN,
+    Item.NUGGET,
+    Item.BIG_NUGGET
+  ]
+  const specialItems = useMemo(() => {
+    const specialItemsToExclude: Item[] = [
+      ...MemoryDiscs,
+      ...TownItems,
+      ...otherBuriedItems,
+      ...FishingRods,
+      ...Mulches,
+      Item.CHEF_HAT,
+      Item.FIRE_SHARD,
+      Item.CELL_BATTERY
+    ]
+    return SpecialItems.filter((i) => !specialItemsToExclude.includes(i))
+  }, []) // too many memory discs to display
+
   return (
     <div id="wiki-items">
       <article className="craftable">
@@ -47,8 +83,8 @@ export default function WikiItems() {
                 return (
                   <th
                     key={i}
-                    data-tooltip-id="item-detail"
-                    onMouseOver={() => setItemHovered(i)}
+                    data-tooltip-id="item-detail-tooltip"
+                    data-tooltip-content={i}
                   >
                     <img
                       src={"assets/item/" + i + ".png"}
@@ -62,8 +98,8 @@ export default function WikiItems() {
               return (
                 <tr key={"tr-" + i}>
                   <td
-                    data-tooltip-id="item-detail"
-                    onMouseOver={() => setItemHovered(i)}
+                    data-tooltip-id="item-detail-tooltip"
+                    data-tooltip-content={i}
                   >
                     <img
                       src={"assets/item/" + i + ".png"}
@@ -85,8 +121,8 @@ export default function WikiItems() {
                     return (
                       <td
                         key={"td-" + i + "-" + j}
-                        data-tooltip-id="item-detail"
-                        onMouseOver={() => setItemHovered(tier2Item)}
+                        data-tooltip-id="item-detail-tooltip"
+                        data-tooltip-content={tier2Item}
                       >
                         <img
                           src={"assets/item/" + tier2Item + ".png"}
@@ -105,124 +141,85 @@ export default function WikiItems() {
         <h2>{t("shiny_items")}</h2>
         <p>{addIconsToDescription(t("shiny_items_description"))}</p>
         <ul className="shiny">
-          {ShinyItems.map((i) => (
-            <li
-              key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
-            >
-              <img src={"assets/item/" + i + ".png"} className="item"></img>
-            </li>
-          ))}
+          <ItemList items={ShinyItems} />
+        </ul>
+
+        <h2>{t("town_items")}</h2>
+        <p>{t("town_items_description")}</p>
+        <ul className="town">
+          <ItemList items={TownItems} />
         </ul>
 
         <h2>{t("special_items")}</h2>
         <p>{t("special_items_description")}</p>
         <ul className="special">
-          {specialItems.map((i) => (
-            <li
-              key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
-            >
-              <img src={"assets/item/" + i + ".png"} className="item"></img>
-            </li>
-          ))}
+          <ItemList items={specialItems} />
         </ul>
       </article>
 
-      <article className="artificial">
-        <h2>
-          <SynergyIcon type={Synergy.ARTIFICIAL} /> {t("artificial_items")}
-        </h2>
-        <p>{addIconsToDescription(t("artificial_items_description"))}</p>
+      <article className="synergy-items">
+        <h2>{t("items_from_synergies")}</h2>
+        <h3>
+          <SynergyIcon type={Synergy.ARTIFICIAL} /> {t("tools")}
+        </h3>
+        <p>{addIconsToDescription(t("tools_description"))}</p>
         <ul>
-          {ArtificialItems.map((i) => (
-            <li
-              key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
-            >
-              <img src={"assets/item/" + i + ".png"} className="item"></img>
-            </li>
-          ))}
+          <ItemList items={ArtificialItems} />
         </ul>
-      </article>
+        <p>{addIconsToDescription(t("other_tools_description"))}</p>
+        <ul>
+          <ItemList
+            items={Tools.filter((i) => isIn(ArtificialItems, i) === false)}
+          />
+        </ul>
 
-      <article className="gems">
-        <h2>
+        <h3>
           <SynergyIcon type={Synergy.GROUND} /> {t("gems")}
-        </h2>
+        </h3>
         <p>{addIconsToDescription(t("gems_description"))}</p>
         <ul>
-          {SynergyGems.map((i) => (
-            <li
-              key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
-            >
-              <img src={"assets/item/" + i + ".png"} className="item"></img>
-            </li>
-          ))}
+          <ItemList items={SynergyGemsBuried} />
         </ul>
-      </article>
+        <p>{addIconsToDescription(t("gems_not_buried_description"))}</p>
+        <ul>
+          <ItemList
+            items={SynergyGems.filter(
+              (gem) => SynergyGemsBuried.includes(gem) === false
+            )}
+          />
+        </ul>
+        <p>{addIconsToDescription(t("you_may_also_find_in_the_ground"))}</p>
+        <ul>
+          <ItemList items={otherBuriedItems} />
+        </ul>
 
-      <article className="weather-rocks">
-        <h2>
+        <h3>
           <SynergyIcon type={Synergy.ROCK} /> {t("weather_rocks")}
-        </h2>
+        </h3>
         <p>{addIconsToDescription(t("weather_rocks_description"))}</p>
         <ul>
-          {WeatherRocks.map((i) => (
-            <li
-              key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
-            >
-              <img src={"assets/item/" + i + ".png"} className="item"></img>
-            </li>
-          ))}
+          <ItemList items={WeatherRocks} />
         </ul>
-      </article>
 
-      <article className="tm-hm">
-        <h2>
+        <h3>
           <SynergyIcon type={Synergy.HUMAN} /> {t("tm_hm")}
-        </h2>
+        </h3>
         <p>{addIconsToDescription(t("tm_hm_description"))}</p>
         <ul>
-          {TMs.map((i) => (
-            <li
-              key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
-            >
-              <img src={"assets/item/TM.png"} className="item"></img>
-            </li>
-          ))}
-          {HMs.map((i) => (
-            <li
-              key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
-            >
-              <img src={"assets/item/HM.png"} className="item"></img>
-            </li>
-          ))}
+          <ItemList items={TMs} />
+          <ItemList items={HMs} />
         </ul>
-      </article>
 
-      <article className="berries">
-        <h2>
+        <h3>
           <SynergyIcon type={Synergy.GRASS} /> {t("berries")}
-        </h2>
+        </h3>
         <p>{addIconsToDescription(t("berries_description"))}</p>
         <ul>
           {Berries.map((i) => (
             <li
               key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
+              data-tooltip-id="item-detail-tooltip"
+              data-tooltip-content={i}
             >
               <img src={"assets/item/" + i + ".png"} className="item"></img>
               <br />
@@ -233,34 +230,49 @@ export default function WikiItems() {
             </li>
           ))}
         </ul>
-      </article>
 
-      <article className="dishes">
-        <h2>
+        <h3>
           <SynergyIcon type={Synergy.GOURMET} /> {t("dishes")}
-        </h2>
+        </h3>
         <p>{addIconsToDescription(t("dishes_description"))}</p>
         <ul>
-          {Dishes.map((i) => (
-            <li
-              key={i}
-              data-tooltip-id="item-detail"
-              onMouseOver={() => setItemHovered(i)}
-            >
-              <img src={"assets/item/" + i + ".png"} className="item"></img>
-            </li>
-          ))}
+          <ItemList items={[Item.CHEF_HAT, ...Dishes] as Item[]} />
+        </ul>
+
+        <h3>
+          <SynergyIcon type={Synergy.WATER} /> {t("fishing_rods")}
+        </h3>
+        <p>{addIconsToDescription(t("fishing_rods_description"))}</p>
+        <ul>
+          <ItemList items={[...FishingRods].reverse()} />
+        </ul>
+
+        <h3>
+          <SynergyIcon type={Synergy.FLORA} /> {t("mulch")}
+        </h3>
+        <p>{addIconsToDescription(t("mulch_description"))}</p>
+        <ul>
+          <ItemList items={Mulches} />
+        </ul>
+
+        <h3>
+          <SynergyIcon type={Synergy.ELECTRIC} /> {t("item.CELL_BATTERY")}
+        </h3>
+        <p>{addIconsToDescription(t("cell_battery_description"))}</p>
+        <ul>
+          <ItemList items={[Item.CELL_BATTERY]} />
+        </ul>
+
+        <h3>
+          <SynergyIcon type={Synergy.FIRE} /> {t("item.FIRE_SHARD")}
+        </h3>
+        <p>{addIconsToDescription(t("fire_shard_description"))}</p>
+        <ul>
+          <ItemList items={[Item.FIRE_SHARD]} />
         </ul>
       </article>
 
-      {itemHovered && (
-        <Tooltip
-          id="item-detail"
-          className="custom-theme-tooltip item-detail-tooltip"
-        >
-          <ItemDetailTooltip item={itemHovered} />
-        </Tooltip>
-      )}
+      <ItemDetailTooltip />
     </div>
   )
 }
