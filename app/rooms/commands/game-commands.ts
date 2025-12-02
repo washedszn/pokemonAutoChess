@@ -1,4 +1,5 @@
 import { Command } from "@colyseus/command"
+import { SetSchema } from "@colyseus/schema"
 import { Client, updateLobby } from "colyseus"
 import { nanoid } from "nanoid"
 import {
@@ -760,12 +761,10 @@ export class OnDragDropItemCommand extends Command<
         // pokemon already has the combined item so the second one pops off and go to player inventory
         player.items.push(itemCombined)
       } else {
-        pokemon.items.add(itemCombined)
-        pokemon.onItemGiven(itemCombined, player)
+        pokemon.addItem(itemCombined, player)
       }
     } else {
-      pokemon.items.add(item)
-      pokemon.onItemGiven(item, player)
+      pokemon.addItem(item, player)
       removeInArray(player.items, item)
     }
 
@@ -974,7 +973,7 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
   execute() {
     this.state.updatePhaseNeeded = false
     if (this.state.phase == GamePhaseState.TOWN) {
-      this.room.miniGame.stop(this.room)
+      this.stopTownPhase()
       /* Normally Stage level is bumped after a fighting phase, but since magikarp is round 1, we need to increase stage level from 0 -> 1 to avoid a PVP round 1. There is probably a better solution*/
       if (this.state.stageLevel === 0) {
         this.state.stageLevel = 1
@@ -1496,10 +1495,13 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
         p.pokemon.ap += [15, 30, 45][p.ticketLevel - 1] ?? 0
         p.pokemon.positionX = substitute.positionX
         p.pokemon.positionY = substitute.positionY
-        substitute.items.forEach((it) => p.pokemon.items.add(it))
-        substitute.items.clear()
         player.board.delete(substitute.id)
         player.board.set(p.pokemon.id, p.pokemon)
+        /* Set schemas needs to be reset to fix reactivity issues ; bug on Colyseus Schema ? */
+        p.pokemon.types = new SetSchema<Synergy>(values(p.pokemon.types))
+        p.pokemon.items = new SetSchema<Item>()
+        p.pokemon.addItems(values(substitute.items), player)
+        substitute.items.clear()
         this.room.checkEvolutionsAfterPokemonAcquired(player.id)
         player.pokemonsTrainingInDojo.splice(
           player.pokemonsTrainingInDojo.indexOf(p),
@@ -1691,6 +1693,10 @@ export class OnUpdatePhaseCommand extends Command<GameRoom> {
       // Update Bots after unown deletion so unown in bot boards are not deleted
       this.state.botManager.updateBots()
     }
+  }
+
+  stopTownPhase() {
+    this.room.miniGame.stop(this.room.state)
   }
 
   initializeTownPhase() {
