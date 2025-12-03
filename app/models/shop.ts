@@ -61,7 +61,11 @@ import {
 import { values } from "../utils/schemas"
 import Player from "./colyseus-models/player"
 import { Pokemon, PokemonClasses } from "./colyseus-models/pokemon"
-import { getPokemonBaseline, PkmColorVariantsByPkm } from "./pokemon-factory"
+import {
+  getColorVariantForPlayer,
+  getPokemonBaseline,
+  PkmColorVariantsByPkm
+} from "./pokemon-factory"
 import { getPokemonData } from "./precomputed/precomputed-pokemon-data"
 import { PRECOMPUTED_POKEMONS_PER_RARITY } from "./precomputed/precomputed-rarity"
 import { PVEStages } from "./pve-stages"
@@ -147,7 +151,7 @@ export function getSellPrice(
   } else if (pokemon.rarity === Rarity.LEGENDARY) {
     price = duo ? SellPrices.LEGENDARY_DUO : SellPrices.LEGENDARY
   } else if (getPokemonBaseline(name) === Pkm.EEVEE) {
-    price = RarityCost[pokemon.rarity]
+    price = SellPrices.EEVEE
   } else if (duo) {
     price = Math.ceil((RarityCost[pokemon.rarity] * stars) / 2)
   } else {
@@ -389,9 +393,11 @@ export default class Shop {
         : NB_UNIQUE_PROPOSITIONS
 
     for (let i = 0; i < nbPropositions; i++) {
-      const synergyWanted: Synergy | undefined = portalSynergies[i]
-      let candidates = allCandidates.filter((m) => {
-        const pkm: Pkm = m in PkmDuos ? PkmDuos[m][0] : m
+      let synergyWanted: Synergy | undefined = portalSynergies[i]
+
+      function filterCandidates(proposition: PkmProposition): boolean {
+        const pkm: Pkm =
+          proposition in PkmDuos ? PkmDuos[proposition][0] : proposition
         const { types, regional } = getPokemonData(pkm)
 
         const hasSynergyWanted =
@@ -434,9 +440,13 @@ export default class Shop {
         }
 
         return true
-      })
+      }
 
-      if (candidates.length === 0) candidates = allCandidates
+      let candidates = allCandidates.filter(filterCandidates)
+      if (candidates.length === 0) {
+        synergyWanted = undefined
+        candidates = allCandidates.filter(filterCandidates)
+      }
       let selected = pickRandomIn(candidates)
 
       if (selected in PkmRegionalVariants) {
@@ -447,11 +457,15 @@ export default class Shop {
           selected = pickRandomIn(regionalVariants)
       }
       if (selected in PkmColorVariantsByPkm) {
-        selected = PkmColorVariantsByPkm[selected]!(player)
+        selected = getColorVariantForPlayer(selected as Pkm, player)
       }
 
       if (stageLevel === PortalCarouselStages[0]) {
-        player.itemsProposition[i] = pickRandomIn(NonSpecialItemComponents)
+        player.itemsProposition[i] = pickRandomIn(
+          NonSpecialItemComponents.filter(
+            (c) => player.itemsProposition.includes(c) === false
+          )
+        )
       }
 
       if (
@@ -498,7 +512,7 @@ export default class Shop {
           if (regionalVariants.length > 0) pkm = pickRandomIn(regionalVariants)
         }
         if (pkm in PkmColorVariantsByPkm) {
-          pkm = PkmColorVariantsByPkm[pkm]!(player)
+          pkm = getColorVariantForPlayer(pkm, player)
         }
         return pkm
       })
