@@ -3405,7 +3405,7 @@ export class StrangeSteamStrategy extends AbilityStrategy {
         board.addBoardEffect(
           cell.x,
           cell.y,
-          EffectEnum.STRANGE_STEAM,
+          EffectEnum.STRANGE_STEAM_BOARD_EFFECT,
           pokemon.simulation
         )
         if (cell.value && cell.value.team !== pokemon.team) {
@@ -14641,7 +14641,7 @@ export class MoonblastStrategy extends AbilityStrategy {
         }
       }
 
-      if (moonsRemaining > 0 && currentTarget) {
+      if (moonsRemaining > 0 && currentTarget && currentTarget.hp > 0) {
         pokemon.commands.push(
           new DelayedCommand(() => {
             sendMoon()
