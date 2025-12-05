@@ -291,7 +291,7 @@ export class MindBlownStrategy extends AbilityStrategy {
       */
       pokemon.simulation.room.clock.setTimeout(
         () => {
-          if (!pokemon.simulation || !pokemon.simulation.room) {
+          if (!pokemon.simulation || !pokemon.simulation.room || pokemon.simulation.finished) {
             return
           }
           const cellsHit = board.getCellsInRadius(x, y, 2, true)
@@ -5788,7 +5788,9 @@ export class MagmaStormStrategy extends AbilityStrategy {
     const baseDamage = 100
     let power = 1
 
-    const propagate = (currentTarget: PokemonEntity) => {
+    const propagate = (currentTarget: PokemonEntity, depth = 0) => {
+      if (depth >= 20) return // max recursion limit
+
       targetsHit.add(currentTarget.id)
       pokemon.broadcastAbility({
         skill: Ability.MAGMA_STORM,
@@ -5824,7 +5826,7 @@ export class MagmaStormStrategy extends AbilityStrategy {
               enemy.value.hp > 0 &&
               !pokemon.simulation.finished
             ) {
-              propagate(enemy.value)
+              propagate(enemy.value, depth + 1)
             }
           })
         }, 250)
@@ -9141,7 +9143,7 @@ export class SparkStrategy extends AbilityStrategy {
   ) {
     super.process(pokemon, board, target, crit)
     const damage = [30, 60, 90][pokemon.stars - 1] ?? 90
-    const enemiesHit = new Set<PokemonEntity>()
+    const enemiesHit = new Set<string>()
 
     const propagate = (currentTarget: PokemonEntity, nbBounce = 1) => {
       const newTarget = board
@@ -9150,11 +9152,11 @@ export class SparkStrategy extends AbilityStrategy {
           (cell) =>
             cell.value &&
             cell.value.team === target.team &&
-            !enemiesHit.has(cell.value)
+            !enemiesHit.has(cell.value.id)
         )?.value
 
       if (newTarget) {
-        enemiesHit.add(newTarget)
+        enemiesHit.add(newTarget.id)
         pokemon.commands.push(
           new DelayedCommand(() => {
             pokemon.broadcastAbility({
@@ -9173,7 +9175,10 @@ export class SparkStrategy extends AbilityStrategy {
               crit,
               true
             )
-            propagate(newTarget, nbBounce + 1)
+            if (nbBounce < 10) {
+              // safety to avoid infinite loops
+              propagate(newTarget, nbBounce + 1)
+            }
           }, 250)
         )
       }
@@ -14641,7 +14646,13 @@ export class MoonblastStrategy extends AbilityStrategy {
         }
       }
 
-      if (moonsRemaining > 0 && currentTarget && currentTarget.hp > 0) {
+      if (
+        moonsRemaining > 0 &&
+        currentTarget &&
+        currentTarget.hp > 0 &&
+        moonIndex < 20
+      ) {
+        // safety check to prevent infinite loops
         pokemon.commands.push(
           new DelayedCommand(() => {
             sendMoon()
@@ -14722,19 +14733,30 @@ export class PlasmaFissionStrategy extends AbilityStrategy {
             { x: -vector.y, y: vector.x },
             { x: vector.y, y: -vector.x }
           ]) {
-            // Calculate split beam endpoint
-            const splitDestination = {
-              positionX: primaryTarget.positionX,
-              positionY: primaryTarget.positionY
+            // Calculate how many steps until hitting board edge
+            const stepsX =
+              v.x > 0
+                ? BOARD_WIDTH - primaryTarget.positionX
+                : v.x < 0
+                  ? primaryTarget.positionX + 1
+                  : BOARD_WIDTH + BOARD_HEIGHT
+            const stepsY =
+              v.y > 0
+                ? BOARD_HEIGHT - primaryTarget.positionY
+                : v.y < 0
+                  ? primaryTarget.positionY + 1
+                  : BOARD_WIDTH + BOARD_HEIGHT
+            const steps = Math.min(stepsX, stepsY)
+            if (steps === BOARD_WIDTH + BOARD_HEIGHT) {
+              logger.error(
+                "PlasmaFission: Perpendicular vector has no movement",
+                { v, vector }
+              )
             }
-            while (
-              splitDestination.positionX < BOARD_WIDTH &&
-              splitDestination.positionX > 0 &&
-              splitDestination.positionY < BOARD_HEIGHT &&
-              splitDestination.positionY > 0
-            ) {
-              splitDestination.positionX += v.x
-              splitDestination.positionY += v.y
+
+            const splitDestination = {
+              positionX: primaryTarget.positionX + v.x * steps,
+              positionY: primaryTarget.positionY + v.y * steps
             }
             // Animate split beam
             pokemon.broadcastAbility({
@@ -15036,20 +15058,27 @@ export class PlasmaTempestStrategy extends AbilityStrategy {
             y: enemy.positionY - pokemon.positionY
           }
 
-          // Initialize the end point of the plasma beam
-          let endX = enemy.positionX
-          let endY = enemy.positionY
-
-          // Extend the beam to the edge of the board
-          while (
-            endX >= 0 &&
-            endX < BOARD_WIDTH &&
-            endY >= 0 &&
-            endY < BOARD_HEIGHT
-          ) {
-            endX += vector.x
-            endY += vector.y
+          // Calculate steps to reach board edges
+          const stepsX =
+            vector.x > 0
+              ? (BOARD_WIDTH - 1 - enemy.positionX) / vector.x
+              : vector.x < 0
+                ? -enemy.positionX / vector.x
+                : BOARD_WIDTH + BOARD_HEIGHT
+          const stepsY =
+            vector.y > 0
+              ? (BOARD_HEIGHT - 1 - enemy.positionY) / vector.y
+              : vector.y < 0
+                ? -enemy.positionY / vector.y
+                : BOARD_WIDTH + BOARD_HEIGHT
+          const steps = Math.min(stepsX, stepsY)
+          if (steps === BOARD_WIDTH + BOARD_HEIGHT) {
+            logger.error("PlasmaTempestStrategy: vector has no movement", {
+              vector
+            })
           }
+          const endX = enemy.positionX + vector.x * steps
+          const endY = enemy.positionY + vector.y * steps
 
           // Broadcast the ability animation
           pokemon.broadcastAbility({
