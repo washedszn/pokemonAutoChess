@@ -239,6 +239,7 @@ export class OnAttackEffect extends Effect {
   }
 }
 
+// applied after casting an ability
 export class OnAbilityCastEffect extends Effect {
   apply(
     pokemon: PokemonEntity,
@@ -275,6 +276,29 @@ export class OnDamageReceivedEffect extends Effect {
   apply(args: OnDamageReceivedEffectArgs) {}
   constructor(
     effect?: (args: OnDamageReceivedEffectArgs) => void,
+    origin?: EffectOrigin
+  ) {
+    super(effect, origin)
+  }
+}
+
+// applied after having received a basic attack
+export interface OnAttackReceivedEffectArgs {
+  pokemon: PokemonEntity
+  attacker: PokemonEntity
+  board: Board
+  physicalDamage: number
+  specialDamage: number
+  trueDamage: number
+  totalDamage: number
+  isTripleAttack?: boolean
+  attackType?: AttackType
+}
+
+export class OnAttackReceivedEffect extends Effect {
+  apply(args: OnAttackReceivedEffectArgs) {}
+  constructor(
+    effect?: (args: OnAttackReceivedEffectArgs) => void,
     origin?: EffectOrigin
   ) {
     super(effect, origin)
